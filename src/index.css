@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* <uniquifier>: Use a unique and descriptive class name
+<weight>: Use one of the values 400, 500, 700 */
+.goorm-sans-<uniquifier> {
+  font-family: "Goorm Sans", sans-serif;
+  font-weight: <weight>;
+  font-style: normal;
+}
