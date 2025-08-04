@@ -1,4 +1,4 @@
-import { useState } from 'react'
+// import { useState } from 'react'
 import warning from './assets/horok_warning.png'
 import skeleton1 from './assets/skeleton1.png'
 import skeleton2 from './assets/skeleton2.png'
@@ -7,8 +7,6 @@ import skeleton4 from './assets/skeleton4.png'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-[#ECFAE5]">
       {/* 알림창 프레임 */}
