@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, EyeOff, Lock, LockOpen } from "lucide-react";
+import { Eye, EyeOff, ImagePlus, Lock, LockOpen, Video } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -169,6 +169,7 @@ export default function CommentForm({
       if (!textarea) return;
       textarea.focus();
       textarea.setSelectionRange(selectionStart, selectionEnd);
+      resizeTextarea(textarea);
     });
   }
 
@@ -387,6 +388,7 @@ export default function CommentForm({
           .from(POST_THUMBNAIL_BUCKET)
           .upload(nextPath, file, {
             cacheControl: "3600",
+            contentType: file.type || undefined,
             upsert: false,
           });
 
@@ -432,6 +434,7 @@ export default function CommentForm({
           .from(POST_THUMBNAIL_BUCKET)
           .upload(nextPath, file, {
             cacheControl: "3600",
+            contentType: file.type || undefined,
             upsert: false,
           });
 
@@ -522,10 +525,10 @@ export default function CommentForm({
           {content.trim() ? (
             <MarkdownRenderer
               content={content}
-              className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+              className="text-base [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
             />
           ) : (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               댓글을 입력하면 여기에 미리보기가 표시됩니다.
             </p>
           )}
@@ -536,7 +539,7 @@ export default function CommentForm({
           value={content}
           onChange={(event) => setContent(event.target.value)}
           onKeyDown={handleContentKeyDown}
-          className={`w-full resize-none rounded-lg border border-border/80 bg-background px-5 py-4 text-sm leading-7 outline-none placeholder:text-zinc-400 ${
+          className={`w-full resize-none rounded-lg border border-border/80 bg-background px-5 py-4 text-base leading-7 outline-none placeholder:text-zinc-400 ${
             isAnswerVariant ? "min-h-56" : "min-h-36"
           }`}
           rows={isAnswerVariant ? 10 : 5}
@@ -550,7 +553,7 @@ export default function CommentForm({
     <button
       type="button"
       onClick={() => setIsSecret((current) => !current)}
-      className={`box-border inline-flex h-7 min-w-10 items-center justify-center rounded-md border px-3 py-1.5 leading-none transition disabled:cursor-not-allowed disabled:opacity-60 ${
+      className={`box-border inline-flex h-7 min-w-10 items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 leading-none transition disabled:cursor-not-allowed disabled:opacity-60 ${
         isSecret
           ? "border-primary/40 bg-primary/10 text-foreground"
           : "text-muted-foreground hover:border-primary/30 hover:bg-primary/10 hover:text-foreground"
@@ -564,6 +567,7 @@ export default function CommentForm({
       ) : (
         <LockOpen className="h-3.5 w-3.5" aria-hidden="true" />
       )}
+      <span>잠금</span>
     </button>
   ) : null;
 
@@ -571,7 +575,7 @@ export default function CommentForm({
     <button
       type="button"
       onClick={() => setIsHidden((current) => !current)}
-      className={`box-border inline-flex h-7 min-w-10 items-center justify-center rounded-md border px-3 py-1.5 leading-none transition disabled:cursor-not-allowed disabled:opacity-60 ${
+      className={`box-border inline-flex h-7 min-w-10 items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 leading-none transition disabled:cursor-not-allowed disabled:opacity-60 ${
         isHidden
           ? "border-primary/40 bg-primary/10 text-foreground"
           : "text-muted-foreground hover:border-primary/30 hover:bg-primary/10 hover:text-foreground"
@@ -585,15 +589,44 @@ export default function CommentForm({
       ) : (
         <Eye className="h-3.5 w-3.5" aria-hidden="true" />
       )}
+      <span>숨김</span>
     </button>
   ) : null;
 
+  const mediaUploadControls = (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => contentImageInputRef.current?.click()}
+        disabled={isUploadingContentImage || isSubmitting}
+        className="box-border inline-flex h-7 items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 leading-none text-muted-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+        aria-label="사진 업로드"
+        title="사진 업로드"
+      >
+        <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />
+        <span>사진</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => contentVideoInputRef.current?.click()}
+        disabled={isUploadingContentImage || isSubmitting}
+        className="box-border inline-flex h-7 items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 leading-none text-muted-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+        aria-label="동영상 업로드"
+        title="동영상 업로드"
+      >
+        <Video className="h-3.5 w-3.5" aria-hidden="true" />
+        <span>동영상</span>
+      </button>
+    </div>
+  );
+
   const formControls = (
     <div
-      className={`flex items-center justify-end gap-3 text-xs ${
+      className={`flex flex-wrap items-center justify-between gap-3 text-xs ${
         isAnswerVariant && controlsPlacement === "inside" ? "mt-3" : ""
       }`}
     >
+      {mediaUploadControls}
       <div className="flex justify-end gap-2">
         {cancelAction}
         {hiddenButton}

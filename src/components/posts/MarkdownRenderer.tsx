@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
+import { cn } from "@/lib/utils";
 import CodeBlock from "@/components/posts/CodeBlock";
 
 type Props = {
@@ -17,7 +18,7 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
 
   return (
     <div
-      className={[
+      className={cn(
         "max-w-none text-left text-sm leading-7 text-foreground",
         "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4",
         "[&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground",
@@ -36,7 +37,7 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
         "[&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:px-3 [&_th]:py-2 [&_th]:text-left",
         "[&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6",
         className,
-      ].join(" ")}
+      )}
     >
       {segments.map((segment) => (
         <Fragment key={`${segment.type}-${segment.start}`}>
@@ -98,16 +99,19 @@ function renderMarkdownBody(content: string) {
               );
             }
 
-            if (/\.(mp4|webm|ogg)$/i.test(src)) {
+            if (isVideoUrl(src)) {
               return (
-                <a
-                  href={src}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="my-4 inline-flex rounded-md border border-border px-4 py-3 text-sm text-primary underline-offset-4 hover:underline"
+                // biome-ignore lint/a11y/useMediaCaption: user-uploaded videos do not have caption tracks
+                <video
+                  src={src}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="my-4 max-h-[32rem] w-full rounded-xl border border-border bg-black"
+                  aria-label="업로드 동영상"
                 >
-                  동영상 열기
-                </a>
+                  동영상을 재생할 수 없습니다.
+                </video>
               );
             }
           }
@@ -223,6 +227,18 @@ function toYouTubeEmbedUrl(url: string): string | null {
     return null;
   } catch {
     return null;
+  }
+}
+
+function isVideoUrl(url: string) {
+  return /\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(getUrlPathname(url));
+}
+
+function getUrlPathname(url: string) {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return url.split("?")[0] ?? url;
   }
 }
 

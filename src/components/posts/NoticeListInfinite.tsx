@@ -367,171 +367,172 @@ export default function NoticeListInfinite({
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto border-y bg-background">
-        <div
-          className={`grid min-w-[560px] items-center gap-3 border-b bg-muted/40 px-5 py-3 text-center text-xs font-semibold text-muted-foreground ${
-            showStatusColumn
-              ? "min-w-[640px] grid-cols-[40px_minmax(220px,1.6fr)_72px_84px_48px_68px]"
-              : "grid-cols-[40px_minmax(220px,1.6fr)_72px_84px_48px]"
-          }`}
-        >
-          {renderSortableHeader("번호", "number")}
-          {renderSortableHeader("제목", "title")}
-          {renderSortableHeader("작성자", "author")}
-          {renderSortableHeader("작성일", "date")}
-          {renderSortableHeader("조회", "views")}
-          {showStatusColumn ? renderSortableHeader("상태", "status") : null}
-        </div>
+        <div className={showStatusColumn ? "min-w-[640px]" : "min-w-[560px]"}>
+          <div
+            className={`grid items-center gap-3 border-b bg-muted/40 px-5 py-3 text-center text-xs font-semibold text-muted-foreground ${
+              showStatusColumn
+                ? "grid-cols-[40px_minmax(220px,1.6fr)_72px_84px_48px_68px]"
+                : "grid-cols-[40px_minmax(220px,1.6fr)_72px_84px_48px]"
+            }`}
+          >
+            {renderSortableHeader("번호", "number")}
+            {renderSortableHeader("제목", "title")}
+            {renderSortableHeader("작성자", "author")}
+            {renderSortableHeader("작성일", "date")}
+            {renderSortableHeader("조회", "views")}
+            {showStatusColumn ? renderSortableHeader("상태", "status") : null}
+          </div>
 
-        {visibleNotices.map((notice, index) => {
-          const isFaqOpen = openFaqIds.includes(notice.id);
-          const noticeNumber =
-            noticeNumberById[notice.id] ??
-            totalCount - (activePage - 1) * pageSize - index;
-          const titleNode = isFaqCategory ? (
-            <button
-              type="button"
-              onClick={() => toggleFaq(notice.id)}
-              className="flex w-full min-w-0 items-center gap-1.5 text-left"
-              aria-expanded={isFaqOpen}
-            >
-              <span className="hidden shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
-                {noticeNumber}
-              </span>
-              <span className="shrink-0 text-sm font-semibold text-primary">
-                Q.
-              </span>
-              <p className="min-w-0 whitespace-normal break-words text-sm font-semibold leading-5 text-foreground">
-                {notice.title}
-              </p>
-              {notice.isLocked ? (
-                <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              ) : null}
-              {notice.isHidden ? (
-                <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              ) : null}
-              <ChevronDown
-                className={`ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
-                  isFaqOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-          ) : (
-            <div className="flex min-w-0 items-center gap-1.5">
-              <span className="hidden shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
-                {noticeNumber}
-              </span>
-              <p className="min-w-0 whitespace-normal break-words text-sm font-semibold leading-5 text-foreground">
-                {notice.title}
-              </p>
-              {notice.isLocked ? (
-                <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              ) : null}
-              {notice.isHidden ? (
-                <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              ) : null}
-            </div>
-          );
-
-          const rowContent = (
-            <div
-              className={`grid min-w-[560px] items-center gap-3 px-5 py-4 ${
-                showStatusColumn
-                  ? "min-w-[640px] grid-cols-[40px_minmax(220px,1.6fr)_72px_84px_48px_68px]"
-                  : "grid-cols-[40px_minmax(220px,1.6fr)_72px_84px_48px]"
-              }`}
-            >
-              <span className="text-center text-sm font-semibold tabular-nums text-muted-foreground">
-                {noticeNumber}
-              </span>
-              <div className="min-w-0">
-                {titleNode}
-                <div className="hidden mt-2 items-center gap-3 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Image
-                      src={notice.authorImage ?? "/logo.png"}
-                      alt={`${notice.authorName} 프로필`}
-                      width={18}
-                      height={18}
-                      className="h-4.5 w-4.5 rounded-full border object-cover"
-                    />
-                    <span>{notice.authorName}</span>
-                  </span>
-                  <span>{notice.publishedAt}</span>
-                  <span>조회 {viewCounts[notice.id] ?? notice.viewCount}</span>
-                  {showStatusColumn ? (
-                    <span
-                      className={`${getQnaStatusSizeClassName(true)} font-semibold ${getInquiryStatusClassName(notice)}`}
-                      title={getInquiryStatusLabel(notice)}
-                    >
-                      {getInquiryStatusLabel(notice)}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="flex min-w-0 items-center justify-center gap-2">
-                <Image
-                  src={notice.authorImage ?? "/logo.png"}
-                  alt={`${notice.authorName} 프로필`}
-                  width={24}
-                  height={24}
-                  className="h-6 w-6 rounded-full border object-cover"
-                />
-                <span className="truncate text-sm text-muted-foreground">
-                  {notice.authorName}
+          {visibleNotices.map((notice, index) => {
+            const isFaqOpen = openFaqIds.includes(notice.id);
+            const noticeNumber =
+              noticeNumberById[notice.id] ??
+              totalCount - (activePage - 1) * pageSize - index;
+            const titleNode = isFaqCategory ? (
+              <button
+                type="button"
+                onClick={() => toggleFaq(notice.id)}
+                className="flex w-full min-w-0 items-center gap-1.5 text-left"
+                aria-expanded={isFaqOpen}
+              >
+                <span className="hidden shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
+                  {noticeNumber}
                 </span>
+                <span className="shrink-0 text-sm font-semibold text-primary">
+                  Q.
+                </span>
+                <p className="min-w-0 whitespace-normal break-words text-sm font-semibold leading-5 text-foreground">
+                  {notice.title}
+                </p>
+                {notice.isLocked ? (
+                  <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                ) : null}
+                {notice.isHidden ? (
+                  <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                ) : null}
+                <ChevronDown
+                  className={`ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                    isFaqOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+            ) : (
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span className="hidden shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
+                  {noticeNumber}
+                </span>
+                <p className="min-w-0 whitespace-normal break-words text-sm font-semibold leading-5 text-foreground">
+                  {notice.title}
+                </p>
+                {notice.isLocked ? (
+                  <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                ) : null}
+                {notice.isHidden ? (
+                  <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                ) : null}
               </div>
-              <span className="text-center text-sm text-muted-foreground">
-                {notice.publishedAt}
-              </span>
-              <div className="text-center text-sm text-muted-foreground">
-                {viewCounts[notice.id] ?? notice.viewCount}
-              </div>
-              {showStatusColumn ? (
-                <div
-                  className={`text-center font-semibold ${getQnaStatusSizeClassName(false)} ${getInquiryStatusClassName(notice)}`}
-                  title={getInquiryStatusLabel(notice)}
-                >
-                  {getInquiryStatusLabel(notice)}
-                </div>
-              ) : null}
-            </div>
-          );
+            );
 
-          if (!isFaqCategory) {
-            return (
-              <Link
-                key={notice.id}
-                href={buildDetailHref(notice.id)}
-                id={`notice-${notice.id}`}
-                className={`block transition-colors hover:bg-muted/30 ${
-                  highlightedNoticeId === notice.id
-                    ? "border border-primary bg-primary/5"
-                    : "border-b last:border-b-0"
+            const rowContent = (
+              <div
+                className={`grid items-center gap-3 px-5 py-4 ${
+                  showStatusColumn
+                    ? "grid-cols-[40px_minmax(220px,1.6fr)_72px_84px_48px_68px]"
+                    : "grid-cols-[40px_minmax(220px,1.6fr)_72px_84px_48px]"
                 }`}
               >
-                {rowContent}
-              </Link>
-            );
-          }
-
-          return (
-            <div
-              key={notice.id}
-              id={`faq-notice-${notice.id}`}
-              className="border-b last:border-b-0 transition-colors hover:bg-muted/20"
-            >
-              {rowContent}
-              {isFaqOpen ? (
-                <div className="border-t bg-muted/10 px-4 py-4 md:px-5">
-                  <FaqInlineActions notice={notice} />
+                <span className="text-center text-sm font-semibold tabular-nums text-muted-foreground">
+                  {noticeNumber}
+                </span>
+                <div className="min-w-0">
+                  {titleNode}
+                  <div className="hidden mt-2 items-center gap-3 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Image
+                        src={notice.authorImage ?? "/logo.png"}
+                        alt={`${notice.authorName} 프로필`}
+                        width={18}
+                        height={18}
+                        className="h-4.5 w-4.5 rounded-full border object-cover"
+                      />
+                      <span>{notice.authorName}</span>
+                    </span>
+                    <span>{notice.publishedAt}</span>
+                    <span>조회 {viewCounts[notice.id] ?? notice.viewCount}</span>
+                    {showStatusColumn ? (
+                      <span
+                        className={`${getQnaStatusSizeClassName(true)} font-semibold ${getInquiryStatusClassName(notice)}`}
+                        title={getInquiryStatusLabel(notice)}
+                      >
+                        {getInquiryStatusLabel(notice)}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
 
+                <div className="flex min-w-0 items-center justify-center gap-2">
+                  <Image
+                    src={notice.authorImage ?? "/logo.png"}
+                    alt={`${notice.authorName} 프로필`}
+                    width={24}
+                    height={24}
+                    className="h-6 w-6 rounded-full border object-cover"
+                  />
+                  <span className="truncate text-sm text-muted-foreground">
+                    {notice.authorName}
+                  </span>
+                </div>
+                <span className="text-center text-sm text-muted-foreground">
+                  {notice.publishedAt}
+                </span>
+                <div className="text-center text-sm text-muted-foreground">
+                  {viewCounts[notice.id] ?? notice.viewCount}
+                </div>
+                {showStatusColumn ? (
+                  <div
+                    className={`text-center font-semibold ${getQnaStatusSizeClassName(false)} ${getInquiryStatusClassName(notice)}`}
+                    title={getInquiryStatusLabel(notice)}
+                  >
+                    {getInquiryStatusLabel(notice)}
+                  </div>
+                ) : null}
+              </div>
+            );
+
+            if (!isFaqCategory) {
+              return (
+                <Link
+                  key={notice.id}
+                  href={buildDetailHref(notice.id)}
+                  id={`notice-${notice.id}`}
+                  className={`block transition-colors hover:bg-muted/30 ${
+                    highlightedNoticeId === notice.id
+                      ? "border border-primary bg-primary/5"
+                      : "border-b last:border-b-0"
+                  }`}
+                >
+                  {rowContent}
+                </Link>
+              );
+            }
+
+            return (
+              <div
+                key={notice.id}
+                id={`faq-notice-${notice.id}`}
+                className="border-b last:border-b-0 transition-colors hover:bg-muted/20"
+              >
+                {rowContent}
+                {isFaqOpen ? (
+                  <div className="border-t bg-muted/10 px-4 py-4 md:px-5">
+                    <FaqInlineActions notice={notice} />
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
       <SectionPagination
         currentPage={Math.min(activePage, activeTotalPages)}
         totalPages={isSorted ? activeTotalPages : totalPages}

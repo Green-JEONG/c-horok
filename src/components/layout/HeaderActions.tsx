@@ -108,7 +108,7 @@ export default function HeaderActions() {
       <Button
         variant="ghost"
         size="icon"
-        className="group relative h-10 w-10 shrink-0 overflow-visible rounded-full border border-transparent bg-background p-0 transition hover:bg-primary/10"
+        className="group relative isolate h-10 w-10 shrink-0 overflow-visible rounded-full border border-transparent bg-background p-0 transition hover:bg-primary/10"
         onClick={() => setOpen(true)}
         aria-label="마이페이지 열기"
       >
@@ -121,11 +121,11 @@ export default function HeaderActions() {
           }
           width={30}
           height={30}
-          className="h-full w-full rounded-full border border-border object-contain transition group-hover:border-primary/30"
+          className="relative z-10 h-full w-full rounded-full border border-border object-contain transition group-hover:border-primary/30"
         />
         {isAdmin ? (
           <Crown
-            className="pointer-events-none absolute -top-2 left-1/2 h-4 w-4 -translate-x-1/2 fill-amber-300 text-amber-500 drop-shadow-sm"
+            className="pointer-events-none absolute -top-2 left-1/2 z-0 h-4 w-4 -translate-x-1/2 fill-amber-300 text-amber-500 drop-shadow-sm"
             strokeWidth={2.5}
             aria-hidden="true"
           />

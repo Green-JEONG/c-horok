@@ -108,11 +108,17 @@ export default function AppShell({
     ? "sticky top-0 hidden h-full w-[250px] shrink-0 md:block lg:w-[270px] xl:w-[290px]"
     : "sticky top-0 hidden h-full w-1/4 md:block";
 
-  const sectionClassName = isMyPage
-    ? "relative w-full min-h-0 overflow-hidden p-6 md:flex-1"
+  const sectionWrapperClassName = isMyPage
+    ? "relative w-full min-h-0 overflow-hidden md:flex-1"
     : isWideSidebarLayoutPage
-      ? "scrollbar-hide relative w-full p-6 md:min-h-0 md:flex-1 md:overflow-y-auto"
-      : "scrollbar-hide relative w-full px-4 py-6 md:min-h-0 md:w-2/3 md:overflow-y-auto md:px-6";
+      ? "relative w-full md:min-h-0 md:flex-1"
+      : "relative w-full md:min-h-0 md:w-2/3";
+
+  const sectionContentClassName = isMyPage
+    ? "h-full w-full p-6"
+    : isWideSidebarLayoutPage
+      ? "scrollbar-hide h-full w-full p-6 md:overflow-y-auto"
+      : "scrollbar-hide h-full w-full px-4 py-6 md:overflow-y-auto md:px-6";
 
   return (
     <>
@@ -127,9 +133,11 @@ export default function AppShell({
           </div>
         </aside>
 
-        <section className={sectionClassName}>
+        <section className={sectionWrapperClassName}>
           <div className="pointer-events-none absolute inset-y-6 right-0 hidden w-px bg-border md:block" />
-          {children}
+          <div className={sectionContentClassName}>
+            {children}
+          </div>
         </section>
       </main>
       {isChatEnabledPage ? chat : null}

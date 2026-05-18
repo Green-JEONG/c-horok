@@ -57,7 +57,7 @@ export default function InquiryAnswerComposer({
         {showGraphTail ? (
           <>
             <span className="absolute left-2 top-12 bottom-0 w-0.5 bg-border transition" />
-            <span className="absolute left-2 top-full -bottom-24 w-0.5 bg-[var(--composer-graph-tail-color)] transition" />
+            <span className="absolute left-2 top-full -bottom-6 w-0.5 bg-[var(--composer-graph-tail-color)] transition" />
           </>
         ) : null}
         <span className="absolute left-px top-12 size-4 -translate-y-1/2 rounded-full border-4 border-border bg-background transition" />
@@ -78,7 +78,7 @@ export default function InquiryAnswerComposer({
             <button
               type="button"
               onClick={() => window.alert("로그인 후 이용 가능합니다.")}
-              className="min-h-7 w-full bg-transparent text-left text-sm leading-7 text-muted-foreground outline-none"
+              className="min-h-7 w-full bg-transparent text-left text-base leading-7 text-muted-foreground outline-none"
             >
               {placeholder}
             </button>
