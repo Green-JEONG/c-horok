@@ -1,15 +1,29 @@
 "use client";
 
-import { Crown, Eye, EyeOff, Lock, LockOpen } from "lucide-react";
+import {
+  Crown,
+  Eye,
+  EyeOff,
+  ImagePlus,
+  Lock,
+  LockOpen,
+  Video,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { PostReactionSummary } from "@/lib/post-reaction-options";
+import {
+  createPostContentImagePath,
+  POST_THUMBNAIL_BUCKET,
+} from "@/lib/post-thumbnails";
+import { supabase } from "@/lib/supabase";
 import { formatSeoulDateTime } from "@/lib/utils";
 import CommentForm from "./CommentForm";
 import CommentReactionButton from "./CommentReactionButton";
+import MarkdownRenderer from "./MarkdownRenderer";
 
 export type CommentNode = {
   id: number;
@@ -72,6 +86,8 @@ export default function CommentItem({
   const router = useRouter();
   const searchParams = useSearchParams();
   const editingTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const editingImageInputRef = useRef<HTMLInputElement>(null);
+  const editingVideoInputRef = useRef<HTMLInputElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
   const [content, setContent] = useState(comment.content);
@@ -82,6 +98,7 @@ export default function CommentItem({
   const [isHidden, setIsHidden] = useState(comment.is_hidden);
   const [isTogglingHidden, setIsTogglingHidden] = useState(false);
   const [isFocusedComment, setIsFocusedComment] = useState(false);
+  const [isUploadingEditMedia, setIsUploadingEditMedia] = useState(false);
   const canManage = comment.user_id === currentUserId && !comment.is_deleted;
   const showSecretLock = comment.is_secret && !comment.is_deleted;
   const canReply =
@@ -218,6 +235,127 @@ export default function CommentItem({
     }
   }
 
+  function insertEditTextAtCursor(text: string) {
+    const textarea = editingTextareaRef.current;
+
+    if (!textarea) {
+      setContent((prev) => `${prev}${prev ? "\n\n" : ""}${text}`);
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const before = content.slice(0, start);
+    const after = content.slice(end);
+    const prefix = before && !before.endsWith("\n") ? "\n\n" : "";
+    const suffix = after && !after.startsWith("\n") ? "\n\n" : "";
+    const nextContent = `${before}${prefix}${text}${suffix}${after}`;
+    const nextCursorPosition = (before + prefix + text).length;
+
+    setContent(nextContent);
+
+    requestAnimationFrame(() => {
+      const nextTextarea = editingTextareaRef.current;
+      if (!nextTextarea) return;
+
+      nextTextarea.focus();
+      nextTextarea.setSelectionRange(nextCursorPosition, nextCursorPosition);
+      resizeTextareaToContent(nextTextarea);
+    });
+  }
+
+  async function handleEditImageChange(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+
+    setIsUploadingEditMedia(true);
+    setError(null);
+
+    try {
+      const markdownImages: string[] = [];
+
+      for (const file of files) {
+        const nextPath = createPostContentImagePath(file.name);
+        const { error: uploadError } = await supabase.storage
+          .from(POST_THUMBNAIL_BUCKET)
+          .upload(nextPath, file, {
+            cacheControl: "3600",
+            contentType: file.type || undefined,
+            upsert: false,
+          });
+
+        if (uploadError) {
+          throw new Error(uploadError.message);
+        }
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from(POST_THUMBNAIL_BUCKET).getPublicUrl(nextPath);
+
+        markdownImages.push(`![${file.name}](${publicUrl})`);
+      }
+
+      insertEditTextAtCursor(markdownImages.join("\n\n"));
+      event.target.value = "";
+    } catch (uploadError) {
+      const message =
+        uploadError instanceof Error
+          ? uploadError.message
+          : "댓글 이미지 업로드 중 오류가 발생했습니다.";
+      setError(message);
+    } finally {
+      setIsUploadingEditMedia(false);
+    }
+  }
+
+  async function handleEditVideoChange(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+
+    setIsUploadingEditMedia(true);
+    setError(null);
+
+    try {
+      const markdownVideos: string[] = [];
+
+      for (const file of files) {
+        const nextPath = createPostContentImagePath(file.name);
+        const { error: uploadError } = await supabase.storage
+          .from(POST_THUMBNAIL_BUCKET)
+          .upload(nextPath, file, {
+            cacheControl: "3600",
+            contentType: file.type || undefined,
+            upsert: false,
+          });
+
+        if (uploadError) {
+          throw new Error(uploadError.message);
+        }
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from(POST_THUMBNAIL_BUCKET).getPublicUrl(nextPath);
+
+        markdownVideos.push(`![video](${publicUrl})`);
+      }
+
+      insertEditTextAtCursor(markdownVideos.join("\n\n"));
+      event.target.value = "";
+    } catch (uploadError) {
+      const message =
+        uploadError instanceof Error
+          ? uploadError.message
+          : "댓글 동영상 업로드 중 오류가 발생했습니다.";
+      setError(message);
+    } finally {
+      setIsUploadingEditMedia(false);
+    }
+  }
+
   async function handleDelete() {
     const confirmed = window.confirm("이 댓글을 삭제할까요?");
     if (!confirmed) return;
@@ -286,6 +424,28 @@ export default function CommentItem({
       className="relative scroll-mt-28"
       style={{ "--comment-graph-color": graphColor } as CSSProperties}
     >
+      {isEditing ? (
+        <>
+          <input
+            ref={editingImageInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            disabled={isUploadingEditMedia || isSubmitting}
+            onChange={handleEditImageChange}
+            className="hidden"
+          />
+          <input
+            ref={editingVideoInputRef}
+            type="file"
+            accept="video/*"
+            multiple
+            disabled={isUploadingEditMedia || isSubmitting}
+            onChange={handleEditVideoChange}
+            className="hidden"
+          />
+        </>
+      ) : null}
       <div
         className={`relative rounded-md border p-4 transition-colors ${
           isFocusedComment ? "border-primary bg-primary/5" : ""
@@ -345,14 +505,17 @@ export default function CommentItem({
             rows={1}
             className="mt-2 block h-7 min-h-7 w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-base leading-7 outline-none placeholder:text-zinc-400"
           />
-        ) : (
-          <p
-            className={`mt-2 whitespace-pre-wrap text-base leading-7 ${
-              comment.is_deleted ? "text-muted-foreground" : ""
-            }`}
-          >
-            {comment.is_deleted ? "삭제된 댓글입니다." : comment.content}
+        ) : comment.is_deleted ? (
+          <p className="mt-2 whitespace-pre-wrap text-base leading-7 text-muted-foreground">
+            삭제된 댓글입니다.
           </p>
+        ) : (
+          <MarkdownRenderer
+            content={comment.content}
+            className={`mt-2 text-base leading-7 [&_p]:!my-0 ${
+              comment.content === "비밀댓글입니다." ? "text-muted-foreground" : ""
+            }`}
+          />
         )}
 
         {!isEditing && error ? (
@@ -361,11 +524,35 @@ export default function CommentItem({
       </div>
 
       {isEditing ? (
-        <div className="mt-2 flex items-center justify-end gap-3 text-xs">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => editingImageInputRef.current?.click()}
+              disabled={isUploadingEditMedia || isSubmitting}
+              className="box-border inline-flex h-7 items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 leading-none text-muted-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="사진 업로드"
+              title="사진 업로드"
+            >
+              <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>사진</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => editingVideoInputRef.current?.click()}
+              disabled={isUploadingEditMedia || isSubmitting}
+              className="box-border inline-flex h-7 items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 leading-none text-muted-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="동영상 업로드"
+              title="동영상 업로드"
+            >
+              <Video className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>동영상</span>
+            </button>
+          </div>
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploadingEditMedia}
               onClick={() => {
                 setContent(comment.content);
                 setIsSecret(comment.is_secret);
@@ -378,9 +565,11 @@ export default function CommentItem({
             </button>
             <button
               type="button"
-              disabled={isSubmitting || isTogglingHidden}
+              disabled={
+                isSubmitting || isTogglingHidden || isUploadingEditMedia
+              }
               onClick={handleToggleHidden}
-              className={`box-border inline-flex h-7 min-w-10 items-center justify-center rounded-md border px-3 py-1.5 leading-none transition disabled:cursor-not-allowed disabled:opacity-60 ${
+              className={`box-border inline-flex h-7 min-w-10 items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 leading-none transition disabled:cursor-not-allowed disabled:opacity-60 ${
                 isHidden
                   ? "border-primary/40 bg-primary/10 text-foreground"
                   : "text-muted-foreground hover:border-primary/30 hover:bg-primary/10 hover:text-foreground"
@@ -394,11 +583,13 @@ export default function CommentItem({
               ) : (
                 <Eye className="h-3.5 w-3.5" aria-hidden="true" />
               )}
+              <span>숨김</span>
             </button>
             <button
               type="button"
+              disabled={isUploadingEditMedia}
               onClick={() => setIsSecret((current) => !current)}
-              className={`box-border inline-flex h-7 min-w-10 items-center justify-center rounded-md border px-3 py-1.5 leading-none transition ${
+              className={`box-border inline-flex h-7 min-w-10 items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 leading-none transition disabled:cursor-not-allowed disabled:opacity-60 ${
                 isSecret
                   ? "border-primary/40 bg-primary/10 text-foreground"
                   : "text-muted-foreground hover:border-primary/30 hover:bg-primary/10 hover:text-foreground"
@@ -412,14 +603,19 @@ export default function CommentItem({
               ) : (
                 <LockOpen className="h-3.5 w-3.5" aria-hidden="true" />
               )}
+              <span>잠금</span>
             </button>
             <button
               type="button"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploadingEditMedia}
               onClick={handleUpdate}
               className="box-border inline-flex h-7 items-center justify-center rounded-md bg-primary px-3 py-1.5 leading-none text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? "저장 중..." : "수정 저장"}
+              {isUploadingEditMedia
+                ? "업로드 중..."
+                : isSubmitting
+                  ? "저장 중..."
+                  : "수정 저장"}
             </button>
           </div>
         </div>

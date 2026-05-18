@@ -154,7 +154,10 @@ export default async function CommentList({
                   replySubmitLabel={replySubmitLabel}
                   depth={0}
                   graphColor={graphColor}
-                  connectFromPrevious={!isOnlyComment && isLastComment}
+                  connectFromPrevious={
+                    (isOnlyComment && showComposer) ||
+                    (!isOnlyComment && isLastComment)
+                  }
                   connectToNext={!showComposer && index === 0 && !isLastComment}
                 />
               </li>
