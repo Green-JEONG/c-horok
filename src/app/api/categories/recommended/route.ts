@@ -1,6 +1,8 @@
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { normalizeNoticeCategory } from "@/lib/notice-categories";
+import { ensurePostCategoryTable } from "@/lib/post-categories";
 import { prisma } from "@/lib/prisma";
 
 function getCategorySortGroup(name: string) {
@@ -67,40 +69,45 @@ function isVisibleRecommendedCategory(name: string) {
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const userId = Number(url.searchParams.get("userId") ?? "");
+  const normalizedUserId =
+    Number.isFinite(userId) && userId > 0 ? BigInt(userId) : null;
   const session = await auth();
   const viewerUserId =
     typeof session?.user?.id === "string" ? Number(session.user.id) : null;
   const canSeeHiddenPosts =
     Number.isFinite(userId) && userId > 0 && viewerUserId === userId;
 
-  const rows = await prisma.category.findMany({
-    where: {
-      posts: {
-        some: {
-          isDeleted: false,
-          ...(canSeeHiddenPosts ? {} : { isHidden: false }),
-          ...(Number.isFinite(userId) && userId > 0
-            ? { userId: BigInt(userId) }
-            : {}),
-        },
-      },
-    },
-    include: {
-      _count: {
-        select: {
-          posts: {
-            where: {
-              isDeleted: false,
-              ...(canSeeHiddenPosts ? {} : { isHidden: false }),
-              ...(Number.isFinite(userId) && userId > 0
-                ? { userId: BigInt(userId) }
-                : {}),
-            },
-          },
-        },
-      },
-    },
-  });
+  await ensurePostCategoryTable();
+
+  const userFilter = normalizedUserId
+    ? Prisma.sql`AND post.user_id = ${normalizedUserId}`
+    : Prisma.empty;
+  const hiddenFilter = canSeeHiddenPosts
+    ? Prisma.empty
+    : Prisma.sql`AND post.is_hidden = FALSE`;
+  const rows = await prisma.$queryRaw<
+    Array<{
+      id: bigint;
+      name: string;
+      slug: string;
+      postCount: bigint;
+    }>
+  >`
+    SELECT
+      category.id,
+      category.name,
+      category.slug,
+      COUNT(DISTINCT post.id) AS "postCount"
+    FROM horok_tech.categories AS category
+    INNER JOIN horok_tech.post_categories AS post_category
+      ON post_category.category_id = category.id
+    INNER JOIN horok_tech.posts AS post
+      ON post.id = post_category.post_id
+    WHERE post.is_deleted = FALSE
+      ${hiddenFilter}
+      ${userFilter}
+    GROUP BY category.id, category.name, category.slug
+  `;
 
   return NextResponse.json(
     rows
@@ -108,13 +115,12 @@ export async function GET(request: Request) {
         id: Number(category.id),
         name: category.name,
         slug: category.slug,
-        postCount: category._count.posts,
+        postCount: Number(category.postCount),
       }))
       .filter(
         (category) =>
           category.postCount > 0 && isVisibleRecommendedCategory(category.name),
       )
-      .sort(sortCategoriesByName)
-      .slice(0, 10),
+      .sort(sortCategoriesByName),
   );
 }

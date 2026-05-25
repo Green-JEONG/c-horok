@@ -92,13 +92,31 @@ export async function ensureCategoryByName(name: string) {
 }
 
 export async function deleteUnusedCategories() {
-  return prisma.category.deleteMany({
-    where: {
-      posts: {
-        none: {},
-      },
-    },
-  });
+  return prisma.$executeRaw`
+    DO $$
+    BEGIN
+      IF to_regclass('horok_tech.post_categories') IS NOT NULL THEN
+        DELETE FROM horok_tech.categories AS category
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM horok_tech.posts AS post
+          WHERE post.category_id = category.id
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM horok_tech.post_categories AS post_category
+          WHERE post_category.category_id = category.id
+        );
+      ELSE
+        DELETE FROM horok_tech.categories AS category
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM horok_tech.posts AS post
+          WHERE post.category_id = category.id
+        );
+      END IF;
+    END $$;
+  `;
 }
 
 export async function getPostsByCategory(params: {

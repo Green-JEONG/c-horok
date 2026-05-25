@@ -1,5 +1,9 @@
 import { deleteUnusedCategories, ensureCategoryByName } from "@/lib/categories";
 import { ALL_NOTICE_TAG_OPTIONS } from "@/lib/notice-categories";
+import {
+  normalizeCategoryNames,
+  syncPostCategories,
+} from "@/lib/post-categories";
 import { prisma } from "@/lib/prisma";
 
 const INTERNAL_UNCATEGORIZED_CATEGORY_NAME = "미분류";
@@ -150,6 +154,7 @@ export async function getPopularPosts(limit = 5): Promise<PopularPostRow[]> {
 export async function createPost(params: {
   userId: number;
   categoryName?: string;
+  categoryNames?: string[];
   title: string;
   content: string;
   thumbnailUrl?: string | null;
@@ -159,16 +164,24 @@ export async function createPost(params: {
   const {
     userId,
     categoryName,
+    categoryNames,
     title,
     content,
     thumbnailUrl = null,
     isBanner = false,
     isSecret = false,
   } = params;
-  const normalizedCategoryName = categoryName?.trim();
-  const category = await ensureCategoryByName(
-    normalizedCategoryName || INTERNAL_UNCATEGORIZED_CATEGORY_NAME,
+  const normalizedCategoryNames = normalizeCategoryNames(
+    categoryNames ?? (categoryName ? [categoryName] : []),
   );
+  const resolvedCategoryNames =
+    normalizedCategoryNames.length > 0
+      ? normalizedCategoryNames
+      : [INTERNAL_UNCATEGORIZED_CATEGORY_NAME];
+  const categories = await Promise.all(
+    resolvedCategoryNames.map((name) => ensureCategoryByName(name)),
+  );
+  const [primaryCategory] = categories;
 
   const post = await prisma.post.create({
     data: {
@@ -176,7 +189,7 @@ export async function createPost(params: {
         connect: { id: BigInt(userId) },
       },
       category: {
-        connect: { id: BigInt(category.id) },
+        connect: { id: BigInt(primaryCategory.id) },
       },
       title,
       content,
@@ -185,6 +198,11 @@ export async function createPost(params: {
       isSecret,
     },
   });
+
+  await syncPostCategories(
+    post.id,
+    categories.map((category) => category.id),
+  );
 
   return mapPost(post);
 }
@@ -207,6 +225,7 @@ export async function setPostHidden(params: {
 export async function updatePost(params: {
   postId: number;
   categoryName?: string;
+  categoryNames?: string[];
   title: string;
   content: string;
   thumbnailUrl?: string | null;
@@ -216,18 +235,33 @@ export async function updatePost(params: {
   const {
     postId,
     categoryName,
+    categoryNames,
     title,
     content,
     thumbnailUrl,
     isBanner,
     isSecret,
   } = params;
-  const normalizedCategoryName = categoryName?.trim();
+  const normalizedCategoryNames =
+    categoryNames !== undefined
+      ? normalizeCategoryNames(categoryNames)
+      : categoryName === undefined
+        ? undefined
+        : normalizeCategoryNames([categoryName]);
   const category =
-    categoryName === undefined
+    normalizedCategoryNames === undefined
       ? null
       : await ensureCategoryByName(
-          normalizedCategoryName || INTERNAL_UNCATEGORIZED_CATEGORY_NAME,
+          normalizedCategoryNames[0] || INTERNAL_UNCATEGORIZED_CATEGORY_NAME,
+        );
+  const categories =
+    normalizedCategoryNames === undefined
+      ? null
+      : await Promise.all(
+          (normalizedCategoryNames.length > 0
+            ? normalizedCategoryNames
+            : [INTERNAL_UNCATEGORIZED_CATEGORY_NAME]
+          ).map((name) => ensureCategoryByName(name)),
         );
 
   const post = await prisma.post.update({
@@ -247,6 +281,13 @@ export async function updatePost(params: {
       ...(thumbnailUrl !== undefined ? { thumbnail: thumbnailUrl } : {}),
     },
   });
+
+  if (categories) {
+    await syncPostCategories(
+      post.id,
+      categories.map((category) => category.id),
+    );
+  }
 
   return mapPost(post);
 }

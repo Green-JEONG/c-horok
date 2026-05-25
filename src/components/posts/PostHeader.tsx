@@ -22,10 +22,16 @@ export default function PostHeader({
     createdDateTime.match(/^(.+) (\d{2}:\d{2}:\d{2})$/) ?? [];
   const showSecretLock = post.is_secret;
   const showHiddenIcon = post.is_hidden;
-  const showCategoryBadge =
-    Boolean(post.category_name) &&
-    post.category_name !== "미분류" &&
-    !isNoticeCategoryName(post.category_name);
+  const categoryNames =
+    post.category_names && post.category_names.length > 0
+      ? post.category_names
+      : [post.category_name];
+  const visibleCategoryNames = categoryNames.filter(
+    (categoryName) =>
+      Boolean(categoryName) &&
+      categoryName !== "미분류" &&
+      !isNoticeCategoryName(categoryName),
+  );
   const authorProfile = (
     <>
       <Image
@@ -88,27 +94,37 @@ export default function PostHeader({
               </span>
             </>
           ) : null}
-          {post.updated_at.getTime() > post.created_at.getTime() ? (
-            <>
-              <span className="text-muted-foreground/60">|</span>
-              <span className="inline-flex h-7 items-center">(수정)</span>
-            </>
-          ) : null}
           <span className="text-muted-foreground/60">|</span>
           <span className="inline-flex h-7 items-center">
             조회 {post.view_count}
           </span>
-          {showCategoryBadge ? (
-            <span className="inline-flex h-7 items-center rounded-full border border-border bg-background px-2.5 text-base font-medium text-foreground">
-              #{post.category_name.toLocaleLowerCase()}
-            </span>
-          ) : null}
+          <span className="text-muted-foreground/60">|</span>
+          <span className="inline-flex h-7 items-center">
+            댓글 {post.comments_count}
+          </span>
+          <span className="text-muted-foreground/60">|</span>
+          <span className="inline-flex h-7 items-center">
+            반응 {post.reactions_count}
+          </span>
         </div>
 
         {actionSlot ? (
           <div className="shrink-0 self-end sm:self-auto">{actionSlot}</div>
         ) : null}
       </div>
+
+      {visibleCategoryNames.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {visibleCategoryNames.map((categoryName) => (
+            <span
+              key={categoryName}
+              className="inline-flex h-7 items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 text-sm font-medium text-foreground"
+            >
+              #{categoryName.toLocaleLowerCase()}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       <hr className="mt-2" />
     </header>

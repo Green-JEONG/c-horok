@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { buildVisibleCommentCountWhere } from "@/lib/comment-counts";
 import { ALL_NOTICE_TAG_OPTIONS } from "@/lib/notice-categories";
+import { getPostCategoryNameMap } from "@/lib/post-categories";
 import { getPostReactionCountsByPostId } from "@/lib/post-reactions";
 import { DEFAULT_SORT, type SortType } from "@/lib/post-sort";
 import { prisma } from "@/lib/prisma";
@@ -27,6 +28,7 @@ export type DbPost = {
   author_name: string;
   author_image: string | null;
   category_name: string;
+  category_names?: string[];
   view_count: number;
   likes_count: number;
   reactions_count: number;
@@ -99,6 +101,7 @@ function mapPost(
     userId?: bigint;
     user: { name: string | null; image?: string | null };
     category: { name: string } | null;
+    categoryNames?: string[];
     views?: { viewCount: bigint | number } | null;
     _count?: { likes?: number; comments?: number };
   },
@@ -109,6 +112,12 @@ function mapPost(
 ): DbPost {
   const ownerUserId = post.userId ? bigintToNumber(post.userId) : undefined;
   const isSecretQna = post.category?.name === "QnA" && post.isSecret;
+  const categoryNames =
+    post.categoryNames && post.categoryNames.length > 0
+      ? post.categoryNames
+      : post.category?.name
+        ? [post.category.name]
+        : [];
   const canViewSecret =
     !post.isSecret ||
     (typeof ownerUserId === "number" &&
@@ -125,7 +134,8 @@ function mapPost(
     updated_at: post.updatedAt,
     author_name: post.user.name ?? "Unknown",
     author_image: post.user.image ?? null,
-    category_name: post.category?.name ?? "",
+    category_name: categoryNames[0] ?? "",
+    category_names: categoryNames,
     view_count: Number(post.views?.viewCount ?? 0),
     likes_count: post._count?.likes ?? 0,
     reactions_count: 0,
@@ -143,12 +153,21 @@ async function mapPostsWithReactionCounts(
   posts: Array<Parameters<typeof mapPost>[0]>,
   options?: Parameters<typeof mapPost>[1],
 ) {
+  const categoryNameMap = await getPostCategoryNameMap(
+    posts.map((post) => post.id),
+  );
   const reactionCounts = await getPostReactionCountsByPostId(
     posts.map((post) => post.id),
   );
 
   return posts.map((post) => {
-    const mappedPost = mapPost(post, options);
+    const mappedPost = mapPost(
+      {
+        ...post,
+        categoryNames: categoryNameMap.get(post.id.toString()),
+      },
+      options,
+    );
 
     return {
       ...mappedPost,
@@ -414,12 +433,22 @@ export async function findPostById(
     },
   });
 
-  return post
-    ? mapPost(post, {
-        viewerUserId: options?.includeHiddenForUserId ?? null,
-        isAdmin: options?.includeHiddenForAdmin,
-      })
-    : null;
+  if (!post) {
+    return null;
+  }
+
+  const categoryNameMap = await getPostCategoryNameMap([post.id]);
+
+  return mapPost(
+    {
+      ...post,
+      categoryNames: categoryNameMap.get(post.id.toString()),
+    },
+    {
+      viewerUserId: options?.includeHiddenForUserId ?? null,
+      isAdmin: options?.includeHiddenForAdmin,
+    },
+  );
 }
 
 export async function findPostAccessMetaById(id: number) {

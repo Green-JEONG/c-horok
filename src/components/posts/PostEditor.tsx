@@ -76,6 +76,7 @@ type PostEditorProps = {
   initialTitle?: string;
   initialContent?: string;
   initialCategoryName?: string;
+  initialCategoryNames?: string[];
   initialThumbnail?: string | null;
   initialIsBanner?: boolean;
   initialIsSecret?: boolean;
@@ -99,6 +100,7 @@ export default function PostEditor({
   initialTitle = "",
   initialContent = "",
   initialCategoryName = "",
+  initialCategoryNames,
   initialThumbnail = null,
   initialIsBanner = false,
   initialIsSecret = false,
@@ -122,6 +124,7 @@ export default function PostEditor({
   const contentImageInputRef = useRef<HTMLInputElement>(null);
   const contentVideoInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
+  const isTagComposingRef = useRef(false);
   const initialInquiryTitle = parseInquiryTitlePrefix(
     initialTitle,
     inquiryTagOptions,
@@ -129,9 +132,13 @@ export default function PostEditor({
 
   const [title, setTitle] = useState(initialInquiryTitle.title);
   const [content, setContent] = useState(initialContent);
-  const [tags, setTags] = useState(
-    initialCategoryName ? [initialCategoryName] : [],
-  );
+  const initialTags =
+    initialCategoryNames && initialCategoryNames.length > 0
+      ? initialCategoryNames
+      : initialCategoryName
+        ? [initialCategoryName]
+        : [];
+  const [tags, setTags] = useState(initialTags);
   const [tagInput, setTagInput] = useState("");
   const [selectedFixedTag, setSelectedFixedTag] = useState(
     fixedTagOptions.includes(initialCategoryName)
@@ -596,9 +603,11 @@ export default function PostEditor({
   async function handleSubmit() {
     const trimmedTitle = title.trim();
     const trimmedContent = content.trim();
-    const categoryName =
-      categoryLocked && fixedTagOptions.length > 0 ? selectedFixedTag : tags[0];
-    const resolvedCategoryName = categoryName || "";
+    const categoryNames =
+      categoryLocked && fixedTagOptions.length > 0
+        ? [selectedFixedTag].filter(Boolean)
+        : tags;
+    const resolvedCategoryName = categoryNames[0] || "";
 
     if (
       !trimmedTitle ||
@@ -630,6 +639,7 @@ export default function PostEditor({
           title: submitTitle,
           content: trimmedContent,
           categoryName: resolvedCategoryName,
+          categoryNames,
           isBanner,
           isSecret,
           thumbnailUrl: nextThumbnailUrl,
@@ -800,13 +810,25 @@ export default function PostEditor({
                 id="post-tags"
                 ref={tagInputRef}
                 value={tagInput}
-                onChange={(e) =>
-                  setTagInput(e.target.value.toLocaleLowerCase())
-                }
+                onChange={(e) => setTagInput(e.target.value)}
+                onCompositionStart={() => {
+                  isTagComposingRef.current = true;
+                }}
+                onCompositionEnd={(event) => {
+                  isTagComposingRef.current = false;
+                  setTagInput(event.currentTarget.value);
+                }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
+                    if (
+                      isTagComposingRef.current ||
+                      event.nativeEvent.isComposing
+                    ) {
+                      return;
+                    }
+
                     event.preventDefault();
-                    addTag(tagInput);
+                    addTag(event.currentTarget.value);
                     return;
                   }
 

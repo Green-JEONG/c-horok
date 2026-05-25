@@ -78,7 +78,7 @@ export default function MyPostPreviewGrid({
           content: draft.content.trim() || "임시 저장된 글입니다.",
           thumbnail: draft.thumbnailUrl ?? null,
           created_at: draft.savedAt,
-          author_name: "나",
+          author_name: session?.user?.name ?? "Unknown",
           author_image: session?.user?.image ?? null,
           category_name: "임시저장",
           view_count: 0,
@@ -109,7 +109,7 @@ export default function MyPostPreviewGrid({
     return () => {
       cancelled = true;
     };
-  }, [limit, posts, session?.user?.image]);
+  }, [limit, posts, session?.user?.image, session?.user?.name]);
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -121,7 +121,7 @@ export default function MyPostPreviewGrid({
             description={post.content}
             thumbnail={post.thumbnail}
             category={post.category_name}
-            author="나"
+            author={post.author_name}
             authorImage={post.author_image}
             likes={post.likes_count}
             reactions={post.reactions_count ?? 0}

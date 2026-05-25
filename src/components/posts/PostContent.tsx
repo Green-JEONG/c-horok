@@ -2,6 +2,12 @@ import Image from "next/image";
 import MarkdownRenderer from "@/components/posts/MarkdownRenderer";
 import type { DbPost } from "@/lib/db";
 
+function contentIncludesImageUrl(content: string, imageUrl?: string | null) {
+  const normalizedImageUrl = imageUrl?.trim();
+
+  return Boolean(normalizedImageUrl && content.includes(normalizedImageUrl));
+}
+
 export default function PostContent({ post }: { post: DbPost }) {
   if (post.is_secret && !post.can_view_secret) {
     return (
@@ -11,12 +17,16 @@ export default function PostContent({ post }: { post: DbPost }) {
     );
   }
 
+  const thumbnail = post.thumbnail;
+  const shouldShowThumbnail =
+    thumbnail && !contentIncludesImageUrl(post.content, thumbnail);
+
   return (
     <section className="">
-      {post.thumbnail ? (
+      {shouldShowThumbnail ? (
         <div className="relative mb-6 aspect-[16/9] overflow-hidden rounded-xl">
           <Image
-            src={post.thumbnail}
+            src={thumbnail}
             alt={post.title}
             fill
             unoptimized

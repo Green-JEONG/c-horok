@@ -99,6 +99,7 @@ model Category {
   slug      String    @unique @db.VarChar(50)
   createdAt DateTime  @default(now()) @map("created_at")
   posts     Post[]
+  postCategories PostCategory[]
 
   @@map("categories")
   @@schema("horok_tech")
@@ -125,12 +126,28 @@ model Post {
   category      Category?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   comments      Comment[]
   likes         PostLike[]
+  postCategories PostCategory[]
   views         PostView?
   notifications Notification[]
   user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([createdAt], map: "idx_posts_created_at")
   @@map("posts")
+  @@schema("horok_tech")
+}
+
+model PostCategory {
+  postId     BigInt   @map("post_id")
+  categoryId BigInt   @map("category_id")
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  post     Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([postId, categoryId])
+  @@index([categoryId], map: "idx_post_categories_category_id")
+  @@map("post_categories")
   @@schema("horok_tech")
 }
 

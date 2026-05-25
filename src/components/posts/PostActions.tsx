@@ -17,6 +17,7 @@ type Props = {
   initialTitle: string;
   initialContent: string;
   initialCategoryName: string;
+  initialCategoryNames?: string[];
   initialThumbnail: string | null;
   initialIsHidden: boolean;
   initialIsSecret?: boolean;
@@ -38,6 +39,7 @@ export default function PostActions({
   initialTitle,
   initialContent,
   initialCategoryName,
+  initialCategoryNames,
   initialThumbnail,
   initialIsHidden,
   initialIsSecret = false,
@@ -192,6 +194,7 @@ export default function PostActions({
             initialTitle={initialTitle}
             initialContent={initialContent}
             initialCategoryName={initialCategoryName}
+            initialCategoryNames={initialCategoryNames}
             initialThumbnail={initialThumbnail}
             initialIsBanner={initialIsBanner}
             initialIsSecret={initialIsSecret}

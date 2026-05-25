@@ -4,8 +4,8 @@ import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
-import { cn } from "@/lib/utils";
 import CodeBlock from "@/components/posts/CodeBlock";
+import { cn } from "@/lib/utils";
 
 type Props = {
   content: string;
@@ -19,7 +19,7 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
   return (
     <div
       className={cn(
-        "max-w-none text-left text-sm leading-7 text-foreground",
+        "max-w-none text-left text-base leading-8 text-foreground",
         "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4",
         "[&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground",
         "[&_code]:rounded [&_code]:bg-orange-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.9em] [&_code]:text-orange-900 dark:[&_code]:bg-transparent dark:[&_code]:text-inherit",
@@ -27,7 +27,7 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
         "[&_h2]:mt-7 [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold",
         "[&_h3]:mt-6 [&_h3]:mb-3 [&_h3]:text-xl [&_h3]:font-semibold",
         "[&_hr]:my-6 [&_hr]:border-border",
-        "[&_img]:my-4 [&_img]:max-h-[32rem] [&_img]:w-full [&_img]:rounded-xl [&_img]:object-contain",
+        "[&_img]:my-4 [&_img]:block [&_img]:h-auto [&_img]:w-full",
         "[&_li]:my-1",
         "[&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6",
         "[&_p]:my-4 [&_p]:whitespace-pre-wrap",
@@ -121,7 +121,7 @@ function renderMarkdownBody(content: string) {
             <img
               src={typeof src === "string" ? src : ""}
               alt={alt ?? ""}
-              className="my-4 max-h-[32rem] w-full rounded-xl object-contain"
+              className="my-4 block h-auto w-full"
             />
           );
         },

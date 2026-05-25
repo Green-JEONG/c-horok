@@ -22,6 +22,12 @@ function getColor(count: number) {
   return "bg-emerald-600";
 }
 
+function getTextColor(count: number) {
+  if (count === 0) return "";
+  if (count < 4) return "text-emerald-950";
+  return "text-white";
+}
+
 const WEEKS = 48;
 const DAYS = WEEKS * 7;
 
@@ -128,8 +134,10 @@ export default function ContributionGrid({ userId }: { userId?: number }) {
             <div
               key={date}
               title={`${date}: ${count}회`}
-              className={`contribution-day aspect-square w-full ${getColor(count)}`}
-            />
+              className={`contribution-day flex aspect-square w-full items-center justify-center text-[8px] font-semibold leading-none tabular-nums ${getColor(count)} ${getTextColor(count)}`}
+            >
+              {count > 0 ? count : null}
+            </div>
           );
         })}
       </div>
