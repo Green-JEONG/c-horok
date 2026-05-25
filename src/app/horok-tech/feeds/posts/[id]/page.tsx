@@ -55,6 +55,7 @@ export default async function HorokTechPostPage({ params }: Props) {
         initialTitle={post.title}
         initialContent={post.content}
         initialCategoryName={post.category_name}
+        initialCategoryNames={post.category_names}
         initialThumbnail={post.thumbnail}
         initialIsHidden={post.is_hidden}
         initialIsSecret={post.is_secret}

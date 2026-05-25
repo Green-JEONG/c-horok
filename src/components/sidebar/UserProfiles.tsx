@@ -161,12 +161,17 @@ export default function UserProfiles() {
     : profile
       ? `/users/${profile.id}?tab=posts`
       : "#";
+  const isPostDetailPage =
+    /^\/horok-tech\/(?:feeds|likes)\/posts\/\d+$/.test(pathname) ||
+    /^\/posts\/\d+$/.test(pathname);
 
   return (
     <section className="-mx-6 px-6 space-y-3">
       <div className="flex items-center gap-2">
         <UserRound className="h-[18px] w-[18px]" />
-        <h3 className="text-lg font-bold tracking-tight">프로필</h3>
+        <h3 className="text-lg font-bold tracking-tight">
+          {isPostDetailPage ? "글쓴이" : "프로필"}
+        </h3>
       </div>
 
       {loading ? (

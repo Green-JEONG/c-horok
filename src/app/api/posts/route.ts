@@ -13,6 +13,25 @@ import { parseSortType } from "@/lib/post-sort";
 import { createPost } from "@/lib/posts";
 import { prisma } from "@/lib/prisma";
 
+function getCategoryNames(body: {
+  categoryName?: unknown;
+  categoryNames?: unknown;
+}) {
+  if (Array.isArray(body.categoryNames)) {
+    return body.categoryNames
+      .filter(
+        (categoryName): categoryName is string =>
+          typeof categoryName === "string",
+      )
+      .map((categoryName) => categoryName.trim())
+      .filter(Boolean);
+  }
+
+  return typeof body.categoryName === "string" && body.categoryName.trim()
+    ? [body.categoryName.trim()]
+    : [];
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const page = Number(url.searchParams.get("page") ?? "1");
@@ -55,20 +74,18 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { categoryName, title, content, thumbnailUrl, isBanner, isSecret } =
-    body;
-  const normalizedCategoryName =
-    typeof categoryName === "string" ? categoryName.trim() : "";
+  const { title, content, thumbnailUrl, isBanner, isSecret } = body;
+  const categoryNames = getCategoryNames(body);
+  const normalizedCategoryName = categoryNames[0] ?? "";
 
   if (!title || !content) {
     return NextResponse.json({ message: "Invalid input" }, { status: 400 });
   }
 
   if (
-    normalizedCategoryName &&
-    isNoticeCategoryName(normalizedCategoryName) &&
+    categoryNames.some((name) => isNoticeCategoryName(name)) &&
     session.user.role !== "ADMIN" &&
-    !isPublicNoticeCategory(normalizedCategoryName)
+    categoryNames.some((name) => !isPublicNoticeCategory(name))
   ) {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
@@ -76,6 +93,7 @@ export async function POST(req: Request) {
   const post = await createPost({
     userId,
     categoryName: normalizedCategoryName || undefined,
+    categoryNames,
     title,
     content,
     isBanner: Boolean(isBanner) && isNoticeCategoryName(normalizedCategoryName),

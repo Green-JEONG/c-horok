@@ -229,7 +229,7 @@ export default function MyPostsSection() {
                 content: draft.content.trim() || "임시 저장된 글입니다.",
                 thumbnail: draft.thumbnailUrl ?? null,
                 created_at: draft.savedAt,
-                author_name: "나",
+                author_name: session?.user?.name ?? "Unknown",
                 author_image: session?.user?.image ?? null,
                 category_name: "임시저장",
                 view_count: 0,
@@ -293,6 +293,7 @@ export default function MyPostsSection() {
       query,
       searchTarget,
       session?.user?.image,
+      session?.user?.name,
       sort,
       status,
       targetPostId,
@@ -489,7 +490,7 @@ export default function MyPostsSection() {
                   description={post.content}
                   thumbnail={post.thumbnail}
                   category={post.category_name}
-                  author="나"
+                  author={post.author_name}
                   authorImage={post.author_image}
                   likes={post.likes_count}
                   reactions={post.reactions_count ?? 0}

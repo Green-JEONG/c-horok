@@ -14,6 +14,25 @@ import {
 } from "@/lib/posts";
 import { prisma } from "@/lib/prisma";
 
+function getCategoryNames(body: {
+  categoryName?: unknown;
+  categoryNames?: unknown;
+}) {
+  if (Array.isArray(body.categoryNames)) {
+    return body.categoryNames
+      .filter(
+        (categoryName): categoryName is string =>
+          typeof categoryName === "string",
+      )
+      .map((categoryName) => categoryName.trim())
+      .filter(Boolean);
+  }
+
+  return typeof body.categoryName === "string" && body.categoryName.trim()
+    ? [body.categoryName.trim()]
+    : [];
+}
+
 export async function GET(
   _req: NextRequest,
   context: { params: Promise<{ id: string }> },
@@ -82,17 +101,22 @@ export async function PUT(
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
+  const body = await req.json();
   const { title, content, categoryName, thumbnailUrl, isBanner, isSecret } =
-    await req.json();
+    body;
+  const categoryNames = getCategoryNames(body);
+  const normalizedCategoryName =
+    categoryNames[0] ??
+    (typeof categoryName === "string" ? categoryName.trim() : "");
 
   if (!title || !content) {
     return NextResponse.json({ message: "Invalid input" }, { status: 400 });
   }
 
   if (
-    isNoticeCategoryName(categoryName) &&
+    categoryNames.some((name) => isNoticeCategoryName(name)) &&
     session?.user?.role !== "ADMIN" &&
-    !isPublicNoticeCategory(categoryName)
+    categoryNames.some((name) => !isPublicNoticeCategory(name))
   ) {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
@@ -101,9 +125,11 @@ export async function PUT(
     postId,
     title,
     content,
-    categoryName,
+    categoryName: normalizedCategoryName,
+    categoryNames,
     isBanner:
-      typeof isBanner === "boolean" && isNoticeCategoryName(categoryName)
+      typeof isBanner === "boolean" &&
+      isNoticeCategoryName(normalizedCategoryName)
         ? isBanner
         : false,
     isSecret: typeof isSecret === "boolean" ? isSecret : undefined,
