@@ -12,6 +12,7 @@ import {
   listChatThreadsByUserId,
   updateChatThreadTitle,
 } from "@/lib/chat";
+import { prisma } from "@/lib/prisma";
 
 export const maxDuration = 30;
 
@@ -42,6 +43,134 @@ function buildThreadTitle(text: string) {
   return text.replace(/\s+/g, " ").trim().slice(0, 60) || null;
 }
 
+async function isAdminUser(userId: number) {
+  const user = await prisma.user.findUnique({
+    where: { id: BigInt(userId) },
+    select: { role: true },
+  });
+
+  return user?.role === "ADMIN";
+}
+
+async function canAdminViewHandoffThread(userId: number, threadId: string) {
+  if (!(await isAdminUser(userId))) {
+    return false;
+  }
+
+  const handoff = await prisma.$queryRaw<Array<{ id: bigint }>>`
+    SELECT id
+    FROM public.chat_handoffs
+    WHERE thread_id = ${BigInt(threadId)}
+    LIMIT 1
+  `;
+
+  return handoff.length > 0;
+}
+
+async function listHandoffThreadsForAdmin(userId: number) {
+  if (!(await isAdminUser(userId))) {
+    return [];
+  }
+
+  const rows = await prisma.$queryRaw<
+    Array<{
+      id: bigint;
+      title: string | null;
+      created_at: Date;
+      updated_at: Date;
+      preview: string | null;
+      message_count: bigint;
+      requester_name: string | null;
+      requester_email: string;
+    }>
+  >`
+    SELECT DISTINCT ON (thread.id)
+      thread.id,
+      thread.title,
+      thread.created_at,
+      thread.updated_at,
+      latest_message.content AS preview,
+      COUNT(message.id) OVER (PARTITION BY thread.id) AS message_count,
+      requester.name AS requester_name,
+      requester.email AS requester_email
+    FROM public.chat_handoffs AS handoff
+    INNER JOIN public.chat_threads AS thread
+      ON thread.id = handoff.thread_id
+    INNER JOIN public.users AS requester
+      ON requester.id = handoff.user_id
+    LEFT JOIN public.chat_messages AS message
+      ON message.thread_id = thread.id
+    LEFT JOIN LATERAL (
+      SELECT content
+      FROM public.chat_messages
+      WHERE thread_id = thread.id
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    ) AS latest_message ON TRUE
+    ORDER BY thread.id, handoff.created_at DESC
+  `;
+
+  return rows
+    .map((row) => ({
+      id: row.id.toString(),
+      title: `[문의] ${row.title?.trim() || row.requester_name || row.requester_email}`,
+      preview: row.preview?.replace(/\s+/g, " ").trim().slice(0, 80) ?? "",
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
+      messageCount: Number(row.message_count),
+      platform: "handoff" as const,
+    }))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+async function getChatHandoffMeta(userId: number, threadId: string) {
+  const viewer = await prisma.user.findUnique({
+    where: { id: BigInt(userId) },
+    select: { role: true },
+  });
+
+  if (viewer?.role !== "ADMIN") {
+    return null;
+  }
+
+  const handoffs = await prisma.$queryRaw<
+    Array<{
+      user_id: bigint;
+      name: string | null;
+      email: string;
+      image: string | null;
+      oauth_image: string | null;
+    }>
+  >`
+    SELECT
+      requester.id AS user_id,
+      requester.name,
+      requester.email,
+      requester.image,
+      requester.oauth_image
+    FROM public.chat_handoffs AS handoff
+    INNER JOIN public.users AS requester
+      ON requester.id = handoff.user_id
+    WHERE handoff.thread_id = ${BigInt(threadId)}
+    ORDER BY handoff.created_at DESC
+    LIMIT 1
+  `;
+  const handoff = handoffs[0];
+
+  if (!handoff) {
+    return null;
+  }
+
+  return {
+    isAdminView: true,
+    requester: {
+      id: handoff.user_id.toString(),
+      name: handoff.name ?? handoff.email,
+      image: handoff.image ?? handoff.oauth_image ?? null,
+    },
+  };
+}
+
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
@@ -57,11 +186,18 @@ export async function GET(req: Request) {
     }
 
     const requestedThreadId = url.searchParams.get("threadId");
-    const threads = await listChatThreadsByUserId(userId);
+    const [ownThreads, handoffThreads] = await Promise.all([
+      listChatThreadsByUserId(userId),
+      listHandoffThreadsForAdmin(userId),
+    ]);
+    const threads = [...ownThreads, ...handoffThreads];
 
     const requestedThread =
       requestedThreadId && /^\d+$/.test(requestedThreadId)
-        ? await getChatThreadById(userId, requestedThreadId)
+        ? ((await getChatThreadById(userId, requestedThreadId)) ??
+          ((await canAdminViewHandoffThread(userId, requestedThreadId))
+            ? { id: requestedThreadId, title: null }
+            : null))
         : null;
 
     const activeThread =
@@ -69,12 +205,16 @@ export async function GET(req: Request) {
       (threads.length > 0 ? await getLatestChatThreadByUserId(userId) : null);
 
     const messages = activeThread ? await getChatMessages(activeThread.id) : [];
+    const handoff = activeThread
+      ? await getChatHandoffMeta(userId, activeThread.id)
+      : null;
 
     return Response.json({
       isAuthenticated: true,
       activeThreadId: activeThread?.id ?? null,
       threads,
       messages,
+      handoff,
     });
   } catch (error) {
     if (isChatPersistenceError(error)) {

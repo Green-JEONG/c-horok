@@ -8,6 +8,8 @@ import {
   ChevronLeft,
   ChevronUp,
   Copy,
+  Crown,
+  Headphones,
   Pencil,
   Plus,
   Search,
@@ -16,7 +18,7 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   type FormEvent,
@@ -43,7 +45,7 @@ type ChatThreadSummary = {
   createdAt: string;
   updatedAt: string;
   messageCount: number;
-  platform?: "tech" | "cote";
+  platform?: ThreadCategory;
 };
 
 type ChatPayload = {
@@ -51,6 +53,16 @@ type ChatPayload = {
   activeThreadId: string | null;
   threads: ChatThreadSummary[];
   messages: ChatUIMessage[];
+  handoff?: ChatHandoffMeta | null;
+};
+
+type ChatHandoffMeta = {
+  isAdminView: boolean;
+  requester: {
+    id: string;
+    name: string;
+    image: string | null;
+  };
 };
 
 type HorokChatProps = {
@@ -60,9 +72,15 @@ type HorokChatProps = {
 
 type ChatUIMessage = UIMessage & {
   createdAt?: string;
+  sender?: {
+    id: string;
+    name: string;
+    image: string | null;
+    role: "USER" | "ADMIN";
+  } | null;
 };
 
-type ThreadCategory = "all" | "tech" | "cote";
+type ThreadCategory = "all" | "tech" | "cote" | "handoff";
 
 type FloatingPosition = {
   x: number;
@@ -94,6 +112,7 @@ type ResizeDirection =
 
 const THREAD_PLATFORM_STORAGE_KEY = "horok-chat-thread-platforms";
 const COTE_PROBLEM_THREAD_STORAGE_KEY = "horok-chat-cote-problem-threads";
+const OPEN_CHAT_THREAD_EVENT = "horok-open-chat-thread";
 const FLOATING_BUTTON_SIZE = 64;
 const FLOATING_PANEL_GAP = 12;
 const FLOATING_VIEWPORT_MARGIN = 24;
@@ -107,6 +126,11 @@ const FLOATING_MIN_SIZE: FloatingSize = {
   height: 280,
 };
 const CHAT_BOTTOM_STICK_THRESHOLD = 80;
+const CHAT_SUGGESTED_QUESTIONS = [
+  "넌 누구야?",
+  "호록 컴퍼니는 어떤 곳이야?",
+  "코딩테스트 공부는 어떻게 시작해?",
+];
 
 const INITIAL_MESSAGES: ChatUIMessage[] = [
   {
@@ -340,7 +364,7 @@ function sortUniqueThreadsByRecentActivity(threads: ChatThreadSummary[]) {
 
 function readThreadPlatformMap() {
   if (typeof window === "undefined") {
-    return {} as Record<string, "tech" | "cote">;
+    return {} as Record<string, Exclude<ThreadCategory, "all">>;
   }
 
   try {
@@ -349,13 +373,15 @@ function readThreadPlatformMap() {
       return {};
     }
 
-    return JSON.parse(stored) as Record<string, "tech" | "cote">;
+    return JSON.parse(stored) as Record<string, Exclude<ThreadCategory, "all">>;
   } catch {
     return {};
   }
 }
 
-function writeThreadPlatformMap(nextMap: Record<string, "tech" | "cote">) {
+function writeThreadPlatformMap(
+  nextMap: Record<string, Exclude<ThreadCategory, "all">>,
+) {
   if (typeof window === "undefined") {
     return;
   }
@@ -477,7 +503,8 @@ export default function HorokChat({
   problem,
 }: HorokChatProps) {
   const pathname = usePathname();
-  const { status: sessionStatus } = useSession();
+  const searchParams = useSearchParams();
+  const { data: session, status: sessionStatus } = useSession();
   const platform = pathname?.startsWith("/horok-cote") ? "cote" : "tech";
   const initialMessages = useMemo(
     () => buildInitialMessages(problem),
@@ -503,6 +530,11 @@ export default function HorokChat({
   const [messageTimes, setMessageTimes] = useState<Record<string, string>>({});
   const [threadCategory, setThreadCategory] = useState<ThreadCategory>("all");
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [handoffMeta, setHandoffMeta] = useState<ChatHandoffMeta | null>(null);
+  const [handoffMessage, setHandoffMessage] = useState<string | null>(null);
+  const [isHandoffDraftMode, setIsHandoffDraftMode] = useState(false);
+  const [isRequestingHandoff, setIsRequestingHandoff] = useState(false);
+  const [isSavingHandoffMessage, setIsSavingHandoffMessage] = useState(false);
   const [floatingPosition, setFloatingPosition] =
     useState<FloatingPosition | null>(null);
   const [floatingSize, setFloatingSize] = useState<FloatingSize>(
@@ -536,6 +568,8 @@ export default function HorokChat({
   const isOpenRef = useRef(false);
   const viewportSizeRef = useRef({ width: 0, height: 0 });
   const problemThreadRequestRef = useRef<string | null>(null);
+  const notificationThreadRequestRef = useRef<string | null>(null);
+  const shouldKeepNotificationThreadOpenRef = useRef(false);
 
   const {
     messages: rawMessages,
@@ -574,7 +608,10 @@ export default function HorokChat({
   const isAssistantResponding =
     status === "submitted" || status === "streaming";
   const isLoading =
-    isAssistantResponding || isHistoryLoading || isCreatingThread;
+    isAssistantResponding ||
+    isHistoryLoading ||
+    isCreatingThread ||
+    isSavingHandoffMessage;
   const hasMessages = useMemo(
     () =>
       visibleMessages.some(
@@ -593,6 +630,14 @@ export default function HorokChat({
   );
   const isThreadMode = sessionStatus === "authenticated" && view === "threads";
   const isPanelOpen = isEmbedded || isOpen;
+  const isAdminHandoffView = Boolean(handoffMeta?.isAdminView);
+  const threadCategories = useMemo(
+    () =>
+      (session?.user.role === "ADMIN"
+        ? ["all", "tech", "cote", "handoff"]
+        : ["all", "tech", "cote"]) as ThreadCategory[],
+    [session?.user.role],
+  );
   const searchableMessages = useMemo(
     () =>
       visibleMessages
@@ -933,7 +978,18 @@ export default function HorokChat({
   }, [isEmbedded]);
 
   useEffect(() => {
-    if (isEmbedded || !isOpen || sessionStatus !== "authenticated" || problem) {
+    if (
+      isEmbedded ||
+      !isOpen ||
+      sessionStatus !== "authenticated" ||
+      problem ||
+      searchParams.get("chatThreadId")
+    ) {
+      return;
+    }
+
+    if (shouldKeepNotificationThreadOpenRef.current) {
+      shouldKeepNotificationThreadOpenRef.current = false;
       return;
     }
 
@@ -942,7 +998,7 @@ export default function HorokChat({
     setSearchQuery("");
     setActiveSearchIndex(0);
     setThreadSwipeState(null);
-  }, [isEmbedded, isOpen, problem, sessionStatus]);
+  }, [isEmbedded, isOpen, problem, searchParams, sessionStatus]);
 
   useEffect(() => {
     if (isEmbedded || !floatingPosition) {
@@ -997,6 +1053,7 @@ export default function HorokChat({
         applyActiveThread(null);
         setThreads([]);
         setMessages(initialMessages);
+        setHandoffMeta(null);
         setHasLoadedChatState(true);
         return null;
       }
@@ -1021,7 +1078,10 @@ export default function HorokChat({
         const data = (await response.json()) as ChatPayload;
         const threadPlatformMap = readThreadPlatformMap();
         const nextThreads = data.threads.map((thread) => {
-          const resolvedPlatform = threadPlatformMap[thread.id] ?? platform;
+          const resolvedPlatform =
+            thread.platform === "handoff"
+              ? "handoff"
+              : (threadPlatformMap[thread.id] ?? platform);
           threadPlatformMap[thread.id] = resolvedPlatform;
 
           return {
@@ -1037,6 +1097,7 @@ export default function HorokChat({
         setThreads(uniqueThreads);
         applyActiveThread(data.activeThreadId);
         setMessages(data.activeThreadId ? data.messages : []);
+        setHandoffMeta(data.handoff ?? null);
         setHasLoadedChatState(true);
         return {
           ...data,
@@ -1047,6 +1108,7 @@ export default function HorokChat({
         setThreads([]);
         applyActiveThread(null);
         setMessages([]);
+        setHandoffMeta(null);
         setHasLoadedChatState(true);
         return null;
       } finally {
@@ -1065,6 +1127,7 @@ export default function HorokChat({
       applyActiveThread(null);
       setThreads([]);
       setMessages(initialMessages);
+      setHandoffMeta(null);
       setHasLoadedChatState(true);
       setView("chat");
       return;
@@ -1193,6 +1256,63 @@ export default function HorokChat({
     };
   }, [isCreatingThread, loadChatState, platform, problem, sessionStatus]);
 
+  useEffect(() => {
+    const targetThreadId = searchParams.get("chatThreadId");
+    if (
+      isEmbedded ||
+      problem ||
+      sessionStatus !== "authenticated" ||
+      !targetThreadId ||
+      !/^\d+$/.test(targetThreadId) ||
+      notificationThreadRequestRef.current === targetThreadId
+    ) {
+      return;
+    }
+
+    notificationThreadRequestRef.current = targetThreadId;
+
+    async function openNotificationThread() {
+      shouldKeepNotificationThreadOpenRef.current = true;
+      setIsOpen(true);
+      setView("chat");
+      setIsSearchOpen(false);
+      setSearchQuery("");
+      setActiveSearchIndex(0);
+      setThreadSwipeState(null);
+      await loadChatState(targetThreadId);
+    }
+
+    void openNotificationThread();
+  }, [isEmbedded, loadChatState, problem, searchParams, sessionStatus]);
+
+  useEffect(() => {
+    if (isEmbedded || problem || sessionStatus !== "authenticated") {
+      return;
+    }
+
+    function handleOpenChatThread(event: Event) {
+      const detail = (event as CustomEvent<{ threadId?: string }>).detail;
+      const targetThreadId = detail?.threadId;
+      if (!targetThreadId || !/^\d+$/.test(targetThreadId)) {
+        return;
+      }
+
+      notificationThreadRequestRef.current = targetThreadId;
+      shouldKeepNotificationThreadOpenRef.current = true;
+      setIsOpen(true);
+      setView("chat");
+      setIsSearchOpen(false);
+      setSearchQuery("");
+      setActiveSearchIndex(0);
+      setThreadSwipeState(null);
+      void loadChatState(targetThreadId);
+    }
+
+    window.addEventListener(OPEN_CHAT_THREAD_EVENT, handleOpenChatThread);
+    return () =>
+      window.removeEventListener(OPEN_CHAT_THREAD_EVENT, handleOpenChatThread);
+  }, [isEmbedded, loadChatState, problem, sessionStatus]);
+
   async function handleSelectThread(nextThreadId: string) {
     if (nextThreadId === threadId) {
       setView("chat");
@@ -1233,6 +1353,7 @@ export default function HorokChat({
       threadPlatformMap[data.threadId] = platform;
       writeThreadPlatformMap(threadPlatformMap);
       setMessages([]);
+      setHandoffMeta(null);
       setInput("");
       setView("chat");
       await loadChatState(data.threadId);
@@ -1296,15 +1417,14 @@ export default function HorokChat({
     }
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const trimmed = input.trim();
+  async function sendChatText(text: string) {
+    const trimmed = text.trim();
     if (!trimmed || isLoading) {
       return;
     }
 
     clearError();
+    setHandoffMessage(null);
     shouldStickToBottomRef.current = true;
 
     if (sessionStatus === "authenticated") {
@@ -1316,6 +1436,197 @@ export default function HorokChat({
 
     if (sessionStatus === "authenticated") {
       await loadChatState(activeThreadIdRef.current);
+    }
+  }
+
+  async function saveHandoffText(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || isSavingHandoffMessage || isCreatingThread) {
+      return false;
+    }
+
+    if (sessionStatus !== "authenticated") {
+      setHandoffMessage("로그인 후 현재 대화에 문의를 남길 수 있어요.");
+      return false;
+    }
+
+    setIsSavingHandoffMessage(true);
+    setHandoffMessage(null);
+    shouldStickToBottomRef.current = true;
+
+    try {
+      const nextThreadId = await ensureActiveThread();
+      if (!nextThreadId) {
+        throw new Error("Missing thread id");
+      }
+
+      const response = await fetch("/api/chat/handoff/message", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          platform,
+          threadId: nextThreadId,
+          content: trimmed,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "Failed to save handoff message");
+      }
+
+      setInput("");
+      setHandoffMessage(
+        "문의 내용을 이어서 입력하거나, 문의 완료하기를 눌러 관리자에게 남겨주세요.",
+      );
+      await loadChatState(nextThreadId);
+      return true;
+    } catch (handoffMessageError) {
+      console.error("Failed to save handoff message", handoffMessageError);
+      setHandoffMessage("문의 내용을 저장하지 못했습니다.");
+      return false;
+    } finally {
+      setIsSavingHandoffMessage(false);
+    }
+  }
+
+  async function saveAdminHandoffReply(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || isLoading) {
+      return;
+    }
+
+    const activeThreadId = activeThreadIdRef.current;
+    if (!activeThreadId) {
+      setHandoffMessage("답변할 문의 대화를 찾지 못했습니다.");
+      return;
+    }
+
+    setIsSavingHandoffMessage(true);
+    setHandoffMessage(null);
+    shouldStickToBottomRef.current = true;
+
+    try {
+      const response = await fetch("/api/chat/handoff/reply", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          platform,
+          threadId: activeThreadId,
+          content: trimmed,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "Failed to save admin reply");
+      }
+
+      setInput("");
+      setHandoffMessage("답변을 저장했습니다.");
+      await loadChatState(activeThreadId);
+    } catch (replyError) {
+      console.error("Failed to save admin handoff reply", replyError);
+      setHandoffMessage("답변을 저장하지 못했습니다.");
+    } finally {
+      setIsSavingHandoffMessage(false);
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isAdminHandoffView) {
+      await saveAdminHandoffReply(input);
+      return;
+    }
+
+    if (isHandoffDraftMode) {
+      await saveHandoffText(input);
+      return;
+    }
+
+    await sendChatText(input);
+  }
+
+  async function handleSuggestedQuestion(question: string) {
+    await sendChatText(question);
+  }
+
+  async function handleHandoffButton() {
+    if (isRequestingHandoff || isLoading) {
+      return;
+    }
+
+    if (sessionStatus !== "authenticated") {
+      setHandoffMessage("로그인 후 현재 대화에 문의를 남길 수 있어요.");
+      return;
+    }
+
+    if (!isHandoffDraftMode) {
+      setHandoffMessage(
+        "문의 내용을 입력해 주세요. 입력한 내용에는 AI가 답하지 않아요.",
+      );
+      setIsHandoffDraftMode(true);
+      inputRef.current?.focus();
+      return;
+    }
+
+    if (input.trim()) {
+      const didSave = await saveHandoffText(input);
+      if (!didSave) {
+        return;
+      }
+    }
+
+    setIsRequestingHandoff(true);
+    setHandoffMessage(null);
+
+    try {
+      const nextThreadId = await ensureActiveThread();
+      if (!nextThreadId) {
+        throw new Error("Missing thread id");
+      }
+
+      const response = await fetch("/api/chat/handoff", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          platform,
+          threadId: nextThreadId,
+          reason: "사용자가 현재 채팅 대화에 관리자 문의를 남겼습니다.",
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+        alreadyExists?: boolean;
+      } | null;
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "Failed to request handoff");
+      }
+
+      setHandoffMessage(
+        data?.alreadyExists
+          ? "이미 이 대화에 남긴 문의가 접수되어 있어요."
+          : "문의가 접수됐어요. 관리자가 확인 후 답변을 남길게요.",
+      );
+      setIsHandoffDraftMode(false);
+      await loadChatState(nextThreadId);
+    } catch (handoffError) {
+      console.error("Failed to request chat handoff", handoffError);
+      setHandoffMessage("문의를 접수하지 못했습니다.");
+    } finally {
+      setIsRequestingHandoff(false);
     }
   }
 
@@ -1390,6 +1701,7 @@ export default function HorokChat({
     if (threadId === targetThread.id) {
       applyActiveThread(null);
       setMessages([]);
+      setHandoffMeta(null);
     }
   }
 
@@ -1715,7 +2027,9 @@ export default function HorokChat({
                     isSearchOpen && !isThreadMode ? "opacity-0" : "opacity-100",
                   )}
                 >
-                  호록이
+                  {isAdminHandoffView && handoffMeta?.requester?.name
+                    ? handoffMeta.requester.name
+                    : "호록이"}
                 </p>
 
                 <div
@@ -1837,31 +2151,34 @@ export default function HorokChat({
             )}
           >
             {isThreadMode ? (
-              <div className="scrollbar-hide flex-1 overflow-y-auto p-3">
+              <div className="scrollbar-orange flex-1 overflow-y-auto">
+                <div className="p-3">
                 <div className="mb-3 flex items-center gap-1">
-                  {(["all", "tech", "cote"] as ThreadCategory[]).map(
-                    (category) => {
-                      const isActive = threadCategory === category;
+                  {threadCategories.map((category) => {
+                    const isActive = threadCategory === category;
 
-                      return (
-                        <button
-                          key={category}
-                          type="button"
-                          onClick={() => setThreadCategory(category)}
-                          className={cn(
-                            "rounded-full px-3 py-1.5 text-xs font-semibold transition",
-                            isActive
-                              ? platform === "cote"
-                                ? "bg-[#06923E] text-white"
-                                : "bg-primary text-primary-foreground"
-                              : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
-                          )}
-                        >
-                          {category === "all" ? "전체" : category}
-                        </button>
-                      );
-                    },
-                  )}
+                    return (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => setThreadCategory(category)}
+                        className={cn(
+                          "rounded-full px-3 py-1.5 text-xs font-semibold transition",
+                          isActive
+                            ? platform === "cote"
+                              ? "bg-[#06923E] text-white"
+                              : "bg-primary text-primary-foreground"
+                            : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
+                        )}
+                      >
+                        {category === "all"
+                          ? "전체"
+                          : category === "handoff"
+                            ? "문의"
+                            : category}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {filteredThreads.length > 0 ? (
@@ -1985,204 +2302,303 @@ export default function HorokChat({
                     </p>
                   </div>
                 )}
+                </div>
               </div>
             ) : (
               <>
-                <div
-                  ref={messagesViewportRef}
-                  onScroll={handleMessagesScroll}
-                  className="scrollbar-hide flex-1 space-y-3 overflow-y-auto pl-4"
-                >
-                  {hasMessages
-                    ? visibleMessages.map((message, index) => {
-                        const text = getMessageText(message.parts).trim();
-                        if (!text) {
-                          return null;
-                        }
+                <div className="relative min-h-0 flex-1">
+                  <div
+                    ref={messagesViewportRef}
+                    onScroll={handleMessagesScroll}
+                    className="scrollbar-orange h-full overflow-y-auto"
+                  >
+                    <div
+                      className={cn(
+                        "flex flex-col space-y-3 px-3 pt-3",
+                        isAdminHandoffView ? "pb-3" : "pb-14",
+                      )}
+                    >
+                    {hasMessages
+                      ? visibleMessages.map((message, index) => {
+                          const text = getMessageText(message.parts).trim();
+                          if (!text) {
+                            return null;
+                          }
 
-                        const isUser = message.role === "user";
-                        const resolvedTimestamp =
-                          message.createdAt ??
-                          messageTimes[message.id] ??
-                          new Date().toISOString();
-                        const previousTimestamp =
-                          index > 0
-                            ? (visibleMessages[index - 1]?.createdAt ??
-                              messageTimes[
-                                visibleMessages[index - 1]?.id ?? ""
-                              ])
-                            : null;
-                        const messageTime =
-                          formatMessageTime(resolvedTimestamp);
-                        const showDateBadge =
-                          getMessageDateKey(resolvedTimestamp) !==
-                          getMessageDateKey(previousTimestamp);
-                        const isSearchMatch = matchedMessageIds.includes(
-                          message.id,
-                        );
-                        const activeOccurrenceIndexInMessage =
-                          activeSearchMatch?.messageId === message.id
-                            ? activeSearchMatch.occurrenceIndexInMessage
-                            : undefined;
-                        const shouldAnimateMessage =
-                          !isUser &&
-                          !isSearchMatch &&
-                          index === visibleMessages.length - 1 &&
-                          isAssistantResponding &&
-                          !message.createdAt;
+                          const isUser = message.role === "user";
+                          const isAdminAuthoredMessage =
+                            message.sender?.role === "ADMIN";
+                          const isRequesterMessage =
+                            Boolean(handoffMeta?.isAdminView) && isUser;
+                          const isOutgoingMessage =
+                            (isUser && !isRequesterMessage) ||
+                            (isAdminHandoffView && isAdminAuthoredMessage);
+                          const avatarSrc = isRequesterMessage
+                            ? (handoffMeta?.requester.image ?? "/logo.png")
+                            : isAdminAuthoredMessage
+                              ? (message.sender?.image ?? "/logo.png")
+                              : "/logo.png";
+                          const avatarAlt = isRequesterMessage
+                            ? `${handoffMeta?.requester.name ?? "문의자"} 프로필`
+                            : isAdminAuthoredMessage
+                              ? `${message.sender?.name ?? "관리자"} 프로필`
+                              : "호록 프로필";
+                          const resolvedTimestamp =
+                            message.createdAt ??
+                            messageTimes[message.id] ??
+                            new Date().toISOString();
+                          const previousTimestamp =
+                            index > 0
+                              ? (visibleMessages[index - 1]?.createdAt ??
+                                messageTimes[
+                                  visibleMessages[index - 1]?.id ?? ""
+                                ])
+                              : null;
+                          const messageTime =
+                            formatMessageTime(resolvedTimestamp);
+                          const showDateBadge =
+                            getMessageDateKey(resolvedTimestamp) !==
+                            getMessageDateKey(previousTimestamp);
+                          const isSearchMatch = matchedMessageIds.includes(
+                            message.id,
+                          );
+                          const activeOccurrenceIndexInMessage =
+                            activeSearchMatch?.messageId === message.id
+                              ? activeSearchMatch.occurrenceIndexInMessage
+                              : undefined;
+                          const shouldAnimateMessage =
+                            !isUser &&
+                            !isSearchMatch &&
+                            index === visibleMessages.length - 1 &&
+                            isAssistantResponding &&
+                            !message.createdAt;
 
-                        return (
-                          <div key={message.id} className="space-y-3">
-                            {showDateBadge ? (
-                              <div className="flex justify-center">
-                                <div className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500 dark:bg-zinc-900 dark:text-zinc-400">
-                                  {formatMessageDateBadge(resolvedTimestamp)}
+                          return (
+                            <div key={message.id} className="space-y-3">
+                              {showDateBadge ? (
+                                <div className="flex justify-center">
+                                  <div className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500 dark:bg-zinc-900 dark:text-zinc-400">
+                                    {formatMessageDateBadge(resolvedTimestamp)}
+                                  </div>
                                 </div>
-                              </div>
-                            ) : null}
-
-                            <div
-                              ref={(element) => {
-                                messageRefs.current[message.id] = element;
-                              }}
-                              className={cn(
-                                "flex w-full min-w-0 items-start gap-2 transition",
-                                isUser ? "justify-end" : "justify-start",
-                              )}
-                            >
-                              {!isUser ? (
-                                <Image
-                                  src="/logo.png"
-                                  alt="호록 프로필"
-                                  width={32}
-                                  height={32}
-                                  className={cn(
-                                    "mt-1 size-8 shrink-0 rounded-full border object-cover",
-                                    platform === "cote"
-                                      ? "border-[#06923E]/25 bg-white"
-                                      : "border-orange-200 bg-white dark:border-orange-400/30",
-                                  )}
-                                />
                               ) : null}
+
                               <div
+                                ref={(element) => {
+                                  messageRefs.current[message.id] = element;
+                                }}
                                 className={cn(
-                                  "flex min-w-0 items-end gap-1.5",
-                                  isUser
-                                    ? "ml-10 max-w-[calc(100%-2.5rem)] flex-row-reverse justify-end"
-                                    : "flex-1",
+                                  "flex w-full min-w-0 items-start gap-2 transition",
+                                  isOutgoingMessage
+                                    ? "justify-end"
+                                    : "justify-start",
                                 )}
                               >
-                                <div
-                                  className={cn(
-                                    "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl px-4 py-3 text-sm leading-5 shadow-sm",
-                                    isUser
-                                      ? platform === "cote"
-                                        ? "rounded-br-lg bg-[#06923E] text-white dark:bg-[#06923E] dark:text-white"
-                                        : "rounded-br-lg bg-orange-500 text-white dark:bg-orange-500 dark:text-white"
-                                      : platform === "cote"
-                                        ? "border border-[#06923E]/10 bg-white text-slate-800 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-slate-100"
-                                        : "border border-orange-100 bg-white text-slate-800 dark:border-orange-400/20 dark:bg-zinc-900 dark:text-zinc-100",
-                                  )}
-                                >
-                                  {isSearchMatch ? (
-                                    <p className="whitespace-pre-wrap">
-                                      {renderHighlightedText(
-                                        text,
-                                        activeOccurrenceIndexInMessage,
-                                      )}
-                                    </p>
-                                  ) : (
-                                    <AnimatedChatMarkdown
-                                      content={text}
-                                      shouldAnimate={shouldAnimateMessage}
+                                {!isOutgoingMessage ? (
+                                  <div className="relative mt-1 size-8 shrink-0">
+                                    <Image
+                                      src={avatarSrc}
+                                      alt={avatarAlt}
+                                      width={32}
+                                      height={32}
                                       className={cn(
-                                        CHAT_MARKDOWN_CLASS_NAME,
-                                        isUser ? "[&_th]:bg-white/15" : "",
+                                        "relative z-10 size-full rounded-full border object-cover",
+                                        platform === "cote"
+                                          ? "border-[#06923E]/25 bg-white"
+                                          : "border-orange-200 bg-white dark:border-orange-400/30",
                                       )}
                                     />
-                                  )}
-                                </div>
+                                    {isAdminAuthoredMessage ? (
+                                      <Crown
+                                        className="pointer-events-none absolute -top-2 left-1/2 z-0 h-3.5 w-3.5 -translate-x-1/2 fill-amber-300 text-amber-500 drop-shadow-sm"
+                                        strokeWidth={2.5}
+                                        aria-hidden="true"
+                                      />
+                                    ) : null}
+                                  </div>
+                                ) : null}
                                 <div
                                   className={cn(
-                                    "flex w-9 shrink-0 flex-col gap-0.5",
-                                    isUser ? "items-end" : "items-start",
+                                    "flex min-w-0 items-end gap-1.5",
+                                    isOutgoingMessage
+                                      ? "ml-10 max-w-[calc(100%-2.5rem)] flex-row-reverse justify-end"
+                                      : "flex-1",
                                   )}
                                 >
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      void handleCopyMessage(message.id, text)
-                                    }
-                                    className="p-0.5 text-slate-400 transition hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
-                                    aria-label="메시지 복사"
-                                  >
-                                    {copiedMessageId === message.id ? (
-                                      <Check className="size-3.5" />
-                                    ) : (
-                                      <Copy className="size-3.5" />
+                                  <div
+                                    className={cn(
+                                      "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl px-4 py-3 text-sm leading-5 shadow-sm",
+                                      isOutgoingMessage
+                                        ? platform === "cote"
+                                          ? "rounded-br-lg bg-[#06923E] text-white dark:bg-[#06923E] dark:text-white"
+                                          : "rounded-br-lg bg-orange-500 text-white dark:bg-orange-500 dark:text-white"
+                                        : platform === "cote"
+                                          ? "border border-[#06923E]/10 bg-white text-slate-800 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-slate-100"
+                                          : "border border-orange-100 bg-white text-slate-800 dark:border-orange-400/20 dark:bg-zinc-900 dark:text-zinc-100",
                                     )}
-                                  </button>
-                                  {messageTime ? (
-                                    <span className="whitespace-nowrap text-[11px] text-slate-400 dark:text-zinc-500">
-                                      {messageTime}
-                                    </span>
-                                  ) : null}
+                                  >
+                                    {isSearchMatch ? (
+                                      <p className="whitespace-pre-wrap">
+                                        {renderHighlightedText(
+                                          text,
+                                          activeOccurrenceIndexInMessage,
+                                        )}
+                                      </p>
+                                    ) : (
+                                      <AnimatedChatMarkdown
+                                        content={text}
+                                        shouldAnimate={shouldAnimateMessage}
+                                        className={cn(
+                                          CHAT_MARKDOWN_CLASS_NAME,
+                                          isOutgoingMessage
+                                            ? "[&_th]:bg-white/15"
+                                            : "",
+                                        )}
+                                      />
+                                    )}
+                                  </div>
+                                  <div
+                                    className={cn(
+                                      "flex w-9 shrink-0 flex-col gap-0.5",
+                                      isOutgoingMessage
+                                        ? "items-end"
+                                        : "items-start",
+                                    )}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void handleCopyMessage(message.id, text)
+                                      }
+                                      className="p-0.5 text-slate-400 transition hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+                                      aria-label="메시지 복사"
+                                    >
+                                      {copiedMessageId === message.id ? (
+                                        <Check className="size-3.5" />
+                                      ) : (
+                                        <Copy className="size-3.5" />
+                                      )}
+                                    </button>
+                                    {messageTime ? (
+                                      <span className="whitespace-nowrap text-[11px] text-slate-400 dark:text-zinc-500">
+                                        {messageTime}
+                                      </span>
+                                    ) : null}
+                                  </div>
                                 </div>
                               </div>
+
+                              {sessionStatus === "unauthenticated" &&
+                              index === 0 &&
+                              !isUser ? (
+                                <p className="text-center text-xs text-muted-foreground">
+                                  로그인 하시면 대화를 저장할 수 있습니다.
+                                </p>
+                              ) : null}
                             </div>
+                          );
+                        })
+                      : null}
 
-                            {sessionStatus === "unauthenticated" &&
-                            index === 0 &&
-                            !isUser ? (
-                              <p className="text-center text-xs text-muted-foreground">
-                                로그인 하시면 대화를 저장할 수 있습니다.
-                              </p>
-                            ) : null}
-                          </div>
-                        );
-                      })
-                    : null}
-
-                  {isAssistantResponding ? (
-                    <div className="flex w-full min-w-0 items-start justify-start gap-2">
-                      <Image
-                        src="/logo.png"
-                        alt="호록 프로필"
-                        width={32}
-                        height={32}
-                        className={cn(
-                          "mt-1 size-8 shrink-0 rounded-full border object-cover",
-                          platform === "cote"
-                            ? "border-[#06923E]/25 bg-white"
-                            : "border-orange-200 bg-white dark:border-orange-400/30",
-                        )}
-                      />
-                      <div className="flex min-w-0 flex-1 items-end gap-1.5">
-                        <div
+                    {isAssistantResponding ? (
+                      <div className="flex w-full min-w-0 items-start justify-start gap-2">
+                        <Image
+                          src="/logo.png"
+                          alt="호록 프로필"
+                          width={32}
+                          height={32}
                           className={cn(
-                            "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl rounded-bl-lg border bg-white px-4 py-3 text-sm text-slate-500 shadow-sm dark:text-zinc-300",
+                            "mt-1 size-8 shrink-0 rounded-full border object-cover",
                             platform === "cote"
-                              ? "border-[#06923E]/10 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-slate-300"
-                              : "border-orange-100 dark:border-orange-400/20 dark:bg-zinc-900 dark:text-zinc-300",
+                              ? "border-[#06923E]/25 bg-white"
+                              : "border-orange-200 bg-white dark:border-orange-400/30",
                           )}
-                        >
-                          답변을 작성 중입니다...
+                        />
+                        <div className="flex min-w-0 flex-1 items-end gap-1.5">
+                          <div
+                            className={cn(
+                              "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl rounded-bl-lg border bg-white px-4 py-3 text-sm text-slate-500 shadow-sm dark:text-zinc-300",
+                              platform === "cote"
+                                ? "border-[#06923E]/10 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-slate-300"
+                                : "border-orange-100 dark:border-orange-400/20 dark:bg-zinc-900 dark:text-zinc-300",
+                            )}
+                          >
+                            답변을 작성 중입니다...
+                          </div>
+                          <span className="w-9 shrink-0 whitespace-nowrap text-[11px] text-slate-400 dark:text-zinc-500">
+                            {formatMessageTime(new Date().toISOString())}
+                          </span>
                         </div>
-                        <span className="w-9 shrink-0 whitespace-nowrap text-[11px] text-slate-400 dark:text-zinc-500">
-                          {formatMessageTime(new Date().toISOString())}
-                        </span>
                       </div>
-                    </div>
-                  ) : null}
+                    ) : null}
 
-                  {error ? (
-                    <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-500/30 dark:bg-red-950/40 dark:text-red-300">
-                      챗봇 연결 중 문제가 발생했습니다. 잠시 후 다시 시도해
-                      주세요.
-                    </div>
-                  ) : null}
+                    {error ? (
+                      <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-500/30 dark:bg-red-950/40 dark:text-red-300">
+                        챗봇 연결 중 문제가 발생했습니다. 잠시 후 다시 시도해
+                        주세요.
+                      </div>
+                    ) : null}
 
-                  <div ref={messagesEndRef} />
+                    {handoffMessage ? (
+                      <p className="px-1 text-center text-xs text-muted-foreground">
+                        {handoffMessage}
+                      </p>
+                    ) : null}
+
+                    <div ref={messagesEndRef} />
+                    </div>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "pointer-events-none absolute inset-x-0 bottom-0 px-3",
+                      isAdminHandoffView && "hidden",
+                    )}
+                  >
+                    <div className="scrollbar-hide pointer-events-auto flex flex-nowrap gap-2 overflow-x-auto">
+                      {!isAdminHandoffView ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void handleHandoffButton()}
+                            disabled={isRequestingHandoff || isLoading}
+                            className={cn(
+                              "inline-flex shrink-0 items-center gap-1.5 rounded-full border bg-white px-3 py-1.5 text-xs font-semibold text-orange-600 transition disabled:cursor-default disabled:opacity-45 dark:bg-zinc-950 dark:text-orange-300",
+                              platform === "cote"
+                                ? "border-orange-300 hover:border-orange-400 hover:bg-orange-50 dark:border-orange-400/35 dark:hover:bg-orange-950/30"
+                                : "border-orange-300 hover:border-orange-400 hover:bg-orange-50 dark:border-orange-400/35 dark:hover:bg-orange-950/30",
+                            )}
+                          >
+                            <Headphones className="size-3.5" />
+                            {isRequestingHandoff
+                              ? "요청 접수 중..."
+                              : isHandoffDraftMode
+                                ? "문의 완료"
+                                : "문의 모드"}
+                          </button>
+
+                          {CHAT_SUGGESTED_QUESTIONS.map((question) => (
+                            <button
+                              key={question}
+                              type="button"
+                              onClick={() =>
+                                void handleSuggestedQuestion(question)
+                              }
+                              disabled={isLoading || isHandoffDraftMode}
+                              className={cn(
+                                "shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold text-white transition disabled:cursor-default disabled:opacity-45",
+                                platform === "cote"
+                                  ? "border-[#06923E] bg-[#06923E] hover:border-[#047a33] hover:bg-[#047a33]"
+                                  : "border-orange-500 bg-orange-500 hover:border-orange-600 hover:bg-orange-600",
+                              )}
+                            >
+                              {question}
+                            </button>
+                          ))}
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
 
                 <form
@@ -2206,7 +2622,13 @@ export default function HorokChat({
                       ref={inputRef}
                       value={input}
                       onChange={(event) => setInput(event.target.value)}
-                      placeholder="호록이에게 물어보세요"
+                      placeholder={
+                        isAdminHandoffView
+                          ? "문의자에게 남길 답변을 입력하세요"
+                          : isHandoffDraftMode
+                            ? "관리자에게 남길 문의를 입력하세요"
+                            : "호록이에게 물어보세요"
+                      }
                       className="h-10 w-full bg-transparent pl-3 pr-12 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-zinc-100 dark:placeholder:text-zinc-500"
                     />
                     <button

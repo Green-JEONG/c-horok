@@ -46,6 +46,9 @@ model User {
   blockedAt             DateTime?             @map("blocked_at")
   blockedReason         String?               @map("blocked_reason") @db.VarChar(255)
 
+  chatHandoffs          ChatHandoff[]         @relation("ChatHandoffUser")
+  chatHandoffReplies    ChatHandoff[]         @relation("ChatHandoffAdmin")
+  chatMessages          ChatMessage[]         @relation("ChatMessageSender")
   chatThreads           ChatThread[]
   comments              Comment[]
   coteMember            CoteMember?
@@ -72,7 +75,9 @@ model ChatThread {
   updatedAt DateTime       @default(now()) @updatedAt @map("updated_at")
 
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  handoffs  ChatHandoff[]
   messages  ChatMessage[]
+  notifications Notification[]
 
   @@index([userId, updatedAt], map: "idx_chat_threads_user_updated_at")
   @@map("chat_threads")
@@ -82,14 +87,38 @@ model ChatThread {
 model ChatMessage {
   id        BigInt          @id @default(autoincrement())
   threadId  BigInt          @map("thread_id")
+  senderUserId BigInt?      @map("sender_user_id")
   role      ChatMessageRole
   content   String          @db.Text
   createdAt DateTime        @default(now()) @map("created_at")
 
   thread    ChatThread      @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender    User?           @relation("ChatMessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
 
+  @@index([senderUserId], map: "idx_chat_messages_sender_user_id")
   @@index([threadId, createdAt], map: "idx_chat_messages_thread_created_at")
   @@map("chat_messages")
+  @@schema("public")
+}
+
+model ChatHandoff {
+  id              BigInt     @id @default(autoincrement())
+  threadId        BigInt     @map("thread_id")
+  userId          BigInt     @map("user_id")
+  status          String     @default("pending") @db.VarChar(20)
+  reason          String?    @db.Text
+  adminReply      String?    @map("admin_reply") @db.Text
+  repliedByUserId BigInt?    @map("replied_by_user_id")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  repliedAt       DateTime?  @map("replied_at")
+
+  thread          ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user            User       @relation("ChatHandoffUser", fields: [userId], references: [id], onDelete: Cascade)
+  repliedBy       User?      @relation("ChatHandoffAdmin", fields: [repliedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt], map: "idx_chat_handoffs_status_created_at")
+  @@index([userId, createdAt], map: "idx_chat_handoffs_user_created_at")
+  @@map("chat_handoffs")
   @@schema("public")
 }
 
@@ -228,6 +257,7 @@ model Notification {
   actorId   BigInt?   @map("actor_id")
   postId    BigInt?   @map("post_id")
   commentId BigInt?   @map("comment_id")
+  chatThreadId BigInt? @map("chat_thread_id")
   type      String    @db.VarChar(50)
   content   String?   @db.VarChar(255)
   isRead    Boolean   @default(false) @map("is_read")
@@ -237,8 +267,10 @@ model Notification {
   actor     User?     @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
   post      Post?     @relation(fields: [postId], references: [id], onDelete: Cascade)
   comment   Comment?  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  chatThread ChatThread? @relation(fields: [chatThreadId], references: [id], onDelete: Cascade)
 
   @@index([actorId])
+  @@index([chatThreadId])
   @@index([commentId])
   @@index([postId])
   @@index([userId])
