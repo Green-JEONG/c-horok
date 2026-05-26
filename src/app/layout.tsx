@@ -80,10 +80,23 @@ export default function RootLayout({
             }
             footer={
               <footer className="mt-auto text-center text-xs text-muted-foreground">
-                © 2026 | c.horok | All rights reserved.
+                © 2026 |{" "}
+                <a
+                  href="https://github.com/Green-JEONG/c-horok"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-primary hover:text-primary/80 hover:underline"
+                >
+                  c.horok
+                </a>{" "}
+                | All rights reserved.
               </footer>
             }
-            chat={<HorokChat />}
+            chat={
+              <Suspense fallback={null}>
+                <HorokChat />
+              </Suspense>
+            }
           >
             {children}
           </AppShell>

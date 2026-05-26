@@ -20,6 +20,7 @@ import { getTechFeedPostPath } from "@/lib/routes";
 function normalizeNotificationType(type: string | null) {
   if (type === "NEW_COMMENT") return "POST_COMMENT";
   if (type === "NEW_LIKE") return "POST_LIKE";
+  if (type === "chat_handoff" || type === "chat_handoff_reply") return "CHAT_HANDOFF";
   return type ?? "UNKNOWN";
 }
 
@@ -159,6 +160,23 @@ export async function GET() {
         },
       },
     });
+    const chatThreadEntries = await Promise.all(
+      rows.map(
+        (row) =>
+          prisma.$queryRaw<Array<{ chat_thread_id: bigint | null }>>`
+          SELECT chat_thread_id
+          FROM public.notifications
+          WHERE id = ${row.id}
+          LIMIT 1
+        `,
+      ),
+    );
+    const chatThreadIdByNotificationId = new Map(
+      rows.map((row, index) => [
+        row.id.toString(),
+        chatThreadEntries[index]?.[0]?.chat_thread_id ?? null,
+      ]),
+    );
 
     return NextResponse.json(
       rows.map((row) => ({
@@ -170,6 +188,9 @@ export async function GET() {
         actor_id: row.actorId ? Number(row.actorId) : null,
         post_id: row.postId ? Number(row.postId) : null,
         comment_id: row.commentId ? Number(row.commentId) : null,
+        chat_thread_id: chatThreadIdByNotificationId.get(row.id.toString())
+          ? Number(chatThreadIdByNotificationId.get(row.id.toString()))
+          : null,
         post_path: row.postId
           ? isNoticeCategoryName(row.post?.category?.name)
             ? `/horok-tech/notices/${Number(row.postId)}`

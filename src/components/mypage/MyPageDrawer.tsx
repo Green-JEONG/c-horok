@@ -33,13 +33,15 @@ type Notification = {
     | "NEW_POST"
     | "POST_REACTION"
     | "COMMENT_REACTION"
-    | "NEW_FOLLOWER";
+    | "NEW_FOLLOWER"
+    | "CHAT_HANDOFF";
   actor_name: string | null;
   actor_image?: string | null;
   actor_id?: number | null;
   message?: string | null;
   post_id: number | null;
   comment_id: number | null;
+  chat_thread_id?: number | null;
   post_path: string | null;
   is_post_deleted: boolean;
   is_notice_post?: boolean;
@@ -49,6 +51,7 @@ type Notification = {
 };
 
 const NOTIFICATIONS_UPDATED_EVENT = "notifications-updated";
+const OPEN_CHAT_THREAD_EVENT = "horok-open-chat-thread";
 const DRAWER_TRANSITION_MS = 300;
 
 function renderNotificationMessage(n: Notification) {
@@ -70,6 +73,8 @@ function renderNotificationMessage(n: Notification) {
       return `${n.actor_name ?? "누군가"}님이 반응했습니다`;
     case "NEW_FOLLOWER":
       return `${n.actor_name ?? "누군가"}님이 나를 팔로잉 했습니다.`;
+    case "CHAT_HANDOFF":
+      return n.message ?? "챗봇 대화에 관리자 문의가 접수되었습니다.";
     default:
       return "새 알림이 있습니다";
   }
@@ -592,6 +597,20 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                             }
 
                             onClose();
+                            if (
+                              n.type === "CHAT_HANDOFF" &&
+                              typeof n.chat_thread_id === "number"
+                            ) {
+                              window.dispatchEvent(
+                                new CustomEvent(OPEN_CHAT_THREAD_EVENT, {
+                                  detail: {
+                                    threadId: String(n.chat_thread_id),
+                                  },
+                                }),
+                              );
+                              return;
+                            }
+
                             if (
                               n.type === "NEW_FOLLOWER" ||
                               n.type === "FRIEND_REQUEST"
