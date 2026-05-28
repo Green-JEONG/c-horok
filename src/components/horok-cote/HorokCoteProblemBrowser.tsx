@@ -104,7 +104,7 @@ export default function HorokCoteProblemBrowser({
                 <Link
                   key={problem.number}
                   href={`/horok-cote/${problem.number}`}
-                  className="group relative origin-center rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-5 transition duration-200 hover:z-10 hover:scale-[1.01] md:odd:origin-left md:even:origin-right hover:border-slate-300 hover:shadow-[0_16px_40px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)] dark:hover:border-slate-700 dark:hover:shadow-[0_18px_45px_rgba(2,6,23,0.5)]"
+                  className="group relative origin-center min-w-0 rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-5 transition duration-200 hover:z-10 hover:scale-[1.01] md:odd:origin-left md:even:origin-right hover:border-slate-300 hover:shadow-[0_16px_40px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)] dark:hover:border-slate-700 dark:hover:shadow-[0_18px_45px_rgba(2,6,23,0.5)]"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-[#44bb68]">
