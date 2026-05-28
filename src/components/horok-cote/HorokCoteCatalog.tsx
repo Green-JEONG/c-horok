@@ -47,8 +47,8 @@ export default function HorokCoteCatalog({
               value={selectedLevel}
               onChange={setSelectedLevel}
             />
-            <ChevronRight className="size-4 text-slate-300 dark:text-slate-600" />
-            <div className="min-w-0 max-w-[280px] flex-1">
+            <ChevronRight className="hidden size-4 text-slate-300 dark:text-slate-600 sm:block" />
+            <div className="hidden min-w-0 max-w-[280px] flex-1 sm:block">
               <HorokCoteProblemQuickSearch problems={problems} alwaysExpanded />
             </div>
           </div>
@@ -59,6 +59,9 @@ export default function HorokCoteCatalog({
               <ThemeToggle />
             </div>
           </div>
+        </div>
+        <div className="mt-3 w-full sm:hidden">
+          <HorokCoteProblemQuickSearch problems={problems} alwaysExpanded />
         </div>
       </div>
       <HorokCoteProblemBrowser
