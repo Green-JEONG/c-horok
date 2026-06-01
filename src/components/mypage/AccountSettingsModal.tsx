@@ -438,7 +438,10 @@ export default function AccountSettingsModal({
                   alt="프로필 사진"
                   width={72}
                   height={72}
-                  className="h-18 w-18 rounded-full border object-cover"
+                  className={cn(
+                    "h-18 w-18 rounded-full border object-cover",
+                    !imageUrl && "grayscale",
+                  )}
                 />
                 <div className="flex flex-wrap gap-2">
                   <label className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted cursor-pointer">

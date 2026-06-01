@@ -13,6 +13,8 @@ import {
 } from "@/components/mypage/usePlatformProfile";
 import { Button } from "@/components/ui/button";
 
+import { cn } from "@/lib/utils";
+
 type NotificationSummary = {
   id: number;
   is_read: number;
@@ -121,7 +123,10 @@ export default function HeaderActions() {
           }
           width={30}
           height={30}
-          className="relative z-10 h-full w-full rounded-full border border-border object-contain transition group-hover:border-primary/30"
+          className={cn(
+            "relative z-10 h-full w-full rounded-full border border-border object-contain transition group-hover:border-primary/30",
+            !(platformProfile?.image ?? session?.user?.image) && "grayscale",
+          )}
         />
         {isAdmin ? (
           <Crown

@@ -1,6 +1,6 @@
 "use client";
 
-import { Circle, CircleCheckBig, Settings, Trash2 } from "lucide-react";
+import { Circle, CircleCheckBig, Settings, Trash2, X } from "lucide-react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
@@ -26,15 +26,15 @@ type Props = {
 type Notification = {
   id: number;
   type:
-    | "FRIEND_REQUEST"
-    | "POST_COMMENT"
-    | "COMMENT_REPLY"
-    | "POST_LIKE"
-    | "NEW_POST"
-    | "POST_REACTION"
-    | "COMMENT_REACTION"
-    | "NEW_FOLLOWER"
-    | "CHAT_HANDOFF";
+  | "FRIEND_REQUEST"
+  | "POST_COMMENT"
+  | "COMMENT_REPLY"
+  | "POST_LIKE"
+  | "NEW_POST"
+  | "POST_REACTION"
+  | "COMMENT_REACTION"
+  | "NEW_FOLLOWER"
+  | "CHAT_HANDOFF";
   actor_name: string | null;
   actor_image?: string | null;
   actor_id?: number | null;
@@ -172,6 +172,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
   const isCote = platform === "cote";
   const { profile, refresh } = usePlatformProfile(open);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(open);
   const [portalReady, setPortalReady] = useState(false);
   const router = useRouter();
@@ -350,7 +351,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex items-center justify-between px-4 pt-2 pb-10">
+        <div className="flex items-center justify-between p-2">
           <nav className="flex items-center gap-4 text-sm">
             {session?.user?.role === "ADMIN" && (
               <button
@@ -382,13 +383,23 @@ export default function MyPageDrawer({ open, onClose }: Props) {
 
         {/* profile */}
         <div className="px-4 flex flex-col items-center gap-3">
-          <Image
-            src={profile?.image ?? session?.user?.image ?? "/logo.png"}
-            alt="profile"
-            width={150}
-            height={150}
-            className="h-[150px] w-[150px] rounded-full border border-border object-cover"
-          />
+          <button
+            type="button"
+            onClick={() => setImagePreviewOpen(true)}
+            className="shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            aria-label={`${profile?.name ?? session?.user?.name ?? "사용자"} 프로필 이미지 확대`}
+          >
+            <Image
+              src={profile?.image ?? session?.user?.image ?? "/logo.png"}
+              alt="profile"
+              width={150}
+              height={150}
+              className={cn(
+                "h-[150px] w-[150px] rounded-full border border-border object-cover",
+                !(profile?.image ?? session?.user?.image) && "grayscale",
+              )}
+            />
+          </button>
           <div className="flex flex-col items-center">
             <p
               className={cn(
@@ -495,8 +506,8 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                         ? "border-red-500 bg-red-500 px-3 text-xs font-semibold text-white hover:bg-red-600"
                         : "size-8 border-border bg-background text-muted-foreground hover:border-primary/30 hover:bg-primary/10 hover:text-foreground",
                       isNotificationDeleteMode &&
-                        selectedNotificationIds.length === 0 &&
-                        "opacity-60",
+                      selectedNotificationIds.length === 0 &&
+                      "opacity-60",
                     )}
                   >
                     {isNotificationDeleteMode ? (
@@ -532,7 +543,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                   const showDateBadge =
                     !previousNotification ||
                     getNotificationDateKey(previousNotification.created_at) !==
-                      getNotificationDateKey(n.created_at);
+                    getNotificationDateKey(n.created_at);
 
                   return (
                     <li key={n.id} className="space-y-2">
@@ -553,9 +564,9 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                               setSelectedNotificationIds((current) =>
                                 current.includes(n.id)
                                   ? current.filter(
-                                      (notificationId) =>
-                                        notificationId !== n.id,
-                                    )
+                                    (notificationId) =>
+                                      notificationId !== n.id,
+                                  )
                                   : [...current, n.id],
                               );
                               return;
@@ -713,13 +724,16 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                             alt={`${n.actor_name ?? "알림 발신자"} 프로필`}
                             width={24}
                             height={24}
-                            className="size-6 shrink-0 rounded-full border object-cover"
+                            className={cn(
+                              "size-6 shrink-0 rounded-full border object-cover",
+                              !n.actor_image && "grayscale",
+                            )}
                           />
                           <span
                             className={cn(
                               "min-w-0 flex-1",
                               (n.is_post_deleted || n.is_comment_deleted) &&
-                                "line-through decoration-foreground",
+                              "line-through decoration-foreground",
                             )}
                           >
                             {renderEmphasizedNotificationMessage(
@@ -818,6 +832,40 @@ export default function MyPageDrawer({ open, onClose }: Props) {
         onClose={() => setSettingsOpen(false)}
         onSaved={refresh}
       />
+
+      {imagePreviewOpen ? (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center px-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${profile?.name ?? session?.user?.name ?? "사용자"} 프로필 이미지`}
+        >
+          <button
+            type="button"
+            className="absolute inset-0 z-0 bg-black/60"
+            onClick={() => setImagePreviewOpen(false)}
+            aria-label="프로필 이미지 닫기"
+          />
+          <div className="relative z-10 rounded-2xl bg-background p-4 shadow-xl">
+            <Image
+              src={profile?.image ?? session?.user?.image ?? "/logo.png"}
+              alt={`${profile?.name ?? session?.user?.name ?? "사용자"} 프로필 확대`}
+              width={360}
+              height={360}
+              className={`max-h-[80vh] max-w-[80vw] object-contain ${!(profile?.image ?? session?.user?.image) ? "grayscale" : ""
+                }`}
+            />
+            <button
+              type="button"
+              onClick={() => setImagePreviewOpen(false)}
+              className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-background/80 text-muted-foreground backdrop-blur-sm transition hover:bg-muted hover:text-foreground"
+              aria-label="프로필 이미지 닫기"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>,
     document.body,
   );

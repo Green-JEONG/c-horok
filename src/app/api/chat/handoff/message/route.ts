@@ -90,7 +90,7 @@ export async function POST(req: Request) {
             '챗봇 대화에 새로운 문의 메시지가 도착했습니다.'
           )
         `;
-      })
+      }),
     );
 
     return Response.json({ ok: true, threadId });

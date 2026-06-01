@@ -126,7 +126,7 @@ export default async function UserFollowersSection({
                   alt={`${followingUser.name ?? "구독 유저"} 프로필`}
                   width={72}
                   height={72}
-                  className="h-18 w-18 rounded-full border object-cover"
+                  className={`h-18 w-18 rounded-full border object-cover ${!followingUser.image ? "grayscale" : ""}`}
                 />
                 <p className="mt-3 w-full truncate font-medium">
                   {followingUser.name ?? "이름 없는 사용자"}

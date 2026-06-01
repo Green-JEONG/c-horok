@@ -453,12 +453,14 @@ export default function NoticeListInfinite({
                         alt={`${notice.authorName} 프로필`}
                         width={18}
                         height={18}
-                        className="h-4.5 w-4.5 rounded-full border object-cover"
+                        className={`h-4.5 w-4.5 rounded-full border object-cover ${!notice.authorImage ? "grayscale" : ""}`}
                       />
                       <span>{notice.authorName}</span>
                     </span>
                     <span>{notice.publishedAt}</span>
-                    <span>조회 {viewCounts[notice.id] ?? notice.viewCount}</span>
+                    <span>
+                      조회 {viewCounts[notice.id] ?? notice.viewCount}
+                    </span>
                     {showStatusColumn ? (
                       <span
                         className={`${getQnaStatusSizeClassName(true)} font-semibold ${getInquiryStatusClassName(notice)}`}
@@ -476,7 +478,7 @@ export default function NoticeListInfinite({
                     alt={`${notice.authorName} 프로필`}
                     width={24}
                     height={24}
-                    className="h-6 w-6 rounded-full border object-cover"
+                    className={`h-6 w-6 rounded-full border object-cover ${!notice.authorImage ? "grayscale" : ""}`}
                   />
                   <span className="truncate text-sm text-muted-foreground">
                     {notice.authorName}

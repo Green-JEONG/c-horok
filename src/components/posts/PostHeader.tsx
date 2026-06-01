@@ -39,7 +39,7 @@ export default function PostHeader({
         alt={`${post.author_name} 프로필`}
         width={28}
         height={28}
-        className="h-7 w-7 rounded-full border object-cover"
+        className={`h-7 w-7 rounded-full border object-cover ${!post.author_image ? "grayscale" : ""}`}
       />
       <span>{post.author_name}</span>
     </>

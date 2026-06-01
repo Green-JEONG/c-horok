@@ -106,7 +106,7 @@ export default function InquiryAnswerComposer({
                     alt={`${currentUserName ?? "사용자"} 프로필`}
                     width={24}
                     height={24}
-                    className="h-6 w-6 shrink-0 rounded-full border object-cover"
+                    className={`h-6 w-6 shrink-0 rounded-full border object-cover ${!currentUserImage ? "grayscale" : ""}`}
                   />
                   <span className="truncate">
                     {currentUserName ?? "사용자"}

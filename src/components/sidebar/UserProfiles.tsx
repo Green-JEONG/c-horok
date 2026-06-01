@@ -202,7 +202,7 @@ export default function UserProfiles() {
                   alt={`${profile.name ?? "사용자"} 프로필`}
                   width={52}
                   height={52}
-                  className="h-12 w-12 rounded-full border object-cover"
+                  className={`h-12 w-12 rounded-full border object-cover ${!profile.image ? "grayscale" : ""}`}
                 />
               </button>
               <div className="min-w-0 flex-1">
@@ -219,7 +219,7 @@ export default function UserProfiles() {
                   >
                     팔로워 {profile.followerCount}명
                   </Link>
-                  <span>·</span>
+                  <span>|</span>
                   <Link
                     href={postsHref}
                     className="transition hover:text-foreground"
@@ -295,21 +295,21 @@ export default function UserProfiles() {
                     aria-label="프로필 이미지 닫기"
                   />
                   <div className="relative z-10 rounded-2xl bg-background p-4 shadow-xl">
-                    <button
-                      type="button"
-                      onClick={() => setImagePreviewOpen(false)}
-                      className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center text-muted-foreground transition hover:text-foreground"
-                      aria-label="프로필 이미지 닫기"
-                    >
-                      <X className="h-4 w-4" aria-hidden="true" />
-                    </button>
                     <Image
                       src={profile.image ?? "/logo.png"}
                       alt={`${profile.name ?? "사용자"} 프로필 확대`}
                       width={360}
                       height={360}
-                      className="max-h-[80vh] max-w-[80vw] object-contain"
+                      className={`max-h-[80vh] max-w-[80vw] object-contain ${!profile.image ? "grayscale" : ""}`}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setImagePreviewOpen(false)}
+                      className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-background/80 text-muted-foreground backdrop-blur-sm transition hover:bg-muted hover:text-foreground"
+                      aria-label="프로필 이미지 닫기"
+                    >
+                      <X className="h-4 w-4" aria-hidden="true" />
+                    </button>
                   </div>
                 </div>,
                 document.body,

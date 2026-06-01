@@ -48,10 +48,7 @@ export function consumeRateLimit(params: {
     return {
       allowed: false,
       remaining: 0,
-      retryAfterSeconds: Math.max(
-        1,
-        Math.ceil((current.resetAt - now) / 1000),
-      ),
+      retryAfterSeconds: Math.max(1, Math.ceil((current.resetAt - now) / 1000)),
     };
   }
 
