@@ -204,7 +204,7 @@ export default function MyAdminPostsSection({
                           alt={`${post.author_name} 프로필`}
                           width={18}
                           height={18}
-                          className="h-4.5 w-4.5 shrink-0 rounded-full border object-cover"
+                          className={`h-4.5 w-4.5 shrink-0 rounded-full border object-cover ${!post.author_image ? "grayscale" : ""}`}
                         />
                         <span className="truncate">{post.author_name}</span>
                       </span>
@@ -218,7 +218,7 @@ export default function MyAdminPostsSection({
                       alt={`${post.author_name} 프로필`}
                       width={24}
                       height={24}
-                      className="h-6 w-6 shrink-0 rounded-full border object-cover"
+                      className={`h-6 w-6 shrink-0 rounded-full border object-cover ${!post.author_image ? "grayscale" : ""}`}
                     />
                     <span className="truncate text-sm text-muted-foreground">
                       {post.author_name}

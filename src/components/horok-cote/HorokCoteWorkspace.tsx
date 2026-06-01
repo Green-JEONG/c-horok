@@ -396,10 +396,13 @@ export default function HorokCoteWorkspace({
     const EDGE_THRESHOLD = 60;
     const SCROLL_SPEED = 15;
 
-    const startScrolling = (direction: "left" | "right", viewport: HTMLDivElement) => {
+    const startScrolling = (
+      direction: "left" | "right",
+      viewport: HTMLDivElement,
+    ) => {
       if (currentScrollDirection === direction) return;
       currentScrollDirection = direction;
-      
+
       if (!isScrolling) {
         isScrolling = true;
         previousSnapType = viewport.style.scrollSnapType;
@@ -410,13 +413,16 @@ export default function HorokCoteWorkspace({
         const scroll = () => {
           if (!isScrolling) return;
           const maxScrollLeft = viewport.scrollWidth - viewport.clientWidth;
-          
+
           if (currentScrollDirection === "left" && viewport.scrollLeft > 0) {
             viewport.scrollBy({ left: -SCROLL_SPEED, behavior: "auto" });
-          } else if (currentScrollDirection === "right" && viewport.scrollLeft < maxScrollLeft) {
+          } else if (
+            currentScrollDirection === "right" &&
+            viewport.scrollLeft < maxScrollLeft
+          ) {
             viewport.scrollBy({ left: SCROLL_SPEED, behavior: "auto" });
           }
-          
+
           updateDropTarget(findDropTarget(lastPointerPos));
           scrollAnimationFrame = window.requestAnimationFrame(scroll);
         };
@@ -426,23 +432,26 @@ export default function HorokCoteWorkspace({
 
     const stopScrolling = () => {
       if (!isScrolling) return;
-      
+
       if (scrollAnimationFrame !== null) {
         window.cancelAnimationFrame(scrollAnimationFrame);
         scrollAnimationFrame = null;
       }
-      
+
       const viewport = mobileViewportRef.current;
       if (viewport) {
         viewport.style.scrollSnapType = previousSnapType;
         viewport.style.scrollBehavior = previousScrollBehavior;
       }
-      
+
       isScrolling = false;
       currentScrollDirection = null;
     };
 
-    const findDropTarget = (event: { clientX: number; clientY: number }): PanelDropTarget | null => {
+    const findDropTarget = (event: {
+      clientX: number;
+      clientY: number;
+    }): PanelDropTarget | null => {
       const sourcePanelId = movingPanelRef.current;
 
       if (!sourcePanelId) {
@@ -556,14 +565,20 @@ export default function HorokCoteWorkspace({
       if (!isDesktop) {
         const currentSizes = mobileSizes;
         const collapsedPanels = currentSizes.map((size) => size <= 0);
-        const nextVisiblePanelIds = nextOrder.filter((_, index) => !collapsedPanels[index]);
+        const nextVisiblePanelIds = nextOrder.filter(
+          (_, index) => !collapsedPanels[index],
+        );
         const visibleIndex = nextVisiblePanelIds.indexOf(sourcePanelId);
 
         if (visibleIndex >= 0) {
           const visiblePanelCount = Math.max(1, nextVisiblePanelIds.length);
-          const mobilePageCount = isTablet ? (visiblePanelCount <= 2 ? 1 : 2) : visiblePanelCount;
+          const mobilePageCount = isTablet
+            ? visiblePanelCount <= 2
+              ? 1
+              : 2
+            : visiblePanelCount;
           const hiddenPanelCount = collapsedPanels.filter(Boolean).length;
-          
+
           const targetPageIndex = isTablet
             ? hiddenPanelCount > 0
               ? 0

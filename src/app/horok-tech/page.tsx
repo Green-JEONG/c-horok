@@ -61,7 +61,7 @@ export default async function HorokTechPage({
       <section className="mt-15 space-y-3">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold tracking-tight text-foreground">
-            맛보기
+            추천글
           </h2>
           <Button asChild variant="outline" size="sm">
             <Link href="/horok-tech/feeds">더보기</Link>

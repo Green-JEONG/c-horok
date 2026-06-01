@@ -251,11 +251,10 @@ export default function HeaderSearch() {
         <button
           type="submit"
           disabled={!canSubmitSearch}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center transition-colors ${
-            canSubmitSearch
+          className={`flex h-9 w-9 shrink-0 items-center justify-center transition-colors ${canSubmitSearch
               ? "text-muted-foreground hover:text-foreground"
               : "cursor-not-allowed text-muted-foreground/35"
-          }`}
+            }`}
           aria-label="검색"
         >
           <Search className="h-4 w-4" />
@@ -293,7 +292,7 @@ export default function HeaderSearch() {
                           alt={`${user.name ?? "사용자"} 프로필`}
                           width={40}
                           height={40}
-                          className="h-10 w-10 rounded-full border object-cover"
+                          className={`h-10 w-10 rounded-full border object-cover ${!user.image ? "grayscale" : ""}`}
                         />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-foreground">

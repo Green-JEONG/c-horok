@@ -2153,155 +2153,155 @@ export default function HorokChat({
             {isThreadMode ? (
               <div className="scrollbar-orange flex-1 overflow-y-auto">
                 <div className="p-3">
-                <div className="mb-3 flex items-center gap-1">
-                  {threadCategories.map((category) => {
-                    const isActive = threadCategory === category;
+                  <div className="mb-3 flex items-center gap-1">
+                    {threadCategories.map((category) => {
+                      const isActive = threadCategory === category;
 
-                    return (
-                      <button
-                        key={category}
-                        type="button"
-                        onClick={() => setThreadCategory(category)}
-                        className={cn(
-                          "rounded-full px-3 py-1.5 text-xs font-semibold transition",
-                          isActive
-                            ? platform === "cote"
-                              ? "bg-[#06923E] text-white"
-                              : "bg-primary text-primary-foreground"
-                            : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
-                        )}
-                      >
-                        {category === "all"
-                          ? "전체"
-                          : category === "handoff"
-                            ? "문의"
-                            : category}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {filteredThreads.length > 0 ? (
-                  filteredThreads.map((thread) => {
-                    const isActive = thread.id === threadId;
-                    const swipeOffset =
-                      threadSwipeState?.threadId === thread.id
-                        ? threadSwipeState.deltaX
-                        : 0;
-                    const isRightActionOpen =
-                      threadSwipeState?.threadId === thread.id &&
-                      threadSwipeState.openDirection === "right";
-                    const isLeftActionOpen =
-                      threadSwipeState?.threadId === thread.id &&
-                      threadSwipeState.openDirection === "left";
-
-                    return (
-                      <div
-                        key={thread.id}
-                        className="relative mb-2 overflow-hidden rounded-2xl"
-                      >
+                      return (
                         <button
+                          key={category}
                           type="button"
-                          onClick={async () => {
-                            try {
-                              await handleRenameThread(thread);
-                            } catch (error) {
-                              console.error("Thread rename failed", error);
-                            } finally {
-                              setThreadSwipeState(null);
-                            }
-                          }}
+                          onClick={() => setThreadCategory(category)}
                           className={cn(
-                            "absolute inset-y-0 left-0 flex w-12 items-center justify-center rounded-l-2xl rounded-r-none bg-transparent text-sky-700 transition-opacity dark:text-sky-200",
-                            isRightActionOpen ? "opacity-100" : "opacity-0",
-                          )}
-                          aria-label="제목 수정"
-                        >
-                          <Pencil className="size-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              await handleDeleteThread(thread);
-                            } catch (error) {
-                              console.error("Thread delete failed", error);
-                            } finally {
-                              setThreadSwipeState(null);
-                            }
-                          }}
-                          className={cn(
-                            "absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-2xl rounded-l-none bg-transparent text-red-600 transition-opacity dark:text-red-300",
-                            isLeftActionOpen ? "opacity-100" : "opacity-0",
-                          )}
-                          aria-label="대화 삭제"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onMouseDown={(event) =>
-                            handleThreadSwipeStart(event, thread.id)
-                          }
-                          onMouseMove={(event) =>
-                            handleThreadSwipeMove(event, thread.id)
-                          }
-                          onMouseUp={() => {
-                            const handled = handleThreadSwipeEnd(thread);
-                            if (!handled) {
-                              void handleSelectThread(thread.id);
-                            }
-                          }}
-                          onMouseLeave={() => {
-                            if (
-                              threadSwipeState?.threadId !== thread.id ||
-                              !threadSwipeState?.isPointerDown
-                            ) {
-                              return;
-                            }
-
-                            handleThreadSwipeEnd(thread);
-                          }}
-                          className={cn(
-                            "relative w-full rounded-2xl border px-3 py-3 text-left transition will-change-transform",
+                            "rounded-full px-3 py-1.5 text-xs font-semibold transition",
                             isActive
                               ? platform === "cote"
-                                ? "border-[#06923E]/45 bg-white shadow-sm dark:border-[#06923E]/45 dark:bg-zinc-900"
-                                : "border-orange-300 bg-white shadow-sm dark:border-orange-400/40 dark:bg-zinc-900"
-                              : platform === "cote"
-                                ? "border-slate-200 bg-white/70 hover:border-[#06923E]/25 hover:bg-white dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:border-[#06923E]/25"
-                                : "border-slate-200 bg-white/70 hover:border-orange-200 hover:bg-white dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:border-orange-400/20",
+                                ? "bg-[#06923E] text-white"
+                                : "bg-primary text-primary-foreground"
+                              : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
                           )}
-                          style={{
-                            transform: `translateX(${swipeOffset}px)`,
-                          }}
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <p className="line-clamp-2 text-sm font-semibold text-slate-800 dark:text-zinc-100">
-                              {thread.title}
-                            </p>
-                            <span className="shrink-0 text-[11px] text-muted-foreground">
-                              {formatThreadTime(thread.createdAt)}
-                            </span>
-                          </div>
-                          <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                            {thread.preview || "아직 메시지가 없습니다."}
-                          </p>
+                          {category === "all"
+                            ? "전체"
+                            : category === "handoff"
+                              ? "문의"
+                              : category}
                         </button>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-                    <p className="text-sm font-medium text-slate-700 dark:text-zinc-100">
-                      아직 저장된 대화가 없어요.
-                    </p>
-                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                      새 대화를 눌러 스레드를 만들고 자유롭게 오가며 대화를
-                      이어가세요.
-                    </p>
+                      );
+                    })}
                   </div>
-                )}
+
+                  {filteredThreads.length > 0 ? (
+                    filteredThreads.map((thread) => {
+                      const isActive = thread.id === threadId;
+                      const swipeOffset =
+                        threadSwipeState?.threadId === thread.id
+                          ? threadSwipeState.deltaX
+                          : 0;
+                      const isRightActionOpen =
+                        threadSwipeState?.threadId === thread.id &&
+                        threadSwipeState.openDirection === "right";
+                      const isLeftActionOpen =
+                        threadSwipeState?.threadId === thread.id &&
+                        threadSwipeState.openDirection === "left";
+
+                      return (
+                        <div
+                          key={thread.id}
+                          className="relative mb-2 overflow-hidden rounded-2xl"
+                        >
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await handleRenameThread(thread);
+                              } catch (error) {
+                                console.error("Thread rename failed", error);
+                              } finally {
+                                setThreadSwipeState(null);
+                              }
+                            }}
+                            className={cn(
+                              "absolute inset-y-0 left-0 flex w-12 items-center justify-center rounded-l-2xl rounded-r-none bg-transparent text-sky-700 transition-opacity dark:text-sky-200",
+                              isRightActionOpen ? "opacity-100" : "opacity-0",
+                            )}
+                            aria-label="제목 수정"
+                          >
+                            <Pencil className="size-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await handleDeleteThread(thread);
+                              } catch (error) {
+                                console.error("Thread delete failed", error);
+                              } finally {
+                                setThreadSwipeState(null);
+                              }
+                            }}
+                            className={cn(
+                              "absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-2xl rounded-l-none bg-transparent text-red-600 transition-opacity dark:text-red-300",
+                              isLeftActionOpen ? "opacity-100" : "opacity-0",
+                            )}
+                            aria-label="대화 삭제"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onMouseDown={(event) =>
+                              handleThreadSwipeStart(event, thread.id)
+                            }
+                            onMouseMove={(event) =>
+                              handleThreadSwipeMove(event, thread.id)
+                            }
+                            onMouseUp={() => {
+                              const handled = handleThreadSwipeEnd(thread);
+                              if (!handled) {
+                                void handleSelectThread(thread.id);
+                              }
+                            }}
+                            onMouseLeave={() => {
+                              if (
+                                threadSwipeState?.threadId !== thread.id ||
+                                !threadSwipeState?.isPointerDown
+                              ) {
+                                return;
+                              }
+
+                              handleThreadSwipeEnd(thread);
+                            }}
+                            className={cn(
+                              "relative w-full rounded-2xl border px-3 py-3 text-left transition will-change-transform",
+                              isActive
+                                ? platform === "cote"
+                                  ? "border-[#06923E]/45 bg-white shadow-sm dark:border-[#06923E]/45 dark:bg-zinc-900"
+                                  : "border-orange-300 bg-white shadow-sm dark:border-orange-400/40 dark:bg-zinc-900"
+                                : platform === "cote"
+                                  ? "border-slate-200 bg-white/70 hover:border-[#06923E]/25 hover:bg-white dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:border-[#06923E]/25"
+                                  : "border-slate-200 bg-white/70 hover:border-orange-200 hover:bg-white dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:border-orange-400/20",
+                            )}
+                            style={{
+                              transform: `translateX(${swipeOffset}px)`,
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <p className="line-clamp-2 text-sm font-semibold text-slate-800 dark:text-zinc-100">
+                                {thread.title}
+                              </p>
+                              <span className="shrink-0 text-[11px] text-muted-foreground">
+                                {formatThreadTime(thread.createdAt)}
+                              </span>
+                            </div>
+                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                              {thread.preview || "아직 메시지가 없습니다."}
+                            </p>
+                          </button>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+                      <p className="text-sm font-medium text-slate-700 dark:text-zinc-100">
+                        아직 저장된 대화가 없어요.
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                        새 대화를 눌러 스레드를 만들고 자유롭게 오가며 대화를
+                        이어가세요.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -2318,234 +2318,244 @@ export default function HorokChat({
                         isAdminHandoffView ? "pb-3" : "pb-14",
                       )}
                     >
-                    {hasMessages
-                      ? visibleMessages.map((message, index) => {
-                          const text = getMessageText(message.parts).trim();
-                          if (!text) {
-                            return null;
-                          }
+                      {hasMessages
+                        ? visibleMessages.map((message, index) => {
+                            const text = getMessageText(message.parts).trim();
+                            if (!text) {
+                              return null;
+                            }
 
-                          const isUser = message.role === "user";
-                          const isAdminAuthoredMessage =
-                            message.sender?.role === "ADMIN";
-                          const isRequesterMessage =
-                            Boolean(handoffMeta?.isAdminView) && isUser;
-                          const isOutgoingMessage =
-                            (isUser && !isRequesterMessage) ||
-                            (isAdminHandoffView && isAdminAuthoredMessage);
-                          const avatarSrc = isRequesterMessage
-                            ? (handoffMeta?.requester.image ?? "/logo.png")
-                            : isAdminAuthoredMessage
-                              ? (message.sender?.image ?? "/logo.png")
-                              : "/logo.png";
-                          const avatarAlt = isRequesterMessage
-                            ? `${handoffMeta?.requester.name ?? "문의자"} 프로필`
-                            : isAdminAuthoredMessage
-                              ? `${message.sender?.name ?? "관리자"} 프로필`
-                              : "호록 프로필";
-                          const resolvedTimestamp =
-                            message.createdAt ??
-                            messageTimes[message.id] ??
-                            new Date().toISOString();
-                          const previousTimestamp =
-                            index > 0
-                              ? (visibleMessages[index - 1]?.createdAt ??
-                                messageTimes[
-                                  visibleMessages[index - 1]?.id ?? ""
-                                ])
-                              : null;
-                          const messageTime =
-                            formatMessageTime(resolvedTimestamp);
-                          const showDateBadge =
-                            getMessageDateKey(resolvedTimestamp) !==
-                            getMessageDateKey(previousTimestamp);
-                          const isSearchMatch = matchedMessageIds.includes(
-                            message.id,
-                          );
-                          const activeOccurrenceIndexInMessage =
-                            activeSearchMatch?.messageId === message.id
-                              ? activeSearchMatch.occurrenceIndexInMessage
-                              : undefined;
-                          const shouldAnimateMessage =
-                            !isUser &&
-                            !isSearchMatch &&
-                            index === visibleMessages.length - 1 &&
-                            isAssistantResponding &&
-                            !message.createdAt;
+                            const isUser = message.role === "user";
+                            const isAdminAuthoredMessage =
+                              message.sender?.role === "ADMIN";
+                            const isRequesterMessage =
+                              Boolean(handoffMeta?.isAdminView) && isUser;
+                            const isOutgoingMessage =
+                              (isUser && !isRequesterMessage) ||
+                              (isAdminHandoffView && isAdminAuthoredMessage);
+                            const avatarSrc = isRequesterMessage
+                              ? (handoffMeta?.requester.image ?? "/logo.png")
+                              : isAdminAuthoredMessage
+                                ? (message.sender?.image ?? "/logo.png")
+                                : "/logo.png";
+                            const avatarAlt = isRequesterMessage
+                              ? `${handoffMeta?.requester.name ?? "문의자"} 프로필`
+                              : isAdminAuthoredMessage
+                                ? `${message.sender?.name ?? "관리자"} 프로필`
+                                : "호록 프로필";
+                            const resolvedTimestamp =
+                              message.createdAt ??
+                              messageTimes[message.id] ??
+                              new Date().toISOString();
+                            const previousTimestamp =
+                              index > 0
+                                ? (visibleMessages[index - 1]?.createdAt ??
+                                  messageTimes[
+                                    visibleMessages[index - 1]?.id ?? ""
+                                  ])
+                                : null;
+                            const messageTime =
+                              formatMessageTime(resolvedTimestamp);
+                            const showDateBadge =
+                              getMessageDateKey(resolvedTimestamp) !==
+                              getMessageDateKey(previousTimestamp);
+                            const isSearchMatch = matchedMessageIds.includes(
+                              message.id,
+                            );
+                            const activeOccurrenceIndexInMessage =
+                              activeSearchMatch?.messageId === message.id
+                                ? activeSearchMatch.occurrenceIndexInMessage
+                                : undefined;
+                            const shouldAnimateMessage =
+                              !isUser &&
+                              !isSearchMatch &&
+                              index === visibleMessages.length - 1 &&
+                              isAssistantResponding &&
+                              !message.createdAt;
 
-                          return (
-                            <div key={message.id} className="space-y-3">
-                              {showDateBadge ? (
-                                <div className="flex justify-center">
-                                  <div className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500 dark:bg-zinc-900 dark:text-zinc-400">
-                                    {formatMessageDateBadge(resolvedTimestamp)}
-                                  </div>
-                                </div>
-                              ) : null}
-
-                              <div
-                                ref={(element) => {
-                                  messageRefs.current[message.id] = element;
-                                }}
-                                className={cn(
-                                  "flex w-full min-w-0 items-start gap-2 transition",
-                                  isOutgoingMessage
-                                    ? "justify-end"
-                                    : "justify-start",
-                                )}
-                              >
-                                {!isOutgoingMessage ? (
-                                  <div className="relative mt-1 size-8 shrink-0">
-                                    <Image
-                                      src={avatarSrc}
-                                      alt={avatarAlt}
-                                      width={32}
-                                      height={32}
-                                      className={cn(
-                                        "relative z-10 size-full rounded-full border object-cover",
-                                        platform === "cote"
-                                          ? "border-[#06923E]/25 bg-white"
-                                          : "border-orange-200 bg-white dark:border-orange-400/30",
+                            return (
+                              <div key={message.id} className="space-y-3">
+                                {showDateBadge ? (
+                                  <div className="flex justify-center">
+                                    <div className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500 dark:bg-zinc-900 dark:text-zinc-400">
+                                      {formatMessageDateBadge(
+                                        resolvedTimestamp,
                                       )}
-                                    />
-                                    {isAdminAuthoredMessage ? (
-                                      <Crown
-                                        className="pointer-events-none absolute -top-2 left-1/2 z-0 h-3.5 w-3.5 -translate-x-1/2 fill-amber-300 text-amber-500 drop-shadow-sm"
-                                        strokeWidth={2.5}
-                                        aria-hidden="true"
-                                      />
-                                    ) : null}
+                                    </div>
                                   </div>
                                 ) : null}
+
                                 <div
+                                  ref={(element) => {
+                                    messageRefs.current[message.id] = element;
+                                  }}
                                   className={cn(
-                                    "flex min-w-0 items-end gap-1.5",
+                                    "flex w-full min-w-0 items-start gap-2 transition",
                                     isOutgoingMessage
-                                      ? "ml-10 max-w-[calc(100%-2.5rem)] flex-row-reverse justify-end"
-                                      : "flex-1",
+                                      ? "justify-end"
+                                      : "justify-start",
                                   )}
                                 >
-                                  <div
-                                    className={cn(
-                                      "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl px-4 py-3 text-sm leading-5 shadow-sm",
-                                      isOutgoingMessage
-                                        ? platform === "cote"
-                                          ? "rounded-br-lg bg-[#06923E] text-white dark:bg-[#06923E] dark:text-white"
-                                          : "rounded-br-lg bg-orange-500 text-white dark:bg-orange-500 dark:text-white"
-                                        : platform === "cote"
-                                          ? "border border-[#06923E]/10 bg-white text-slate-800 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-slate-100"
-                                          : "border border-orange-100 bg-white text-slate-800 dark:border-orange-400/20 dark:bg-zinc-900 dark:text-zinc-100",
-                                    )}
-                                  >
-                                    {isSearchMatch ? (
-                                      <p className="whitespace-pre-wrap">
-                                        {renderHighlightedText(
-                                          text,
-                                          activeOccurrenceIndexInMessage,
-                                        )}
-                                      </p>
-                                    ) : (
-                                      <AnimatedChatMarkdown
-                                        content={text}
-                                        shouldAnimate={shouldAnimateMessage}
+                                  {!isOutgoingMessage ? (
+                                    <div className="relative mt-1 size-8 shrink-0">
+                                      <Image
+                                        src={avatarSrc}
+                                        alt={avatarAlt}
+                                        width={32}
+                                        height={32}
                                         className={cn(
-                                          CHAT_MARKDOWN_CLASS_NAME,
-                                          isOutgoingMessage
-                                            ? "[&_th]:bg-white/15"
-                                            : "",
+                                          "relative z-10 size-full rounded-full border object-cover",
+                                          ((isRequesterMessage &&
+                                            !handoffMeta?.requester.image) ||
+                                            (isAdminAuthoredMessage &&
+                                              !message.sender?.image)) &&
+                                            "grayscale",
+                                          platform === "cote"
+                                            ? "border-[#06923E]/25 bg-white"
+                                            : "border-orange-200 bg-white dark:border-orange-400/30",
                                         )}
                                       />
-                                    )}
-                                  </div>
+                                      {isAdminAuthoredMessage ? (
+                                        <Crown
+                                          className="pointer-events-none absolute -top-2 left-1/2 z-0 h-3.5 w-3.5 -translate-x-1/2 fill-amber-300 text-amber-500 drop-shadow-sm"
+                                          strokeWidth={2.5}
+                                          aria-hidden="true"
+                                        />
+                                      ) : null}
+                                    </div>
+                                  ) : null}
                                   <div
                                     className={cn(
-                                      "flex w-9 shrink-0 flex-col gap-0.5",
+                                      "flex min-w-0 items-end gap-1.5",
                                       isOutgoingMessage
-                                        ? "items-end"
-                                        : "items-start",
+                                        ? "ml-10 max-w-[calc(100%-2.5rem)] flex-row-reverse justify-end"
+                                        : "flex-1",
                                     )}
                                   >
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        void handleCopyMessage(message.id, text)
-                                      }
-                                      className="p-0.5 text-slate-400 transition hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
-                                      aria-label="메시지 복사"
-                                    >
-                                      {copiedMessageId === message.id ? (
-                                        <Check className="size-3.5" />
-                                      ) : (
-                                        <Copy className="size-3.5" />
+                                    <div
+                                      className={cn(
+                                        "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl px-4 py-3 text-sm leading-5 shadow-sm",
+                                        isOutgoingMessage
+                                          ? platform === "cote"
+                                            ? "rounded-br-lg bg-[#06923E] text-white dark:bg-[#06923E] dark:text-white"
+                                            : "rounded-br-lg bg-orange-500 text-white dark:bg-orange-500 dark:text-white"
+                                          : platform === "cote"
+                                            ? "border border-[#06923E]/10 bg-white text-slate-800 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-slate-100"
+                                            : "border border-orange-100 bg-white text-slate-800 dark:border-orange-400/20 dark:bg-zinc-900 dark:text-zinc-100",
                                       )}
-                                    </button>
-                                    {messageTime ? (
-                                      <span className="whitespace-nowrap text-[11px] text-slate-400 dark:text-zinc-500">
-                                        {messageTime}
-                                      </span>
-                                    ) : null}
+                                    >
+                                      {isSearchMatch ? (
+                                        <p className="whitespace-pre-wrap">
+                                          {renderHighlightedText(
+                                            text,
+                                            activeOccurrenceIndexInMessage,
+                                          )}
+                                        </p>
+                                      ) : (
+                                        <AnimatedChatMarkdown
+                                          content={text}
+                                          shouldAnimate={shouldAnimateMessage}
+                                          className={cn(
+                                            CHAT_MARKDOWN_CLASS_NAME,
+                                            isOutgoingMessage
+                                              ? "[&_th]:bg-white/15"
+                                              : "",
+                                          )}
+                                        />
+                                      )}
+                                    </div>
+                                    <div
+                                      className={cn(
+                                        "flex w-9 shrink-0 flex-col gap-0.5",
+                                        isOutgoingMessage
+                                          ? "items-end"
+                                          : "items-start",
+                                      )}
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          void handleCopyMessage(
+                                            message.id,
+                                            text,
+                                          )
+                                        }
+                                        className="p-0.5 text-slate-400 transition hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+                                        aria-label="메시지 복사"
+                                      >
+                                        {copiedMessageId === message.id ? (
+                                          <Check className="size-3.5" />
+                                        ) : (
+                                          <Copy className="size-3.5" />
+                                        )}
+                                      </button>
+                                      {messageTime ? (
+                                        <span className="whitespace-nowrap text-[11px] text-slate-400 dark:text-zinc-500">
+                                          {messageTime}
+                                        </span>
+                                      ) : null}
+                                    </div>
                                   </div>
                                 </div>
+
+                                {sessionStatus === "unauthenticated" &&
+                                index === 0 &&
+                                !isUser ? (
+                                  <p className="text-center text-xs text-muted-foreground">
+                                    로그인 하시면 대화를 저장할 수 있습니다.
+                                  </p>
+                                ) : null}
                               </div>
+                            );
+                          })
+                        : null}
 
-                              {sessionStatus === "unauthenticated" &&
-                              index === 0 &&
-                              !isUser ? (
-                                <p className="text-center text-xs text-muted-foreground">
-                                  로그인 하시면 대화를 저장할 수 있습니다.
-                                </p>
-                              ) : null}
-                            </div>
-                          );
-                        })
-                      : null}
-
-                    {isAssistantResponding ? (
-                      <div className="flex w-full min-w-0 items-start justify-start gap-2">
-                        <Image
-                          src="/logo.png"
-                          alt="호록 프로필"
-                          width={32}
-                          height={32}
-                          className={cn(
-                            "mt-1 size-8 shrink-0 rounded-full border object-cover",
-                            platform === "cote"
-                              ? "border-[#06923E]/25 bg-white"
-                              : "border-orange-200 bg-white dark:border-orange-400/30",
-                          )}
-                        />
-                        <div className="flex min-w-0 flex-1 items-end gap-1.5">
-                          <div
+                      {isAssistantResponding ? (
+                        <div className="flex w-full min-w-0 items-start justify-start gap-2">
+                          <Image
+                            src="/logo.png"
+                            alt="호록 프로필"
+                            width={32}
+                            height={32}
                             className={cn(
-                              "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl rounded-bl-lg border bg-white px-4 py-3 text-sm text-slate-500 shadow-sm dark:text-zinc-300",
+                              "mt-1 size-8 shrink-0 rounded-full border object-cover",
                               platform === "cote"
-                                ? "border-[#06923E]/10 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-slate-300"
-                                : "border-orange-100 dark:border-orange-400/20 dark:bg-zinc-900 dark:text-zinc-300",
+                                ? "border-[#06923E]/25 bg-white"
+                                : "border-orange-200 bg-white dark:border-orange-400/30",
                             )}
-                          >
-                            답변을 작성 중입니다...
+                          />
+                          <div className="flex min-w-0 flex-1 items-end gap-1.5">
+                            <div
+                              className={cn(
+                                "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl rounded-bl-lg border bg-white px-4 py-3 text-sm text-slate-500 shadow-sm dark:text-zinc-300",
+                                platform === "cote"
+                                  ? "border-[#06923E]/10 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-slate-300"
+                                  : "border-orange-100 dark:border-orange-400/20 dark:bg-zinc-900 dark:text-zinc-300",
+                              )}
+                            >
+                              답변을 작성 중입니다...
+                            </div>
+                            <span className="w-9 shrink-0 whitespace-nowrap text-[11px] text-slate-400 dark:text-zinc-500">
+                              {formatMessageTime(new Date().toISOString())}
+                            </span>
                           </div>
-                          <span className="w-9 shrink-0 whitespace-nowrap text-[11px] text-slate-400 dark:text-zinc-500">
-                            {formatMessageTime(new Date().toISOString())}
-                          </span>
                         </div>
-                      </div>
-                    ) : null}
+                      ) : null}
 
-                    {error ? (
-                      <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-500/30 dark:bg-red-950/40 dark:text-red-300">
-                        챗봇 연결 중 문제가 발생했습니다. 잠시 후 다시 시도해
-                        주세요.
-                      </div>
-                    ) : null}
+                      {error ? (
+                        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-500/30 dark:bg-red-950/40 dark:text-red-300">
+                          챗봇 연결 중 문제가 발생했습니다. 잠시 후 다시 시도해
+                          주세요.
+                        </div>
+                      ) : null}
 
-                    {handoffMessage ? (
-                      <p className="px-1 text-center text-xs text-muted-foreground">
-                        {handoffMessage}
-                      </p>
-                    ) : null}
+                      {handoffMessage ? (
+                        <p className="px-1 text-center text-xs text-muted-foreground">
+                          {handoffMessage}
+                        </p>
+                      ) : null}
 
-                    <div ref={messagesEndRef} />
+                      <div ref={messagesEndRef} />
                     </div>
                   </div>
 

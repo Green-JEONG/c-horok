@@ -471,7 +471,7 @@ export default function CommentItem({
                 alt={`${comment.author} 프로필`}
                 width={24}
                 height={24}
-                className="h-6 w-6 shrink-0 rounded-full border object-cover"
+                className={`h-6 w-6 shrink-0 rounded-full border object-cover ${!comment.author_image ? "grayscale" : ""}`}
               />
               <span className="truncate">{comment.author}</span>
             </Link>
@@ -513,7 +513,9 @@ export default function CommentItem({
           <MarkdownRenderer
             content={comment.content}
             className={`mt-2 text-base leading-7 [&_p]:!my-0 ${
-              comment.content === "비밀댓글입니다." ? "text-muted-foreground" : ""
+              comment.content === "비밀댓글입니다."
+                ? "text-muted-foreground"
+                : ""
             }`}
           />
         )}
@@ -663,7 +665,7 @@ export default function CommentItem({
                     alt={`${currentUserName ?? "사용자"} 프로필`}
                     width={24}
                     height={24}
-                    className="h-6 w-6 shrink-0 rounded-full border object-cover"
+                    className={`h-6 w-6 shrink-0 rounded-full border object-cover ${!currentUserImage ? "grayscale" : ""}`}
                   />
                   <span className="truncate">
                     {currentUserName ?? "사용자"}

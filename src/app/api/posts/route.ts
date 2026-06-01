@@ -163,7 +163,10 @@ export async function POST(req: Request) {
     }
   }
 
-  if (normalizedCategoryName !== "FAQ" && normalizedCategoryName !== "QnA") {
+  const hasNoticeCategory = categoryNames.some((name) =>
+    isNoticeCategoryName(name),
+  );
+  if (!hasNoticeCategory) {
     try {
       const followers = await prisma.friend.findMany({
         where: {

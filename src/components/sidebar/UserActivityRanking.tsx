@@ -53,7 +53,7 @@ export default function UserActivityRanking() {
                   alt={`${user.name ?? "유저"} 프로필`}
                   width={28}
                   height={28}
-                  className="h-7 w-7 shrink-0 rounded-full border object-cover"
+                  className={`h-7 w-7 shrink-0 rounded-full border object-cover ${!user.image ? "grayscale" : ""}`}
                 />
                 <span className="min-w-0 flex-1 truncate">
                   {user.name ?? "이름 없는 사용자"}

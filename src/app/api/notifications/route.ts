@@ -20,7 +20,8 @@ import { getTechFeedPostPath } from "@/lib/routes";
 function normalizeNotificationType(type: string | null) {
   if (type === "NEW_COMMENT") return "POST_COMMENT";
   if (type === "NEW_LIKE") return "POST_LIKE";
-  if (type === "chat_handoff" || type === "chat_handoff_reply") return "CHAT_HANDOFF";
+  if (type === "chat_handoff" || type === "chat_handoff_reply")
+    return "CHAT_HANDOFF";
   return type ?? "UNKNOWN";
 }
 

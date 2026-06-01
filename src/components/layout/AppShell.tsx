@@ -135,9 +135,7 @@ export default function AppShell({
 
         <section className={sectionWrapperClassName}>
           <div className="pointer-events-none absolute inset-y-6 right-0 hidden w-px bg-border md:block" />
-          <div className={sectionContentClassName}>
-            {children}
-          </div>
+          <div className={sectionContentClassName}>{children}</div>
         </section>
       </main>
       {isChatEnabledPage ? chat : null}

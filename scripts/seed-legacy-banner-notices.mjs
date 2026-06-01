@@ -14,7 +14,8 @@ const prisma = new PrismaClient({
 
 const notices = [
   {
-    title: "호록 기술 블로그가 2026년 1월 6일부로 개설되었어요! 많은 관심 가져 주세요.  🎉",
+    title:
+      "호록 기술 블로그가 2026년 1월 6일부로 개설되었어요! 많은 관심 가져 주세요.  🎉",
     content: [
       "호록 기술 블로그가 2026년 1월 6일부로 개설되었어요! 많은 관심 가져 주세요.  🎉",
       "기존 배너에서 안내하던 오픈 문구를 공지사항 게시물로도 함께 보관합니다.",
@@ -62,20 +63,21 @@ try {
 
   const existingTitles = new Set(existing.map((post) => post.title));
   const toUpdate = existing.filter((post) => !post.isBanner);
-  const toCreate = notices.filter((notice) => !existingTitles.has(notice.title));
+  const toCreate = notices.filter(
+    (notice) => !existingTitles.has(notice.title),
+  );
 
   if (toUpdate.length === 0 && toCreate.length === 0) {
     console.log("No banner notice changes");
   } else {
-    await prisma.$transaction(
-      [
-        ...toUpdate.map((post) =>
-          prisma.post.update({
-            where: { id: post.id },
-            data: { isBanner: true },
-          }),
-        ),
-        ...toCreate.map((notice) =>
+    await prisma.$transaction([
+      ...toUpdate.map((post) =>
+        prisma.post.update({
+          where: { id: post.id },
+          data: { isBanner: true },
+        }),
+      ),
+      ...toCreate.map((notice) =>
         prisma.post.create({
           data: {
             userId: adminUser.id,
@@ -87,9 +89,8 @@ try {
             updatedAt: notice.createdAt,
           },
         }),
-        ),
-      ],
-    );
+      ),
+    ]);
 
     console.log(
       `Updated ${toUpdate.length} notices, created ${toCreate.length} notices`,

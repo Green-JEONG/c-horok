@@ -149,7 +149,7 @@ export default function PostCard({
               alt={`${author} 프로필`}
               width={20}
               height={20}
-              className="h-5 w-5 shrink-0 rounded-full border object-cover"
+              className={`h-5 w-5 shrink-0 rounded-full border object-cover ${!authorImage ? "grayscale" : ""}`}
             />
             <p className="min-w-0 flex-1 truncate">{author}</p>
             <span className="shrink-0 whitespace-nowrap">
