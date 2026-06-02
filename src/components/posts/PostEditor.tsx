@@ -600,6 +600,66 @@ export default function PostEditor({
     }
   }
 
+  async function handleContentPaste(
+    event: React.ClipboardEvent<HTMLTextAreaElement>,
+  ) {
+    if (isUploadingContentImage || isSubmitting) return;
+
+    const items = event.clipboardData.items;
+    const files: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.kind === "file" && item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          files.push(file);
+        }
+      }
+    }
+
+    if (files.length === 0) return;
+
+    event.preventDefault();
+
+    setIsUploadingContentImage(true);
+    setError(null);
+
+    try {
+      const markdownImages: string[] = [];
+
+      for (const file of files) {
+        const nextPath = createPostContentImagePath(file.name);
+        const { error: uploadError } = await supabase.storage
+          .from(POST_THUMBNAIL_BUCKET)
+          .upload(nextPath, file, {
+            cacheControl: "3600",
+            contentType: file.type || undefined,
+            upsert: false,
+          });
+
+        if (uploadError) {
+          throw new Error(uploadError.message);
+        }
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from(POST_THUMBNAIL_BUCKET).getPublicUrl(nextPath);
+
+        markdownImages.push(`![${file.name}](${publicUrl})`);
+      }
+
+      insertTextAtCursor(markdownImages.join("\n\n"));
+    } catch (uploadError) {
+      const message =
+        uploadError instanceof Error
+          ? uploadError.message
+          : "본문 이미지 붙여넣기 중 오류가 발생했습니다.";
+      setError(message);
+    } finally {
+      setIsUploadingContentImage(false);
+    }
+  }
+
   async function handleSubmit() {
     const trimmedTitle = title.trim();
     const trimmedContent = content.trim();
@@ -935,6 +995,7 @@ export default function PostEditor({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               onKeyDown={handleContentKeyDown}
+              onPaste={handleContentPaste}
               rows={16}
               spellCheck={false}
               className="h-full w-full resize-none rounded-md bg-transparent px-5 py-5 font-mono text-[15px] leading-7 text-foreground outline-none placeholder:text-zinc-400"

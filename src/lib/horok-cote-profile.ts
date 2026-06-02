@@ -1,6 +1,5 @@
 import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { coteAuth } from "@/app/api/cote-auth/[...nextauth]/route";
-import { getUserIdByEmail } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
 
 let horokCoteSchemaPromise: Promise<void> | null = null;
@@ -15,31 +14,26 @@ async function getCurrentPlatformAuthUser(platform: PlatformProfileKind) {
     return null;
   }
 
-  const userId = await getUserIdByEmail(session.user.email);
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      image: true,
+    },
+  });
 
-  if (!userId) {
+  if (!user) {
     return null;
   }
 
   return {
-    userId: BigInt(userId),
-    name: session.user.name ?? null,
-    image: session.user.image ?? null,
-    email: session.user.email ?? null,
+    userId: user.id,
+    name: user.name,
+    image: user.image,
+    email: user.email,
   };
-}
-
-async function syncUserProfileName(userId: bigint, name?: string | null) {
-  const normalizedName = name?.trim();
-
-  if (!normalizedName) {
-    return;
-  }
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: { name: normalizedName },
-  });
 }
 
 async function ensureHorokCoteSchema() {
@@ -173,7 +167,10 @@ export async function ensureHorokCoteMemberProfile() {
     INSERT INTO horok_cote.members (user_id, nickname, avatar_url)
     VALUES (${currentUser.userId}, ${currentUser.name}, ${currentUser.image})
     ON CONFLICT (user_id) DO UPDATE
-    SET updated_at = NOW()
+    SET
+      nickname = EXCLUDED.nickname,
+      avatar_url = EXCLUDED.avatar_url,
+      updated_at = NOW()
     RETURNING id, user_id
   `;
 
@@ -200,7 +197,10 @@ export async function ensureHorokTechMemberProfile() {
     INSERT INTO horok_tech.members (user_id, display_name, avatar_url)
     VALUES (${currentUser.userId}, ${currentUser.name}, ${currentUser.image})
     ON CONFLICT (user_id) DO UPDATE
-    SET updated_at = NOW()
+    SET
+      display_name = EXCLUDED.display_name,
+      avatar_url = EXCLUDED.avatar_url,
+      updated_at = NOW()
     RETURNING id, user_id, display_name
   `;
 
@@ -230,12 +230,11 @@ export async function getCurrentPlatformProfile(platform: PlatformProfileKind) {
         avatarUrl: true,
       },
     });
-    await syncUserProfileName(currentUser.userId, member?.nickname);
 
     return {
       platform,
-      name: member?.nickname ?? currentUser.name,
-      image: member?.avatarUrl ?? currentUser.image,
+      name: currentUser.name ?? member?.nickname,
+      image: currentUser.image ?? member?.avatarUrl,
       email: currentUser.email,
     };
   }
@@ -249,14 +248,60 @@ export async function getCurrentPlatformProfile(platform: PlatformProfileKind) {
       avatarUrl: true,
     },
   });
-  await syncUserProfileName(currentUser.userId, member?.displayName);
 
   return {
     platform,
-    name: member?.displayName ?? currentUser.name,
-    image: member?.avatarUrl ?? currentUser.image,
+    name: currentUser.name ?? member?.displayName,
+    image: currentUser.image ?? member?.avatarUrl,
     email: currentUser.email,
   };
+}
+
+async function syncSharedPlatformProfiles(
+  userId: bigint,
+  data: {
+    name?: string;
+    image?: string | null;
+  },
+) {
+  await Promise.all([ensureHorokTechSchema(), ensureHorokCoteSchema()]);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...(data.name !== undefined ? { name: data.name } : {}),
+      ...(data.image !== undefined ? { image: data.image } : {}),
+    },
+  });
+
+  await Promise.all([
+    prisma.techMember.upsert({
+      where: { userId },
+      create: {
+        userId,
+        displayName: data.name,
+        avatarUrl: data.image,
+      },
+      update: {
+        ...(data.name !== undefined ? { displayName: data.name } : {}),
+        ...(data.image !== undefined ? { avatarUrl: data.image } : {}),
+      },
+      select: { id: true },
+    }),
+    prisma.coteMember.upsert({
+      where: { userId },
+      create: {
+        userId,
+        nickname: data.name,
+        avatarUrl: data.image,
+      },
+      update: {
+        ...(data.name !== undefined ? { nickname: data.name } : {}),
+        ...(data.image !== undefined ? { avatarUrl: data.image } : {}),
+      },
+      select: { id: true },
+    }),
+  ]);
 }
 
 export async function updateCurrentPlatformProfile(
@@ -272,15 +317,19 @@ export async function updateCurrentPlatformProfile(
     return null;
   }
 
-  if (platform === "cote") {
-    await ensureHorokCoteMemberProfile();
+  const hasProfileChanges = data.name !== undefined || data.image !== undefined;
 
-    const member = await prisma.coteMember.update({
+  if (hasProfileChanges) {
+    await syncSharedPlatformProfiles(currentUser.userId, data);
+  } else if (platform === "cote") {
+    await ensureHorokCoteMemberProfile();
+  } else {
+    await ensureHorokTechMemberProfile();
+  }
+
+  if (platform === "cote") {
+    const member = await prisma.coteMember.findUnique({
       where: { userId: currentUser.userId },
-      data: {
-        ...(data.name !== undefined ? { nickname: data.name } : {}),
-        ...(data.image !== undefined ? { avatarUrl: data.image } : {}),
-      },
       select: {
         nickname: true,
         avatarUrl: true,
@@ -288,19 +337,16 @@ export async function updateCurrentPlatformProfile(
     });
 
     return {
-      name: member.nickname,
-      image: member.avatarUrl,
+      name: member?.nickname ?? currentUser.name,
+      image:
+        data.image !== undefined
+          ? data.image
+          : (member?.avatarUrl ?? currentUser.image),
     };
   }
 
-  await ensureHorokTechMemberProfile();
-
-  const member = await prisma.techMember.update({
+  const member = await prisma.techMember.findUnique({
     where: { userId: currentUser.userId },
-    data: {
-      ...(data.name !== undefined ? { displayName: data.name } : {}),
-      ...(data.image !== undefined ? { avatarUrl: data.image } : {}),
-    },
     select: {
       displayName: true,
       avatarUrl: true,
@@ -308,13 +354,16 @@ export async function updateCurrentPlatformProfile(
   });
 
   return {
-    name: member.displayName,
-    image: member.avatarUrl,
+    name: member?.displayName ?? data.name ?? currentUser.name,
+    image:
+      data.image !== undefined
+        ? data.image
+        : (member?.avatarUrl ?? currentUser.image),
   };
 }
 
 export async function checkPlatformNicknameAvailability(
-  platform: PlatformProfileKind,
+  _platform: PlatformProfileKind,
   name: string,
   excludeUserId?: string,
 ) {
@@ -332,29 +381,26 @@ export async function checkPlatformNicknameAvailability(
     return { available: false, message: "이미 사용 중인 닉네임입니다." };
   }
 
-  if (platform === "cote") {
-    const member = await prisma.coteMember.findFirst({
+  await Promise.all([ensureHorokTechSchema(), ensureHorokCoteSchema()]);
+
+  const [techMember, coteMember] = await Promise.all([
+    prisma.techMember.findFirst({
+      where: {
+        displayName: { equals: name, mode: "insensitive" },
+        ...(excludeId ? { NOT: { userId: excludeId } } : {}),
+      },
+      select: { id: true },
+    }),
+    prisma.coteMember.findFirst({
       where: {
         nickname: { equals: name, mode: "insensitive" },
         ...(excludeId ? { NOT: { userId: excludeId } } : {}),
       },
       select: { id: true },
-    });
+    }),
+  ]);
 
-    return member
-      ? { available: false, message: "이미 사용 중인 닉네임입니다." }
-      : { available: true, message: "사용 가능한 닉네임입니다." };
-  }
-
-  const member = await prisma.techMember.findFirst({
-    where: {
-      displayName: { equals: name, mode: "insensitive" },
-      ...(excludeId ? { NOT: { userId: excludeId } } : {}),
-    },
-    select: { id: true },
-  });
-
-  return member
+  return techMember || coteMember
     ? { available: false, message: "이미 사용 중인 닉네임입니다." }
     : { available: true, message: "사용 가능한 닉네임입니다." };
 }

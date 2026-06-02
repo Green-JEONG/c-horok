@@ -189,7 +189,7 @@ export default function HorokCoteCreateProblemModal({
 
             <form
               onSubmit={handleSubmit}
-              className="scrollbar-hide flex min-h-0 flex-1 flex-col overflow-y-auto"
+              className="scrollbar-green flex min-h-0 flex-1 flex-col overflow-y-auto"
             >
               <div className="grid gap-4 px-5 py-5 sm:grid-cols-2 sm:px-6">
                 <label className="space-y-2">

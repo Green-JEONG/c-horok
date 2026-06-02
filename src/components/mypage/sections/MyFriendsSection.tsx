@@ -329,10 +329,11 @@ function FriendList({
                 className="min-w-0 rounded-xl transition-colors"
               >
                 <div
-                  className={`card-hover-scale relative flex h-full min-w-0 flex-col items-center rounded-xl border bg-background px-4 py-4 text-center ${highlightedFriendId === friend.id
+                  className={`card-hover-scale relative flex h-full min-w-0 flex-col items-center rounded-xl border bg-background px-4 py-4 text-center ${
+                    highlightedFriendId === friend.id
                       ? "border-primary bg-primary/5"
                       : ""
-                    }`}
+                  }`}
                 >
                   <Link
                     href={`/users/${friend.id}`}
@@ -363,10 +364,11 @@ function FriendList({
                           ? "default"
                           : "outline"
                       }
-                      className={`relative z-30 mt-3 h-8 w-full text-xs ${unfollowedFriendIds.has(friend.id)
+                      className={`relative z-30 mt-3 h-8 w-full text-xs ${
+                        unfollowedFriendIds.has(friend.id)
                           ? ""
                           : "hover:!border-destructive hover:!bg-destructive hover:!text-white dark:hover:!border-destructive dark:hover:!bg-destructive dark:hover:!text-white"
-                        }`}
+                      }`}
                       disabled={pendingFriendId === friend.id}
                       onClick={() => void handleToggleFollowing(friend.id)}
                     >

@@ -914,7 +914,7 @@ export default function HorokCoteWorkspace({
 
   const problemPanelContent = (
     <div className="flex h-full min-h-0 flex-col">
-      <section className="min-h-0 flex-1 overflow-y-auto pb-5">
+      <section className="scrollbar-green min-h-0 flex-1 overflow-y-auto pb-5">
         <div className="min-w-0 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div className="text-base font-bold text-slate-700 dark:text-slate-200 sm:text-lg">
@@ -931,7 +931,7 @@ export default function HorokCoteWorkspace({
         </div>
       </section>
 
-      <section className="scrollbar-hide min-h-0 flex-1 overflow-y-auto border-t border-slate-200 pt-5 dark:border-slate-800">
+      <section className="scrollbar-green min-h-0 flex-1 overflow-y-auto border-t border-slate-200 pt-5 dark:border-slate-800">
         <div className="min-w-0 space-y-3">
           <div className="text-base font-bold text-slate-700 dark:text-slate-200 sm:text-lg">
             예제
@@ -945,7 +945,7 @@ export default function HorokCoteWorkspace({
                 <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
                   입력 {index + 1}
                 </p>
-                <pre className="scrollbar-hide mt-2 overflow-x-auto font-mono text-sm leading-6 text-slate-700 dark:text-slate-300">
+                <pre className="scrollbar-green mt-2 overflow-x-auto font-mono text-sm leading-6 text-slate-700 dark:text-slate-300">
                   {example.input}
                 </pre>
               </div>
@@ -953,7 +953,7 @@ export default function HorokCoteWorkspace({
                 <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
                   출력 {index + 1}
                 </p>
-                <pre className="scrollbar-hide mt-2 overflow-x-auto font-mono text-sm leading-6 text-slate-700 dark:text-slate-300">
+                <pre className="scrollbar-green mt-2 overflow-x-auto font-mono text-sm leading-6 text-slate-700 dark:text-slate-300">
                   {example.output}
                 </pre>
               </div>
@@ -1814,15 +1814,21 @@ function PanelMoveHandle({
       type="button"
       onPointerDown={(event) => onPointerDown(panelId, event)}
       className={cn(
-        "absolute left-1/2 top-0.5 z-30 flex h-3 w-20 -translate-x-1/2 cursor-grab touch-none items-center justify-center rounded-full transition active:cursor-grabbing",
+        "absolute left-1/2 z-30 flex h-3 w-20 -translate-x-1/2 cursor-grab touch-none items-center justify-center rounded-full transition active:cursor-grabbing",
+        panelId === "chat" ? "top-1" : "top-0.5",
         isActive && "cursor-grabbing",
       )}
       aria-label={`${label} 패널 이동`}
     >
       <span
         className={cn(
-          "h-1 w-10 rounded-full bg-slate-300/90 shadow-sm transition hover:bg-[#06923E] dark:bg-slate-600 dark:hover:bg-[#46c86f]",
-          isActive && "bg-[#06923E] dark:bg-[#46c86f]",
+          panelId === "chat"
+            ? "h-1 w-10 rounded-full bg-white/55 shadow-sm transition hover:bg-white/80"
+            : "h-1 w-10 rounded-full bg-slate-300/90 shadow-sm transition hover:bg-[#06923E] dark:bg-slate-600 dark:hover:bg-[#46c86f]",
+          isActive &&
+            (panelId === "chat"
+              ? "bg-white/80"
+              : "bg-[#06923E] dark:bg-[#46c86f]"),
         )}
       />
     </button>

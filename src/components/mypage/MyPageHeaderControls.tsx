@@ -243,7 +243,7 @@ export default function MyPageHeaderControls({
             ref={targetButtonRef}
             type="button"
             onClick={() => setTargetMenuOpen((value) => !value)}
-            className="flex h-full max-w-20 shrink-0 items-center gap-1 border-r bg-transparent px-2 text-xs font-medium outline-none transition-colors hover:bg-muted sm:max-w-none"
+            className="flex h-full max-w-28 shrink-0 items-center gap-1 border-r bg-transparent px-2 text-xs font-medium outline-none transition-colors hover:bg-muted sm:max-w-none"
             aria-haspopup="menu"
             aria-expanded={targetMenuOpen}
             aria-label="검색 범위"
@@ -302,7 +302,7 @@ export default function MyPageHeaderControls({
                       setTargetMenuOpen(false);
                       inputRef.current?.focus();
                     }}
-                    className="w-full px-3 py-2 text-left hover:bg-muted"
+                    className="w-full whitespace-nowrap px-3 py-2 text-left hover:bg-muted"
                   >
                     {option.label}
                   </button>
