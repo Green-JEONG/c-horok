@@ -372,6 +372,7 @@ model CoteSubmission {
   output         String?                 @db.Text
   expectedOutput String?                 @map("expected_output") @db.Text
   status         String                  @db.VarChar(20)
+  elapsedSeconds Int?                    @map("elapsed_seconds")
   createdAt      DateTime                @default(now()) @map("created_at")
 
   user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)

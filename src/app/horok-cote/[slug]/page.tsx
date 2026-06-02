@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
+import { coteAuth } from "@/app/api/cote-auth/[...nextauth]/route";
 import ErrorState from "@/components/common/ErrorState";
 import HorokCoteBackgroundPattern from "@/components/horok-cote/HorokCoteBackgroundPattern";
 import HorokCoteProblemHeader from "@/components/horok-cote/HorokCoteProblemHeader";
 import HorokCoteWorkspace from "@/components/horok-cote/HorokCoteWorkspace";
+import { getUserIdByEmail } from "@/lib/db";
 import {
   getHorokCoteProblem,
   listHorokCoteProblemRouteParams,
   listHorokCoteProblems,
 } from "@/lib/horok-cote";
+import { prisma } from "@/lib/prisma";
 
 type HorokCoteProblemPageProps = {
   params: Promise<{
@@ -48,6 +51,52 @@ export default async function HorokCoteProblemPage({
     getHorokCoteProblem(slug),
     listHorokCoteProblems(),
   ]);
+  const session = await coteAuth();
+  let solvedSlugs: string[] = [];
+  let failedSlugs: string[] = [];
+  let bookmarkedSlugs: string[] = [];
+
+  if (session?.user?.email) {
+    const userId = await getUserIdByEmail(session.user.email);
+    if (userId) {
+      const [solvedProgress, submissions, savedCodes] = await Promise.all([
+        prisma.coteProblemProgress.findMany({
+          where: { userId: BigInt(userId), status: "solved" },
+          select: { problemSlug: true },
+        }),
+        prisma.coteSubmission.findMany({
+          where: { userId: BigInt(userId) },
+          select: { problemSlug: true, status: true },
+        }),
+        prisma.coteSavedCode.findMany({
+          where: { userId: BigInt(userId) },
+          select: { problemSlug: true },
+        }),
+      ]);
+
+      const solvedSlugSet = new Set([
+        ...solvedProgress.map((p) => p.problemSlug),
+        ...submissions
+          .filter((submission) => submission.status === "solved")
+          .map((submission) => submission.problemSlug),
+      ]);
+      solvedSlugs = [...solvedSlugSet];
+      bookmarkedSlugs = [...new Set(savedCodes.map((s) => s.problemSlug))];
+
+      const submittedSlugs = Array.from(
+        new Set(submissions.map((s) => s.problemSlug)),
+      );
+      failedSlugs = submittedSlugs.filter(
+        (problemSlug) => !solvedSlugSet.has(problemSlug),
+      );
+    }
+  }
+
+  const userProgress = {
+    solvedSlugs,
+    failedSlugs,
+    bookmarkedSlugs,
+  };
 
   if (!problem) {
     return (
@@ -79,6 +128,7 @@ export default async function HorokCoteProblemPage({
             number={problem.number}
             title={problem.title}
             problems={allProblems}
+            userProgress={userProgress}
           />
           <HorokCoteWorkspace problem={problem} />
         </section>

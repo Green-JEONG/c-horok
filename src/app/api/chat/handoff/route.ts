@@ -49,12 +49,19 @@ async function upsertAdminHandoffNotifications(params: {
           type,
           content
         )
-        VALUES (
+        SELECT
           ${admin.id},
           ${BigInt(params.actorUserId)},
           ${BigInt(params.threadId)},
           'chat_handoff',
           '챗봇 대화에서 관리자 문의가 접수되었습니다.'
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM public.notifications
+          WHERE user_id = ${admin.id}
+            AND actor_id = ${BigInt(params.actorUserId)}
+            AND chat_thread_id = ${BigInt(params.threadId)}
+            AND type = 'chat_handoff'
         )
       `;
     }),
@@ -105,12 +112,6 @@ export async function POST(req: Request) {
     `;
 
     if (existing[0]) {
-      await upsertAdminHandoffNotifications({
-        tx: prisma,
-        actorUserId: userId,
-        threadId,
-      });
-
       return Response.json({
         ok: true,
         handoffId: existing[0].id.toString(),
@@ -160,6 +161,62 @@ export async function POST(req: Request) {
 
     return Response.json(
       { error: "문의를 접수하지 못했습니다." },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const body = (await req.json().catch(() => null)) as {
+      platform?: string | null;
+      threadId?: string | null;
+    } | null;
+    const platform = resolveChatPlatform(body?.platform);
+    const userId = await getDbUserIdFromSession(platform);
+
+    if (!userId) {
+      return Response.json({ error: "로그인이 필요합니다." }, { status: 401 });
+    }
+
+    const admin = await prisma.user.findUnique({
+      where: { id: BigInt(userId) },
+      select: { role: true },
+    });
+    if (admin?.role !== "ADMIN") {
+      return Response.json({ error: "권한이 없습니다." }, { status: 403 });
+    }
+
+    const threadId = body?.threadId;
+    if (!threadId || !/^\d+$/.test(threadId)) {
+      return Response.json(
+        { error: "숨길 문의 대화를 찾지 못했습니다." },
+        { status: 400 },
+      );
+    }
+
+    const result = await prisma.$executeRaw`
+      UPDATE public.chat_handoffs
+      SET status = 'archived'
+      WHERE thread_id = ${BigInt(threadId)}
+        AND status <> 'archived'
+    `;
+
+    return Response.json({ ok: true, threadId, archivedCount: Number(result) });
+  } catch (error) {
+    if (isChatHandoffTableUnavailable(error)) {
+      console.warn("/api/chat/handoff DELETE persistence unavailable", error);
+
+      return Response.json(
+        { error: "문의 대화를 숨길 수 없습니다." },
+        { status: 503 },
+      );
+    }
+
+    console.error("/api/chat/handoff DELETE error", error);
+
+    return Response.json(
+      { error: "문의 대화를 숨기지 못했습니다." },
       { status: 500 },
     );
   }

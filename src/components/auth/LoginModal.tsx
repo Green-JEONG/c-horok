@@ -19,6 +19,8 @@ type Props = {
 
 type AuthStep = "login" | "signup" | "magicLink";
 
+const SAVED_LOGIN_EMAIL_KEY = "horok-saved-login-email";
+
 export default function LoginModal({ open, onClose }: Props) {
   const [step, setStep] = useState<AuthStep>("login");
   const [mounted, setMounted] = useState(false);
@@ -29,6 +31,8 @@ export default function LoginModal({ open, onClose }: Props) {
   // 로그인 입력 state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberEmail, setRememberEmail] = useState(false);
+  const [autoLogin, setAutoLogin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,6 +97,7 @@ export default function LoginModal({ open, onClose }: Props) {
     setStep("login");
     setEmail("");
     setPassword("");
+    setAutoLogin(false);
     setSignupEmail("");
     setSignupName("");
     setSignupPassword("");
@@ -105,6 +110,16 @@ export default function LoginModal({ open, onClose }: Props) {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!open || typeof window === "undefined") {
+      return;
+    }
+
+    const savedEmail = window.localStorage.getItem(SAVED_LOGIN_EMAIL_KEY) ?? "";
+    setEmail(savedEmail);
+    setRememberEmail(Boolean(savedEmail));
+  }, [open]);
 
   // ESC 키로 닫기
   useEffect(() => {
@@ -122,7 +137,7 @@ export default function LoginModal({ open, onClose }: Props) {
 
   async function handleCredentialsLogin() {
     if (!email || !password) {
-      setError("이메일과 비밀번호를 입력해주세요.");
+      setError("이메일 또는 닉네임과 비밀번호를 입력해주세요.");
       return;
     }
 
@@ -130,9 +145,16 @@ export default function LoginModal({ open, onClose }: Props) {
     setError(null);
     setNotice(null);
 
+    if (rememberEmail) {
+      window.localStorage.setItem(SAVED_LOGIN_EMAIL_KEY, email.trim());
+    } else {
+      window.localStorage.removeItem(SAVED_LOGIN_EMAIL_KEY);
+    }
+
     const res = await signIn("credentials", {
       email,
       password,
+      autoLogin: autoLogin ? "true" : "false",
       callbackUrl: getCallbackUrl(),
       redirect: false,
     });
@@ -140,7 +162,7 @@ export default function LoginModal({ open, onClose }: Props) {
     setLoading(false);
 
     if (res?.error) {
-      setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+      setError("이메일/닉네임 또는 비밀번호가 올바르지 않습니다.");
       return;
     }
 
@@ -344,18 +366,52 @@ export default function LoginModal({ open, onClose }: Props) {
                 className="space-y-3"
               >
                 <input
+                  type="text"
+                  id="username"
+                  name="username"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="아이디 (이메일)"
+                  placeholder="이메일 또는 닉네임"
                   className="w-full rounded-md border px-3 py-2 text-sm"
                 />
                 <input
                   type="password"
+                  id="password"
+                  name="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="비밀번호"
                   className="w-full rounded-md border px-3 py-2 text-sm"
                 />
+                <div className="flex items-center gap-4">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={rememberEmail}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setRememberEmail(checked);
+
+                        if (!checked) {
+                          window.localStorage.removeItem(SAVED_LOGIN_EMAIL_KEY);
+                        }
+                      }}
+                      className="size-4 rounded border-muted-foreground/30 accent-primary"
+                    />
+                    아이디 저장
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={autoLogin}
+                      onChange={(e) => setAutoLogin(e.target.checked)}
+                      className="size-4 rounded border-muted-foreground/30 accent-primary"
+                    />
+                    자동 로그인
+                  </label>
+                </div>
 
                 {error && (
                   <p className="text-center text-xs text-red-500">{error}</p>
@@ -450,6 +506,10 @@ export default function LoginModal({ open, onClose }: Props) {
               className="space-y-3"
             >
               <input
+                type="email"
+                id="signupEmail"
+                name="email"
+                autoComplete="email"
                 value={signupEmail}
                 onChange={(e) => setSignupEmail(e.target.value)}
                 placeholder="아이디 (이메일)"
@@ -479,6 +539,10 @@ export default function LoginModal({ open, onClose }: Props) {
                 </p>
               )}
               <input
+                type="text"
+                id="signupName"
+                name="name"
+                autoComplete="username"
                 value={signupName}
                 onChange={(e) => setSignupName(e.target.value)}
                 placeholder="닉네임"
@@ -511,6 +575,9 @@ export default function LoginModal({ open, onClose }: Props) {
               )}
               <input
                 type="password"
+                id="signupPassword"
+                name="new-password"
+                autoComplete="new-password"
                 value={signupPassword}
                 onChange={(e) => setSignupPassword(e.target.value)}
                 placeholder="비밀번호"
@@ -523,6 +590,9 @@ export default function LoginModal({ open, onClose }: Props) {
               )}
               <input
                 type="password"
+                id="signupPasswordConfirm"
+                name="new-password-confirm"
+                autoComplete="new-password"
                 value={signupPasswordConfirm}
                 onChange={(e) => setSignupPasswordConfirm(e.target.value)}
                 placeholder="비밀번호 확인"

@@ -224,6 +224,24 @@ export async function findUserByEmail(email: string) {
   return user ? mapUser(user) : null;
 }
 
+export async function findUserByEmailOrNickname(identifier: string) {
+  // Try email exact match first
+  let user = await prisma.user.findUnique({
+    where: { email: identifier },
+  });
+
+  // If not found, try name (nickname) case-insensitive match
+  if (!user) {
+    user = await prisma.user.findFirst({
+      where: {
+        name: { equals: identifier, mode: "insensitive" },
+      },
+    });
+  }
+
+  return user ? mapUser(user) : null;
+}
+
 export async function findUserById(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: BigInt(userId) },

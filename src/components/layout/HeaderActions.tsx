@@ -142,7 +142,7 @@ export default function HeaderActions() {
           />
         ) : null}
         {!isCote && hasUnreadNotifications ? (
-          <span className="absolute -right-0.5 top-0 z-20 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-zinc-950" />
+          <span className="absolute -right-0.5 top-0 z-20 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-zinc-950 dark:ring-white" />
         ) : null}
       </Button>
 

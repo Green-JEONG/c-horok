@@ -5,7 +5,7 @@ import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import Nodemailer from "next-auth/providers/nodemailer";
 import { authAdapter } from "@/lib/auth-adapter";
-import { findUserByEmail } from "@/lib/db";
+import { findUserByEmail, findUserByEmailOrNickname } from "@/lib/db";
 import { getSmtpEmailConfig } from "@/lib/email";
 import { env } from "@/lib/env";
 
@@ -13,12 +13,24 @@ const smtpEmailConfig = getSmtpEmailConfig();
 
 type AuthPlatform = "tech" | "cote";
 
+const DEFAULT_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24;
+const REMEMBER_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+
+function getSessionExpiresAt(rememberLogin: boolean) {
+  const maxAgeSeconds = rememberLogin
+    ? REMEMBER_SESSION_MAX_AGE_SECONDS
+    : DEFAULT_SESSION_MAX_AGE_SECONDS;
+
+  return Date.now() + maxAgeSeconds * 1000;
+}
+
 export function createAuthConfig(platform: AuthPlatform): NextAuthConfig {
   return {
     adapter: authAdapter,
     basePath: platform === "cote" ? "/api/cote-auth" : "/api/auth",
     session: {
       strategy: "jwt",
+      maxAge: REMEMBER_SESSION_MAX_AGE_SECONDS,
     },
     providers: [
       GitHub({
@@ -36,6 +48,7 @@ export function createAuthConfig(platform: AuthPlatform): NextAuthConfig {
         credentials: {
           email: { label: "Email", type: "email" },
           password: { label: "Password", type: "password" },
+          autoLogin: { label: "Auto Login", type: "text" },
         },
         async authorize(credentials) {
           const email =
@@ -47,10 +60,11 @@ export function createAuthConfig(platform: AuthPlatform): NextAuthConfig {
             typeof credentials?.password === "string"
               ? credentials.password
               : null;
+          const rememberLogin = credentials?.autoLogin === "true";
 
           if (!email || !password) return null;
 
-          const user = await findUserByEmail(email);
+          const user = await findUserByEmailOrNickname(email);
           if (!user || !user.password) return null;
 
           const ok = await bcrypt.compare(password, user.password);
@@ -64,6 +78,7 @@ export function createAuthConfig(platform: AuthPlatform): NextAuthConfig {
             oauthImage: user.oauth_image ?? undefined,
             role: user.role,
             provider: user.provider,
+            rememberLogin,
           };
         },
       }),
@@ -78,7 +93,18 @@ export function createAuthConfig(platform: AuthPlatform): NextAuthConfig {
       },
 
       async jwt({ token, user, trigger, session }) {
+        if (
+          typeof token.authExpiresAt === "number" &&
+          Date.now() > token.authExpiresAt
+        ) {
+          return null;
+        }
+
         if (user) {
+          token.authExpiresAt = getSessionExpiresAt(
+            user.rememberLogin === true,
+          );
+
           if (typeof user.dbUserId === "string") {
             token.userId = user.dbUserId;
           } else if (typeof user.id === "string") {
@@ -130,6 +156,10 @@ export function createAuthConfig(platform: AuthPlatform): NextAuthConfig {
             token.picture = dbUser.image ?? token.picture;
             token.oauthImage = dbUser.oauth_image;
           }
+        }
+
+        if (typeof token.authExpiresAt !== "number") {
+          token.authExpiresAt = getSessionExpiresAt(false);
         }
 
         return token;

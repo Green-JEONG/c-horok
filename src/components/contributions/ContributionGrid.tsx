@@ -133,10 +133,14 @@ export default function ContributionGrid({ userId }: { userId?: number }) {
           return (
             <div
               key={date}
-              title={`${date}: ${count}회`}
-              className={`contribution-day flex aspect-square w-full items-center justify-center text-[8px] font-semibold leading-none tabular-nums ${getColor(count)} ${getTextColor(count)}`}
+              role="img"
+              aria-label={`${date}: ${count}회`}
+              className={`contribution-day group relative flex aspect-square w-full items-center justify-center text-[8px] font-semibold leading-none tabular-nums ${getColor(count)} ${getTextColor(count)}`}
             >
               {count > 0 ? count : null}
+              <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[11px] font-medium leading-none text-background shadow-md group-hover:block">
+                {date}: {count}회
+              </span>
             </div>
           );
         })}

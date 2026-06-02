@@ -43,6 +43,36 @@ function buildThreadTitle(text: string) {
   return text.replace(/\s+/g, " ").trim().slice(0, 60) || null;
 }
 
+function buildChatSystemPrompt(platform: "tech" | "cote") {
+  return [
+    "답변은 항상 한국어로 작성한다.",
+    "친절하고 간결하게 답하되, 필요한 경우에는 핵심을 짧게 정리한다.",
+    "답변에 유머를 섞어도 좋지만, 지나치게 가볍거나 진지하지 않도록 주의한다.",
+    "너의 성별은 비밀이다.",
+    "너의 생년월일은 2024년 8월 2일이다.",
+    "너를 만든 사람은 그린님이다",
+    "너는 호록 컴퍼니의 마스코트 호록이이자, 호록 컴퍼니의 제품과 서비스에 대한 질문에 답변하는 역할을 한다.",
+    "너의 종은 동물 호랑이이다.",
+    "너의 MBTI는 ENFP이다.",
+    "너는 기술을 쉽고 창의적인 콘텐츠로 전달하는 역할을 한다.",
+    "코딩테스트 및 알고리즘 문제 풀이에 대한 질문에도 친절하게 답변한다.",
+    "현재 Python을 가지고 코딩테스트를 준비하는 사람들에게 도움이 되기 위해 교육 영상을 준비 중이다.",
+    platform === "cote"
+      ? [
+          "horok-cote 문제별 채팅방에서는 이전 대화에 포함된 문제 설명, 핵심 요구사항, 예제, 사용자의 질문을 문제 맥락으로 삼아 답한다.",
+          "사용자가 풀이 코드나 코드 일부를 보여주면 먼저 해당 문제 요구사항에 비추어 잘한 점을 구체적으로 짚어 준다.",
+          "코드가 정답에 가깝거나 좋은 접근이라면 어떤 아이디어, 자료구조, 조건 처리, 복잡도 선택이 적절했는지 설명한다.",
+          "더 최적의 풀이가 있다면 최적화 방향을 설명하고, 가능하면 Python 기준의 개선된 코드와 풀이 방식, 시간/공간 복잡도를 함께 제시한다.",
+          "코드에 오류나 반례 가능성이 있으면 비난하지 말고 원인, 반례, 수정 방향을 단계적으로 알려준다.",
+          "사용자가 명시적으로 전체 정답을 원하지 않은 경우에는 먼저 힌트와 개선 포인트를 주고, 정답 코드가 필요하면 이어서 제공한다.",
+        ].join(" ")
+      : null,
+    "너는 물어본 것만 간결하게 대답한다.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 async function isAdminUser(userId: number) {
   const user = await prisma.user.findUnique({
     where: { id: BigInt(userId) },
@@ -107,19 +137,25 @@ async function listHandoffThreadsForAdmin(userId: number) {
       ORDER BY created_at DESC, id DESC
       LIMIT 1
     ) AS latest_message ON TRUE
+    WHERE handoff.status <> 'archived'
     ORDER BY thread.id, handoff.created_at DESC
   `;
 
   return rows
-    .map((row) => ({
-      id: row.id.toString(),
-      title: `[문의] ${row.title?.trim() || row.requester_name || row.requester_email}`,
-      preview: row.preview?.replace(/\s+/g, " ").trim().slice(0, 80) ?? "",
-      createdAt: row.created_at.toISOString(),
-      updatedAt: row.updated_at.toISOString(),
-      messageCount: Number(row.message_count),
-      platform: "handoff" as const,
-    }))
+    .map((row) => {
+      const requesterName = row.requester_name?.trim() || row.requester_email;
+      const title = row.title?.trim() || "문의 대화";
+
+      return {
+        id: row.id.toString(),
+        title: `[${requesterName}] ${title}`,
+        preview: row.preview?.replace(/\s+/g, " ").trim().slice(0, 80) ?? "",
+        createdAt: row.created_at.toISOString(),
+        updatedAt: row.updated_at.toISOString(),
+        messageCount: Number(row.message_count),
+        platform: "handoff" as const,
+      };
+    })
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
@@ -264,7 +300,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const userId = await getDbUserIdFromSession(resolveChatPlatform(platform));
+    const resolvedPlatform = resolveChatPlatform(platform);
+    const userId = await getDbUserIdFromSession(resolvedPlatform);
     let persistedThreadId: string | null = null;
     let previousMessages: UIMessage[] = [];
 
@@ -301,21 +338,7 @@ export async function POST(req: Request) {
 
     const result = await streamText({
       model: google("gemini-2.5-flash"),
-      system: [
-        "답변은 항상 한국어로 작성한다.",
-        "친절하고 간결하게 답하되, 필요한 경우에는 핵심을 짧게 정리한다.",
-        "답변에 유머를 섞어도 좋지만, 지나치게 가볍거나 진지하지 않도록 주의한다.",
-        "너의 성별은 비밀이다.",
-        "너의 생년월일은 2024년 8월 2일이다.",
-        "너를 만든 사람은 그린님이다",
-        "너는 호록 컴퍼니의 마스코트 호록이이자, 호록 컴퍼니의 제품과 서비스에 대한 질문에 답변하는 역할을 한다.",
-        "너의 종은 동물 호랑이이다.",
-        "너의 MBTI는 ENFP이다.",
-        "너는 기술을 쉽고 창의적인 콘텐츠로 전달하는 역할을 한다.",
-        "코딩테스트 및 알고리즘 문제 풀이에 대한 질문에도 친절하게 답변한다.",
-        "현재 Python을 가지고 코딩테스트를 준비하는 사람들에게 도움이 되기 위해 교육 영상을 준비 중이다.",
-        "너는 물어본 것만 간결하게 대답한다.",
-      ].join(" "),
+      system: buildChatSystemPrompt(resolvedPlatform),
       messages: await convertToModelMessages(allMessages),
     });
 

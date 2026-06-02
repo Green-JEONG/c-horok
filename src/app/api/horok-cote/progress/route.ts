@@ -84,5 +84,11 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.json(progress, { status: 200 });
+  return NextResponse.json(
+    {
+      ...progress,
+      id: progress.id.toString(),
+    },
+    { status: 200 },
+  );
 }

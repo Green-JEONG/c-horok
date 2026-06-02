@@ -16,7 +16,13 @@ export default async function Header() {
             aria-label="홈으로 이동"
             className="flex shrink-0 items-center gap-1.5 font-bold"
           >
-            <Image src="/logo.png" alt="c.horok" width={36} height={36} />
+            <Image
+              src="/logo.png"
+              alt="c.horok"
+              width={36}
+              height={36}
+              priority
+            />
             <span className="flex flex-col items-center text-[11px] leading-none">
               <span>horok</span>
               <span>tech</span>
@@ -49,7 +55,13 @@ export default async function Header() {
             aria-label="홈으로 이동"
             className="flex items-center gap-1.5 font-bold"
           >
-            <Image src="/logo.png" alt="c.horok" width={36} height={36} />
+            <Image
+              src="/logo.png"
+              alt="c.horok"
+              width={36}
+              height={36}
+              priority
+            />
             <span className="flex flex-col items-center text-sm leading-none">
               <span>horok</span>
               <span>tech</span>

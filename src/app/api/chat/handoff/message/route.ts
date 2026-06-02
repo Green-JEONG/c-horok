@@ -6,7 +6,6 @@ import {
   getChatThreadById,
   updateChatThreadTitle,
 } from "@/lib/chat";
-import { prisma } from "@/lib/prisma";
 
 function resolveChatPlatform(value: string | null | undefined) {
   return value === "cote" ? "cote" : "tech";
@@ -66,32 +65,6 @@ export async function POST(req: Request) {
     if (!thread.title || thread.title === "새 대화") {
       await updateChatThreadTitle(threadId, buildThreadTitle(content));
     }
-
-    const admins = await prisma.user.findMany({
-      where: { role: "ADMIN" },
-      select: { id: true },
-    });
-
-    await Promise.all(
-      admins.map(async (admin) => {
-        await prisma.$executeRaw`
-          INSERT INTO public.notifications (
-            user_id,
-            actor_id,
-            chat_thread_id,
-            type,
-            content
-          )
-          VALUES (
-            ${admin.id},
-            ${BigInt(userId)},
-            ${BigInt(threadId)},
-            'chat_handoff',
-            '챗봇 대화에 새로운 문의 메시지가 도착했습니다.'
-          )
-        `;
-      }),
-    );
 
     return Response.json({ ok: true, threadId });
   } catch (error) {
