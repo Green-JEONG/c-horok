@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  AlarmClock,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  EyeOff,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Eye, EyeOff } from "lucide-react";
 import type {
   CSSProperties,
   ReactNode,
@@ -24,6 +18,32 @@ import HorokChat from "@/components/chat/HorokChat";
 import HorokCoteIDE from "@/components/horok-cote/HorokCoteIDE";
 import type { HorokCoteProblem } from "@/lib/horok-cote-shared";
 import { cn } from "@/lib/utils";
+
+function parseDurationToSeconds(durationStr: string): number {
+  if (!durationStr) return 0;
+  let totalSeconds = 0;
+  const hourMatch = durationStr.match(/(\d+)\s*시간/);
+  const minMatch = durationStr.match(/(\d+)\s*분/);
+  const secMatch = durationStr.match(/(\d+)\s*초/);
+
+  if (hourMatch) {
+    totalSeconds += Number.parseInt(hourMatch[1], 10) * 3600;
+  }
+  if (minMatch) {
+    totalSeconds += Number.parseInt(minMatch[1], 10) * 60;
+  }
+  if (secMatch) {
+    totalSeconds += Number.parseInt(secMatch[1], 10);
+  }
+
+  if (!hourMatch && !minMatch && !secMatch) {
+    const rawNumber = durationStr.replace(/[^\d]/g, "");
+    if (rawNumber) {
+      totalSeconds += Number.parseInt(rawNumber, 10) * 60;
+    }
+  }
+  return totalSeconds;
+}
 
 type HorokCoteWorkspaceProps = {
   problem: HorokCoteProblem;
@@ -603,7 +623,14 @@ export default function HorokCoteWorkspace({
       setPanelDropTarget(null);
       cleanupPanelPreview();
     };
-  }, [movingPanelId, cleanupPanelPreview, movePanelPreview]);
+  }, [
+    movingPanelId,
+    cleanupPanelPreview,
+    movePanelPreview,
+    isDesktop,
+    isTablet,
+    mobileSizes,
+  ]);
 
   useEffect(() => {
     void problem.slug;
@@ -883,7 +910,7 @@ export default function HorokCoteWorkspace({
   }, [isDesktop, isTablet, mobileSizes]);
 
   const sizes = isDesktop ? desktopSizes : mobileSizes;
-  const minimumPanelSize = isDesktop
+  const _minimumPanelSize = isDesktop
     ? DESKTOP_PANEL_MIN_SIZE
     : MOBILE_PANEL_MIN_SIZE;
   const collapsedPanels = sizes.map((size) => size <= 0);
@@ -920,13 +947,27 @@ export default function HorokCoteWorkspace({
             <div className="text-base font-bold text-slate-700 dark:text-slate-200 sm:text-lg">
               문제 설명
             </div>
-            <div className="flex shrink-0 items-center gap-1.5 font-mono text-sm font-semibold text-slate-500 dark:text-slate-400 sm:text-base">
-              <AlarmClock className="size-4" />
+            <div
+              className={cn(
+                "flex shrink-0 items-center gap-1.5 font-mono text-sm font-semibold sm:text-base",
+                problem.duration
+                  ? elapsedSeconds > parseDurationToSeconds(problem.duration)
+                    ? "text-rose-600 dark:text-rose-400"
+                    : "text-blue-600 dark:text-blue-400"
+                  : "text-slate-500 dark:text-slate-400",
+              )}
+            >
+              <Clock className="size-4" />
               {formatElapsedTime(elapsedSeconds)}
             </div>
           </div>
           <p className="text-[15px] leading-7 text-slate-700 dark:text-slate-300 sm:text-base">
-            {renderInlineCode(problem.prompt)}
+            {problem.summary ? (
+              <span className="block">{renderInlineCode(problem.summary)}</span>
+            ) : null}
+            <span className={cn("block", problem.summary ? "mt-2" : "")}>
+              {renderInlineCode(problem.prompt)}
+            </span>
           </p>
         </div>
       </section>
@@ -969,7 +1010,11 @@ export default function HorokCoteWorkspace({
       id: "ide",
       label: "IDE",
       content: (
-        <HorokCoteIDE problem={problem} onSolved={handleProblemSolved} />
+        <HorokCoteIDE
+          problem={problem}
+          onSolved={handleProblemSolved}
+          elapsedSeconds={elapsedSeconds}
+        />
       ),
     },
     chat: {

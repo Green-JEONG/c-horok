@@ -59,7 +59,8 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <head>
-        <script>{themeScript}</script>
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: inline theme initialization script is safe here */}
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="flex min-h-dvh flex-col overflow-x-hidden">
         <AuthSessionProvider>

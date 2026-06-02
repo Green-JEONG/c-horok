@@ -1,3 +1,14 @@
+export type ConditionCheck =
+  | { type: "output_not_empty" }
+  | { type: "output_equals"; value: string }
+  | { type: "output_contains"; value: string }
+  | { type: "output_matches"; pattern: string };
+
+export type HorokCoteCondition = {
+  text: string;
+  check?: ConditionCheck;
+};
+
 export type HorokCoteProblem = {
   number: number;
   slug: string;
@@ -6,6 +17,7 @@ export type HorokCoteProblem = {
   category: string;
   duration: string;
   acceptanceRate: string;
+  createdAt?: string;
   summary: string;
   prompt: string;
   examples: Array<{
@@ -18,6 +30,7 @@ export type HorokCoteProblem = {
     status: "passed" | "pending";
     input: string;
     expected: string;
+    conditions?: HorokCoteCondition[];
   }>;
 };
 

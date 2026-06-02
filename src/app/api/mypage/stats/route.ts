@@ -41,26 +41,41 @@ export async function GET(req: Request) {
     }
 
     if (platform === "cote") {
-      const [first, second, third] = await Promise.all([
-        prisma.coteProblemProgress.count({
-          where: {
-            userId: BigInt(userId),
-            status: "solved",
-          },
+      const [solvedProgress, submissions, savedCodes] = await Promise.all([
+        prisma.coteProblemProgress.findMany({
+          where: { userId: BigInt(userId), status: "solved" },
+          select: { problemSlug: true },
         }),
-        prisma.coteSubmission.count({
-          where: {
-            userId: BigInt(userId),
-          },
+        prisma.coteSubmission.findMany({
+          where: { userId: BigInt(userId) },
+          select: { problemSlug: true, status: true },
         }),
-        prisma.coteSavedCode.count({
-          where: {
-            userId: BigInt(userId),
-          },
+        prisma.coteSavedCode.findMany({
+          where: { userId: BigInt(userId) },
+          select: { problemSlug: true },
         }),
       ]);
+      const solvedSlugs = new Set([
+        ...solvedProgress.map((progress) => progress.problemSlug),
+        ...submissions
+          .filter((submission) => submission.status === "solved")
+          .map((submission) => submission.problemSlug),
+      ]);
+      const submittedSlugs = new Set(
+        submissions.map((submission) => submission.problemSlug),
+      );
+      const bookmarkedSlugs = new Set(
+        savedCodes.map((savedCode) => savedCode.problemSlug),
+      );
+      const failedSlugs = [...submittedSlugs].filter(
+        (slug) => !solvedSlugs.has(slug),
+      );
 
-      return NextResponse.json({ first, second, third });
+      return NextResponse.json({
+        first: solvedSlugs.size,
+        second: failedSlugs.length,
+        third: bookmarkedSlugs.size,
+      });
     }
 
     const [first, qna, second, followers, following] = await Promise.all([

@@ -188,6 +188,11 @@ export default function MyPageDrawer({ open, onClose }: Props) {
     third: 0,
   });
   const [draftPostCount, setDraftPostCount] = useState(0);
+  const coteStatLinks = [
+    "/horok-cote?tab=solved#cote-problem-tabs",
+    "/horok-cote?tab=failed#cote-problem-tabs",
+    "/horok-cote?tab=bookmarked#cote-problem-tabs",
+  ] as const;
   const getCallbackUrl = useCallback(() => {
     if (typeof window === "undefined") {
       return "/";
@@ -262,7 +267,12 @@ export default function MyPageDrawer({ open, onClose }: Props) {
   }, [open]);
 
   useEffect(() => {
-    if (!open || isCote) return;
+    if (!open) return;
+
+    if (isCote) {
+      setNotifications([]);
+      return;
+    }
 
     const loadNotifications = async () => {
       try {
@@ -425,7 +435,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
         {/* platform stats */}
         <div className="flex justify-around mx-4 gap-2 items-center">
           {[
-            isCote ? "푼 문제" : "글",
+            isCote ? "맞은 문제" : "글",
             isCote ? "틀린 문제" : "댓글",
             isCote ? "찜한 문제" : "팔로워",
           ].map((label, index) => {
@@ -444,13 +454,21 @@ export default function MyPageDrawer({ open, onClose }: Props) {
 
             if (isCote) {
               return (
-                <div
+                <button
                   key={label}
-                  className={cn(sharedClass, "flex flex-col items-center")}
+                  type="button"
+                  className={cn(
+                    sharedClass,
+                    "flex flex-col items-center cursor-pointer hover:opacity-90 transition-opacity",
+                  )}
+                  onClick={() => {
+                    onClose();
+                    router.push(coteStatLinks[index]);
+                  }}
                 >
                   <p className="font-light text-white">{label}</p>
                   <p className="font-extrabold text-white">{value}</p>
-                </div>
+                </button>
               );
             }
 
@@ -477,288 +495,295 @@ export default function MyPageDrawer({ open, onClose }: Props) {
           })}
         </div>
 
-        {!isCote ? (
-          <div className="mx-4 flex min-h-0 flex-1 flex-col rounded-3xl border border-border bg-muted px-4 py-3 text-foreground shadow-md">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-xl font-semibold">알림</h3>
-              {notifications.length > 0 ? (
-                <div className="flex items-center gap-2">
+        <div
+          className={cn(
+            "mx-4 flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden rounded-3xl border px-4 py-3 shadow-md",
+            isCote
+              ? "border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50"
+              : "border-border bg-muted text-foreground",
+          )}
+        >
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-xl font-semibold">알림</h3>
+            {notifications.length > 0 ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label={
+                    isNotificationDeleteMode
+                      ? "선택한 알림 삭제"
+                      : "알림 삭제 모드 켜기"
+                  }
+                  aria-pressed={isNotificationDeleteMode}
+                  onClick={() => {
+                    if (isNotificationDeleteMode) {
+                      void deleteSelectedNotifications();
+                      return;
+                    }
+
+                    setSelectedNotificationIds([]);
+                    setIsNotificationDeleteMode(true);
+                  }}
+                  className={cn(
+                    "inline-flex h-8 shrink-0 items-center justify-center rounded-md border transition",
+                    isNotificationDeleteMode
+                      ? "border-red-500 bg-red-500 px-3 text-xs font-semibold text-white hover:bg-red-600"
+                      : "size-8 border-border bg-background text-muted-foreground hover:border-primary/30 hover:bg-primary/10 hover:text-foreground",
+                    isNotificationDeleteMode &&
+                      selectedNotificationIds.length === 0 &&
+                      "opacity-60",
+                  )}
+                >
+                  {isNotificationDeleteMode ? (
+                    "삭제"
+                  ) : (
+                    <Trash2 className="size-4" />
+                  )}
+                </button>
+                {isNotificationDeleteMode ? (
                   <button
                     type="button"
-                    aria-label={
-                      isNotificationDeleteMode
-                        ? "선택한 알림 삭제"
-                        : "알림 삭제 모드 켜기"
-                    }
-                    aria-pressed={isNotificationDeleteMode}
                     onClick={() => {
-                      if (isNotificationDeleteMode) {
-                        void deleteSelectedNotifications();
-                        return;
-                      }
-
                       setSelectedNotificationIds([]);
-                      setIsNotificationDeleteMode(true);
+                      setIsNotificationDeleteMode(false);
                     }}
-                    className={cn(
-                      "inline-flex h-8 shrink-0 items-center justify-center rounded-md border transition",
-                      isNotificationDeleteMode
-                        ? "border-red-500 bg-red-500 px-3 text-xs font-semibold text-white hover:bg-red-600"
-                        : "size-8 border-border bg-background text-muted-foreground hover:border-primary/30 hover:bg-primary/10 hover:text-foreground",
-                      isNotificationDeleteMode &&
-                        selectedNotificationIds.length === 0 &&
-                        "opacity-60",
-                    )}
+                    className="inline-flex h-8 shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-semibold text-muted-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-foreground"
                   >
-                    {isNotificationDeleteMode ? (
-                      "삭제"
-                    ) : (
-                      <Trash2 className="size-4" />
-                    )}
+                    취소
                   </button>
-                  {isNotificationDeleteMode ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedNotificationIds([]);
-                        setIsNotificationDeleteMode(false);
-                      }}
-                      className="inline-flex h-8 shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-semibold text-muted-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-foreground"
-                    >
-                      취소
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
 
-            <div className="scrollbar-orange min-h-0 flex-1 overflow-y-auto pr-2 text-sm">
-              {notifications.length === 0 && (
-                <p className="text-muted-foreground">알림이 없습니다.</p>
-              )}
+          <div
+            className={cn(
+              "min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pr-2 text-sm",
+              isCote ? "scrollbar-green" : "scrollbar-orange",
+            )}
+          >
+            {notifications.length === 0 && (
+              <p className="text-muted-foreground">알림이 없습니다.</p>
+            )}
 
-              <ul className="space-y-2">
-                {notifications.map((n, index) => {
-                  const previousNotification = notifications[index - 1];
-                  const showDateBadge =
-                    !previousNotification ||
-                    getNotificationDateKey(previousNotification.created_at) !==
-                      getNotificationDateKey(n.created_at);
+            <ul className="min-w-0 space-y-2">
+              {notifications.map((n, index) => {
+                const previousNotification = notifications[index - 1];
+                const showDateBadge =
+                  !previousNotification ||
+                  getNotificationDateKey(previousNotification.created_at) !==
+                    getNotificationDateKey(n.created_at);
 
-                  return (
-                    <li key={n.id} className="space-y-2">
-                      {showDateBadge ? (
-                        <div
-                          className={cn(
-                            "flex justify-center",
-                            !previousNotification ? "mt-1 mb-2" : "mt-6 mb-2",
-                          )}
-                        >
-                          <span className="rounded-full bg-background px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm ring-1 ring-border">
-                            {formatNotificationDateBadge(n.created_at)}
-                          </span>
-                        </div>
-                      ) : null}
+                return (
+                  <li key={n.id} className="min-w-0 space-y-2">
+                    {showDateBadge ? (
+                      <div
+                        className={cn(
+                          "flex justify-center",
+                          !previousNotification ? "mt-1 mb-2" : "mt-6 mb-2",
+                        )}
+                      >
+                        <span className="rounded-full bg-background px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm ring-1 ring-border">
+                          {formatNotificationDateBadge(n.created_at)}
+                        </span>
+                      </div>
+                    ) : null}
 
-                      <div className="group flex items-start gap-2">
-                        <button
-                          type="button"
-                          className="flex w-full min-w-0 flex-1 items-start gap-2 text-left text-[15px] leading-[18px] text-muted-foreground hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-70 [&_strong]:text-foreground"
-                          onClick={async () => {
-                            if (isNotificationDeleteMode) {
-                              setSelectedNotificationIds((current) =>
-                                current.includes(n.id)
-                                  ? current.filter(
-                                      (notificationId) =>
-                                        notificationId !== n.id,
-                                    )
-                                  : [...current, n.id],
+                    <div className="group flex min-w-0 items-start gap-2">
+                      <button
+                        type="button"
+                        className="flex w-full min-w-0 flex-1 items-start gap-2 text-left text-[15px] leading-[18px] text-muted-foreground hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-70 [&_strong]:text-foreground"
+                        onClick={async () => {
+                          if (isNotificationDeleteMode) {
+                            setSelectedNotificationIds((current) =>
+                              current.includes(n.id)
+                                ? current.filter(
+                                    (notificationId) => notificationId !== n.id,
+                                  )
+                                : [...current, n.id],
+                            );
+                            return;
+                          }
+
+                          if (!n.is_read) {
+                            try {
+                              const response = await fetch(
+                                `/api/notifications/${n.id}/read`,
+                                {
+                                  method: "PATCH",
+                                },
                               );
-                              return;
-                            }
 
-                            if (!n.is_read) {
-                              try {
-                                const response = await fetch(
-                                  `/api/notifications/${n.id}/read`,
-                                  {
-                                    method: "PATCH",
-                                  },
+                              if (response.ok) {
+                                setNotifications((current) =>
+                                  current.map((notification) =>
+                                    notification.id === n.id
+                                      ? { ...notification, is_read: 1 }
+                                      : notification,
+                                  ),
                                 );
-
-                                if (response.ok) {
-                                  setNotifications((current) =>
-                                    current.map((notification) =>
-                                      notification.id === n.id
-                                        ? { ...notification, is_read: 1 }
-                                        : notification,
-                                    ),
-                                  );
-                                  notifyNotificationsUpdated();
-                                }
-                              } catch (error) {
-                                console.error("알림 읽음 처리 실패", error);
+                                notifyNotificationsUpdated();
                               }
+                            } catch (error) {
+                              console.error("알림 읽음 처리 실패", error);
                             }
+                          }
 
-                            if (n.is_post_deleted || n.is_comment_deleted) {
-                              window.alert(
-                                n.is_post_deleted
-                                  ? n.is_notice_post
-                                    ? "삭제된 문의입니다."
-                                    : "삭제된 게시물입니다."
-                                  : "삭제된 댓글입니다.",
-                              );
-                              return;
+                          if (n.is_post_deleted || n.is_comment_deleted) {
+                            window.alert(
+                              n.is_post_deleted
+                                ? n.is_notice_post
+                                  ? "삭제된 문의입니다."
+                                  : "삭제된 게시물입니다."
+                                : "삭제된 댓글입니다.",
+                            );
+                            return;
+                          }
+
+                          onClose();
+                          if (
+                            n.type === "CHAT_HANDOFF" &&
+                            typeof n.chat_thread_id === "number"
+                          ) {
+                            window.dispatchEvent(
+                              new CustomEvent(OPEN_CHAT_THREAD_EVENT, {
+                                detail: {
+                                  threadId: String(n.chat_thread_id),
+                                },
+                              }),
+                            );
+                            return;
+                          }
+
+                          if (
+                            n.type === "NEW_FOLLOWER" ||
+                            n.type === "FRIEND_REQUEST"
+                          ) {
+                            const params = new URLSearchParams({
+                              tab: "friends",
+                              friendType: "followers",
+                            });
+                            if (typeof n.actor_id === "number") {
+                              params.set("friendId", String(n.actor_id));
                             }
+                            router.push(`/mypage?${params.toString()}`);
+                            return;
+                          }
 
-                            onClose();
-                            if (
-                              n.type === "CHAT_HANDOFF" &&
-                              typeof n.chat_thread_id === "number"
-                            ) {
-                              window.dispatchEvent(
-                                new CustomEvent(OPEN_CHAT_THREAD_EVENT, {
-                                  detail: {
-                                    threadId: String(n.chat_thread_id),
-                                  },
-                                }),
-                              );
-                              return;
-                            }
+                          const postPath = n.post_path;
+                          const shouldOpenNoticeDetail =
+                            typeof postPath === "string" &&
+                            postPath.startsWith("/horok-tech/notices/");
 
-                            if (
-                              n.type === "NEW_FOLLOWER" ||
-                              n.type === "FRIEND_REQUEST"
-                            ) {
-                              const params = new URLSearchParams({
-                                tab: "friends",
-                                friendType: "followers",
-                              });
-                              if (typeof n.actor_id === "number") {
-                                params.set("friendId", String(n.actor_id));
-                              }
-                              router.push(`/mypage?${params.toString()}`);
-                              return;
-                            }
+                          const shouldOpenQnaList =
+                            shouldOpenNoticeDetail &&
+                            n.type === "POST_COMMENT" &&
+                            typeof n.comment_id !== "number" &&
+                            typeof n.post_id === "number";
 
-                            const postPath = n.post_path;
-                            const shouldOpenNoticeDetail =
-                              typeof postPath === "string" &&
-                              postPath.startsWith("/horok-tech/notices/");
+                          if (shouldOpenQnaList) {
+                            router.push(
+                              `/horok-tech/notices?category=QnA&target=${n.post_id}`,
+                            );
+                            return;
+                          }
 
-                            const shouldOpenQnaList =
-                              shouldOpenNoticeDetail &&
-                              n.type === "POST_COMMENT" &&
-                              typeof n.comment_id !== "number" &&
-                              typeof n.post_id === "number";
+                          if (shouldOpenNoticeDetail && !n.is_post_deleted) {
+                            const targetPath = n.comment_id
+                              ? `${postPath}?commentId=${n.comment_id}`
+                              : postPath;
+                            router.push(targetPath);
+                            return;
+                          }
 
-                            if (shouldOpenQnaList) {
-                              router.push(
-                                `/horok-tech/notices?category=QnA&target=${n.post_id}`,
-                              );
-                              return;
-                            }
+                          if (
+                            (n.type === "POST_COMMENT" ||
+                              n.type === "COMMENT_REPLY") &&
+                            typeof postPath === "string" &&
+                            typeof n.comment_id === "number"
+                          ) {
+                            router.push(
+                              `${postPath}?commentId=${n.comment_id}`,
+                            );
+                            return;
+                          }
 
-                            if (shouldOpenNoticeDetail && !n.is_post_deleted) {
-                              const targetPath = n.comment_id
-                                ? `${postPath}?commentId=${n.comment_id}`
-                                : postPath;
-                              router.push(targetPath);
-                              return;
-                            }
+                          if (
+                            n.type === "POST_LIKE" &&
+                            typeof n.post_id === "number"
+                          ) {
+                            router.push(
+                              `/mypage?tab=posts&postId=${n.post_id}`,
+                            );
+                            return;
+                          }
 
-                            if (
-                              (n.type === "POST_COMMENT" ||
-                                n.type === "COMMENT_REPLY") &&
-                              typeof postPath === "string" &&
-                              typeof n.comment_id === "number"
-                            ) {
-                              router.push(
-                                `${postPath}?commentId=${n.comment_id}`,
-                              );
-                              return;
-                            }
-
-                            if (
-                              n.type === "POST_LIKE" &&
-                              typeof n.post_id === "number"
-                            ) {
-                              router.push(
-                                `/mypage?tab=posts&postId=${n.post_id}`,
-                              );
-                              return;
-                            }
-
-                            if (
-                              typeof postPath === "string" &&
-                              !n.is_post_deleted
-                            ) {
-                              const targetPath = n.comment_id
-                                ? `${postPath}?commentId=${n.comment_id}`
-                                : postPath;
-                              router.push(targetPath);
-                            }
-                          }}
-                        >
-                          {isNotificationDeleteMode ? (
-                            selectedNotificationIds.includes(n.id) ? (
-                              <CircleCheckBig
-                                className="mt-[3px] size-[18px] shrink-0"
-                                color="#ef4444"
-                              />
-                            ) : (
-                              <Circle
-                                className="mt-[3px] size-[18px] shrink-0"
-                                color="#ef4444"
-                              />
-                            )
-                          ) : n.is_read ? (
+                          if (
+                            typeof postPath === "string" &&
+                            !n.is_post_deleted
+                          ) {
+                            const targetPath = n.comment_id
+                              ? `${postPath}?commentId=${n.comment_id}`
+                              : postPath;
+                            router.push(targetPath);
+                          }
+                        }}
+                      >
+                        {isNotificationDeleteMode ? (
+                          selectedNotificationIds.includes(n.id) ? (
                             <CircleCheckBig
                               className="mt-[3px] size-[18px] shrink-0"
-                              color="#4CB975"
+                              color="#ef4444"
                             />
                           ) : (
                             <Circle
                               className="mt-[3px] size-[18px] shrink-0"
-                              color="#ccc"
+                              color="#ef4444"
                             />
-                          )}
-                          <Image
-                            src={n.actor_image ?? "/logo.png"}
-                            alt={`${n.actor_name ?? "알림 발신자"} 프로필`}
-                            width={24}
-                            height={24}
-                            className={cn(
-                              "size-6 shrink-0 rounded-full border object-cover",
-                              !n.actor_image && "grayscale",
-                            )}
+                          )
+                        ) : n.is_read ? (
+                          <CircleCheckBig
+                            className="mt-[3px] size-[18px] shrink-0"
+                            color="#4CB975"
                           />
-                          <span
-                            className={cn(
-                              "min-w-0 flex-1",
-                              (n.is_post_deleted || n.is_comment_deleted) &&
-                                "line-through decoration-foreground",
-                            )}
-                          >
-                            {renderEmphasizedNotificationMessage(
-                              renderNotificationMessage(n),
-                            )}
-                          </span>
-                          <span className="mt-0.5 shrink-0 whitespace-nowrap text-[11px] leading-none text-muted-foreground/75">
-                            {formatNotificationTime(n.created_at)}
-                          </span>
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
+                        ) : (
+                          <Circle
+                            className="mt-[3px] size-[18px] shrink-0"
+                            color="#ccc"
+                          />
+                        )}
+                        <Image
+                          src={n.actor_image ?? "/logo.png"}
+                          alt={`${n.actor_name ?? "알림 발신자"} 프로필`}
+                          width={24}
+                          height={24}
+                          className={cn(
+                            "size-6 shrink-0 rounded-full border object-cover",
+                            !n.actor_image && "grayscale",
+                          )}
+                        />
+                        <span
+                          className={cn(
+                            "min-w-0 flex-1 break-words [overflow-wrap:anywhere] [&_strong]:break-words",
+                            (n.is_post_deleted || n.is_comment_deleted) &&
+                              "line-through decoration-foreground",
+                          )}
+                        >
+                          {renderEmphasizedNotificationMessage(
+                            renderNotificationMessage(n),
+                          )}
+                        </span>
+                        <span className="mt-0.5 shrink-0 whitespace-nowrap text-[11px] leading-none text-muted-foreground/75">
+                          {formatNotificationTime(n.created_at)}
+                        </span>
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-        ) : (
-          <div className="flex-1" />
-        )}
+        </div>
 
         <p
           className={cn(

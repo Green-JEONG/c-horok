@@ -25,6 +25,7 @@ type HorokCoteProblemRecord = {
   category: string;
   duration: string;
   acceptanceRate: string;
+  createdAt: Date;
   summary: string;
   prompt: string;
   examples: Prisma.JsonValue;
@@ -95,6 +96,7 @@ function normalizeHorokCoteProblem(record: HorokCoteProblemRecord) {
     category: record.category,
     duration: record.duration,
     acceptanceRate: record.acceptanceRate,
+    createdAt: record.createdAt.toISOString(),
     summary: record.summary,
     prompt: record.prompt,
     examples: isExamples(record.examples) ? record.examples : [],
@@ -114,6 +116,7 @@ export async function listHorokCoteProblems() {
         category: true,
         duration: true,
         acceptanceRate: true,
+        createdAt: true,
         summary: true,
         prompt: true,
         examples: true,

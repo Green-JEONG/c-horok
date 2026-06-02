@@ -7,6 +7,7 @@ declare module "next-auth" {
     role?: "USER" | "ADMIN";
     provider?: "credentials" | "github" | "google";
     oauthImage?: string | null;
+    rememberLogin?: boolean;
   }
 
   interface Session {
@@ -25,5 +26,6 @@ declare module "next-auth/jwt" {
     role?: "USER" | "ADMIN";
     provider?: "credentials" | "github" | "google";
     oauthImage?: string | null;
+    authExpiresAt?: number;
   }
 }

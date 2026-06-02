@@ -133,10 +133,15 @@ const FLOATING_MIN_SIZE: FloatingSize = {
 const CHAT_INPUT_MIN_HEIGHT = 40;
 const CHAT_INPUT_MAX_HEIGHT = 240;
 const CHAT_BOTTOM_STICK_THRESHOLD = 80;
-const CHAT_SUGGESTED_QUESTIONS = [
+const INITIAL_TECH_SUGGESTED_QUESTIONS = [
   "넌 누구야?",
   "호록 컴퍼니는 어떤 곳이야?",
   "코딩테스트 공부는 어떻게 시작해?",
+];
+const DEFAULT_FOLLOW_UP_SUGGESTED_QUESTIONS = [
+  "조금 더 쉽게 설명해줘",
+  "예시로 보여줘",
+  "핵심만 다시 정리해줘",
 ];
 
 const INITIAL_MESSAGES: ChatUIMessage[] = [
@@ -178,6 +183,129 @@ function getMessageText(
     .filter((part) => part.type === "text")
     .map((part) => part.text ?? "")
     .join("");
+}
+
+function isInitialAssistantMessage(
+  message: ChatUIMessage,
+  initialMessages: ChatUIMessage[],
+) {
+  return initialMessages.some(
+    (initialMessage) => initialMessage.id === message.id,
+  );
+}
+
+function buildContextualSuggestedQuestions(
+  messages: ChatUIMessage[],
+  initialMessages: ChatUIMessage[],
+) {
+  const conversationMessages = messages.filter((message) => {
+    const text = getMessageText(message.parts).trim();
+
+    return (
+      text.length > 0 && !isInitialAssistantMessage(message, initialMessages)
+    );
+  });
+  const hasUserMessage = conversationMessages.some(
+    (message) => message.role === "user",
+  );
+
+  if (!hasUserMessage) {
+    return INITIAL_TECH_SUGGESTED_QUESTIONS;
+  }
+
+  const reversedMessages = [...conversationMessages].reverse();
+  const latestAssistantMessage = reversedMessages.find(
+    (message) => message.role === "assistant",
+  );
+  const latestUserMessage = reversedMessages.find(
+    (message) => message.role === "user",
+  );
+  const latestAssistantText = getMessageText(latestAssistantMessage?.parts);
+  const latestUserText = getMessageText(latestUserMessage?.parts);
+  const contextText = `${latestUserText}\n${latestAssistantText}`.toLowerCase();
+  const isHandoffConversation = conversationMessages.some(
+    (message) => message.sender?.role === "ADMIN",
+  );
+
+  if (/에러|오류|버그|실패|exception|error|hydration|stack/.test(contextText)) {
+    return isHandoffConversation
+      ? [
+          "다시 발생하면 어떻게 하면 될까요?",
+          "임시 해결 방법도 안내해 주실 수 있을까요?",
+          "제가 확인해야 할 정보를 정리해 주실 수 있을까요?",
+        ]
+      : ["원인을 더 자세히 짚어줘", "수정 예시를 보여줘", "재발 방지 방법은?"];
+  }
+
+  if (
+    isHandoffConversation &&
+    /로그인|계정|회원|인증|비밀번호|소셜|oauth|세션/.test(contextText)
+  ) {
+    return [
+      "제 계정에서 확인해야 할 것이 있을까요?",
+      "다음 단계는 어떻게 진행하면 될까요?",
+      "문제가 계속되면 어떻게 문의드리면 될까요?",
+    ];
+  }
+
+  if (
+    isHandoffConversation &&
+    /결제|구독|환불|영수증|가격|요금|플랜/.test(contextText)
+  ) {
+    return [
+      "처리 기간은 얼마나 걸릴까요?",
+      "추가로 필요한 정보가 있을까요?",
+      "내역은 어디에서 확인하면 될까요?",
+    ];
+  }
+
+  if (isHandoffConversation) {
+    return [
+      "답변 내용을 조금 더 자세히 설명해 주실 수 있을까요?",
+      "제가 다음에 진행해야 할 일이 있을까요?",
+      "추가로 확인해야 할 부분이 있을까요?",
+    ];
+  }
+
+  if (
+    /react|next|컴포넌트|렌더|상태|state|hook|css|ui|스타일/.test(contextText)
+  ) {
+    return [
+      "구현 예시를 보여줘",
+      "주의할 점도 알려줘",
+      "더 깔끔한 구조가 있어?",
+    ];
+  }
+
+  if (
+    /코딩테스트|알고리즘|복잡도|시간복잡도|자료구조|dp|bfs|dfs|정렬|탐색/.test(
+      contextText,
+    )
+  ) {
+    return [
+      "시간복잡도를 설명해줘",
+      "더 최적의 풀이가 있어?",
+      "예제로 다시 설명해줘",
+    ];
+  }
+
+  if (/회사|서비스|제품|호록|horok|컴퍼니/.test(contextText)) {
+    return [
+      "조금 더 자세히 알려줘",
+      "예시를 들어 설명해줘",
+      "관련 서비스도 알려줘",
+    ];
+  }
+
+  if (/공부|학습|준비|로드맵|입문|기초/.test(contextText)) {
+    return [
+      "학습 순서를 짜줘",
+      "오늘 할 일을 추천해줘",
+      "초보자가 조심할 점은?",
+    ];
+  }
+
+  return DEFAULT_FOLLOW_UP_SUGGESTED_QUESTIONS;
 }
 
 const CHAT_REVEAL_MIN_DURATION_MS = 260;
@@ -361,6 +489,26 @@ function getThreadIdentity(thread: ChatThreadSummary) {
   }
 
   return `thread:${thread.id}`;
+}
+
+function isCoteProblemThread(thread: Pick<ChatThreadSummary, "title">) {
+  return /^\d+번\s+\S/.test(thread.title);
+}
+
+function resolveThreadPlatform(
+  thread: ChatThreadSummary,
+  threadPlatformMap: Record<string, Exclude<ThreadCategory, "all">>,
+  fallbackPlatform: Exclude<ThreadCategory, "all" | "handoff">,
+): Exclude<ThreadCategory, "all"> {
+  if (thread.platform === "handoff") {
+    return "handoff";
+  }
+
+  if (isCoteProblemThread(thread)) {
+    return "cote";
+  }
+
+  return threadPlatformMap[thread.id] ?? fallbackPlatform;
 }
 
 function sortUniqueThreadsByRecentActivity(threads: ChatThreadSummary[]) {
@@ -646,6 +794,10 @@ export default function HorokChat({
       ),
     [visibleMessages],
   );
+  const suggestedQuestions = useMemo(
+    () => buildContextualSuggestedQuestions(visibleMessages, initialMessages),
+    [initialMessages, visibleMessages],
+  );
   const visibleMessageScrollKey = useMemo(
     () =>
       visibleMessages
@@ -655,7 +807,10 @@ export default function HorokChat({
         .join("|"),
     [visibleMessages],
   );
-  const isThreadMode = sessionStatus === "authenticated" && view === "threads";
+  const canRenderAuthenticatedUi = mounted && sessionStatus === "authenticated";
+  const canRenderUnauthenticatedUi =
+    mounted && sessionStatus === "unauthenticated";
+  const isThreadMode = canRenderAuthenticatedUi && view === "threads";
   const isPanelOpen = isEmbedded || isOpen;
   const isAdminHandoffView = Boolean(handoffMeta?.isAdminView);
   const threadCategories = useMemo(
@@ -1128,10 +1283,11 @@ export default function HorokChat({
         const data = (await response.json()) as ChatPayload;
         const threadPlatformMap = readThreadPlatformMap();
         const nextThreads = data.threads.map((thread) => {
-          const resolvedPlatform =
-            thread.platform === "handoff"
-              ? "handoff"
-              : (threadPlatformMap[thread.id] ?? platform);
+          const resolvedPlatform = resolveThreadPlatform(
+            thread,
+            threadPlatformMap,
+            platform,
+          );
           threadPlatformMap[thread.id] = resolvedPlatform;
 
           return {
@@ -1824,21 +1980,29 @@ export default function HorokChat({
       return;
     }
 
-    const confirmed = window.confirm("이 대화를 삭제할까요?");
+    const isHandoffThread = targetThread.platform === "handoff";
+    const confirmed = window.confirm(
+      isHandoffThread
+        ? "이 문의 대화를 관리자 목록에서 제거할까요?"
+        : "이 대화를 삭제할까요?",
+    );
     if (!confirmed) {
       return;
     }
 
-    const response = await fetch("/api/chat/threads", {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
+    const response = await fetch(
+      isHandoffThread ? "/api/chat/handoff" : "/api/chat/threads",
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          platform,
+          threadId: targetThread.id,
+        }),
       },
-      body: JSON.stringify({
-        platform,
-        threadId: targetThread.id,
-      }),
-    });
+    );
 
     if (!response.ok) {
       throw new Error("Failed to delete thread");
@@ -2150,7 +2314,7 @@ export default function HorokChat({
               </button>
             ) : null}
             <div className="relative flex items-center">
-              {!isThreadMode && sessionStatus === "authenticated" ? (
+              {!isThreadMode && canRenderAuthenticatedUi ? (
                 <div className="absolute left-0 top-1/2 -translate-y-1/2">
                   <button
                     type="button"
@@ -2451,470 +2615,398 @@ export default function HorokChat({
                       <p className="text-sm font-medium text-slate-700 dark:text-zinc-100">
                         아직 저장된 대화가 없어요.
                       </p>
-                      <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                        새 대화를 눌러 스레드를 만들고 자유롭게 오가며 대화를
-                        이어가세요.
-                      </p>
                     </div>
                   )}
                 </div>
               </div>
             ) : (
-              <>
-                <div className="relative min-h-0 flex-1">
+              <div className="relative min-h-0 flex-1">
+                <div
+                  ref={messagesViewportRef}
+                  onScroll={handleMessagesScroll}
+                  className={cn(
+                    platform === "cote"
+                      ? "scrollbar-green"
+                      : "scrollbar-orange",
+                    "h-full overflow-y-auto",
+                  )}
+                >
                   <div
-                    ref={messagesViewportRef}
-                    onScroll={handleMessagesScroll}
-                    className={cn(
-                      platform === "cote"
-                        ? "scrollbar-green"
-                        : "scrollbar-orange",
-                      "h-full overflow-y-auto",
-                    )}
+                    className={cn("flex flex-col space-y-3 px-3 pt-3", "pb-20")}
                   >
-                    <div
-                      className={cn(
-                        "flex flex-col space-y-3 px-3 pt-3",
-                        isAdminHandoffView ? "pb-3" : "pb-20",
-                      )}
-                    >
-                      {hasMessages
-                        ? visibleMessages.map((message, index) => {
-                            const text = getMessageText(message.parts).trim();
-                            if (!text) {
-                              return null;
-                            }
+                    {hasMessages
+                      ? visibleMessages.map((message, index) => {
+                          const text = getMessageText(message.parts).trim();
+                          if (!text) {
+                            return null;
+                          }
 
-                            const isUser = message.role === "user";
-                            const isAdminAuthoredMessage =
-                              message.sender?.role === "ADMIN";
-                            const isRequesterMessage =
-                              Boolean(handoffMeta?.isAdminView) && isUser;
-                            const isOutgoingMessage =
-                              (isUser && !isRequesterMessage) ||
-                              (isAdminHandoffView && isAdminAuthoredMessage);
-                            const avatarSrc = isRequesterMessage
-                              ? (handoffMeta?.requester.image ?? "/logo.png")
-                              : isAdminAuthoredMessage
-                                ? (message.sender?.image ?? "/logo.png")
-                                : "/logo.png";
-                            const avatarAlt = isRequesterMessage
-                              ? `${handoffMeta?.requester.name ?? "문의자"} 프로필`
-                              : isAdminAuthoredMessage
-                                ? `${message.sender?.name ?? "관리자"} 프로필`
-                                : "호록 프로필";
-                            const resolvedTimestamp =
-                              message.createdAt ??
-                              messageTimes[message.id] ??
-                              new Date().toISOString();
-                            const previousTimestamp =
-                              index > 0
-                                ? (visibleMessages[index - 1]?.createdAt ??
-                                  messageTimes[
-                                    visibleMessages[index - 1]?.id ?? ""
-                                  ])
-                                : null;
-                            const messageTime =
-                              formatMessageTime(resolvedTimestamp);
-                            const showDateBadge =
-                              getMessageDateKey(resolvedTimestamp) !==
-                              getMessageDateKey(previousTimestamp);
-                            const isSearchMatch = matchedMessageIds.includes(
-                              message.id,
-                            );
-                            const activeOccurrenceIndexInMessage =
-                              activeSearchMatch?.messageId === message.id
-                                ? activeSearchMatch.occurrenceIndexInMessage
-                                : undefined;
-                            const shouldAnimateMessage =
-                              !isUser &&
-                              !isSearchMatch &&
-                              index === visibleMessages.length - 1 &&
-                              isAssistantResponding &&
-                              !message.createdAt;
+                          const isUser = message.role === "user";
+                          const isAdminAuthoredMessage =
+                            message.sender?.role === "ADMIN";
+                          const isRequesterMessage =
+                            Boolean(handoffMeta?.isAdminView) && isUser;
+                          const isOutgoingMessage =
+                            (isUser && !isRequesterMessage) ||
+                            (isAdminHandoffView && isAdminAuthoredMessage);
+                          const avatarSrc = isRequesterMessage
+                            ? (handoffMeta?.requester.image ?? "/logo.png")
+                            : isAdminAuthoredMessage
+                              ? (message.sender?.image ?? "/logo.png")
+                              : "/logo.png";
+                          const avatarAlt = isRequesterMessage
+                            ? `${handoffMeta?.requester.name ?? "문의자"} 프로필`
+                            : isAdminAuthoredMessage
+                              ? `${message.sender?.name ?? "관리자"} 프로필`
+                              : "호록 프로필";
+                          const resolvedTimestamp =
+                            message.createdAt ??
+                            messageTimes[message.id] ??
+                            new Date().toISOString();
+                          const previousTimestamp =
+                            index > 0
+                              ? (visibleMessages[index - 1]?.createdAt ??
+                                messageTimes[
+                                  visibleMessages[index - 1]?.id ?? ""
+                                ])
+                              : null;
+                          const messageTime =
+                            formatMessageTime(resolvedTimestamp);
+                          const showDateBadge =
+                            getMessageDateKey(resolvedTimestamp) !==
+                            getMessageDateKey(previousTimestamp);
+                          const isSearchMatch = matchedMessageIds.includes(
+                            message.id,
+                          );
+                          const activeOccurrenceIndexInMessage =
+                            activeSearchMatch?.messageId === message.id
+                              ? activeSearchMatch.occurrenceIndexInMessage
+                              : undefined;
+                          const shouldAnimateMessage =
+                            !isUser &&
+                            !isSearchMatch &&
+                            index === visibleMessages.length - 1 &&
+                            isAssistantResponding &&
+                            !message.createdAt;
 
-                            return (
-                              <div key={message.id} className="space-y-3">
-                                {showDateBadge ? (
-                                  <div className="flex justify-center">
-                                    <div
-                                      className={cn(
-                                        "rounded-full px-3 py-1 text-xs",
-                                        platform === "cote"
-                                          ? "border border-[#06923E]/10 bg-white text-slate-500 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-zinc-400"
-                                          : "bg-slate-100 text-slate-500 dark:bg-zinc-900 dark:text-zinc-400",
-                                      )}
-                                    >
-                                      {formatMessageDateBadge(
-                                        resolvedTimestamp,
-                                      )}
-                                    </div>
+                          return (
+                            <div key={message.id} className="space-y-3">
+                              {showDateBadge ? (
+                                <div className="flex justify-center">
+                                  <div
+                                    className={cn(
+                                      "rounded-full px-3 py-1 text-xs",
+                                      platform === "cote"
+                                        ? "border border-[#06923E]/10 bg-white text-slate-500 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-zinc-400"
+                                        : "bg-slate-100 text-slate-500 dark:bg-zinc-900 dark:text-zinc-400",
+                                    )}
+                                  >
+                                    {formatMessageDateBadge(resolvedTimestamp)}
                                   </div>
-                                ) : null}
+                                </div>
+                              ) : null}
 
+                              <div
+                                ref={(element) => {
+                                  messageRefs.current[message.id] = element;
+                                }}
+                                className={cn(
+                                  "group/message flex w-full min-w-0 items-start gap-2 transition",
+                                  isOutgoingMessage
+                                    ? "justify-end"
+                                    : "justify-start",
+                                )}
+                              >
+                                {!isOutgoingMessage ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPreviewImageUrl(avatarSrc)
+                                    }
+                                    className="relative mt-1 size-8 shrink-0 cursor-pointer rounded-full outline-none transition hover:opacity-85"
+                                    aria-label="프로필 보기"
+                                  >
+                                    <Image
+                                      src={avatarSrc}
+                                      alt={avatarAlt}
+                                      width={32}
+                                      height={32}
+                                      className={cn(
+                                        "relative z-10 size-full rounded-full border object-cover",
+                                        ((isRequesterMessage &&
+                                          !handoffMeta?.requester.image) ||
+                                          (isAdminAuthoredMessage &&
+                                            !message.sender?.image)) &&
+                                          "grayscale",
+                                        platform === "cote"
+                                          ? "border-[#06923E]/25 bg-white"
+                                          : "border-orange-200 bg-white dark:border-orange-400/30",
+                                      )}
+                                    />
+                                    {isAdminAuthoredMessage ? (
+                                      <Crown
+                                        className="pointer-events-none absolute -top-2 left-1/2 z-0 h-3.5 w-3.5 -translate-x-1/2 fill-amber-300 text-amber-500 drop-shadow-sm"
+                                        strokeWidth={2.5}
+                                        aria-hidden="true"
+                                      />
+                                    ) : null}
+                                  </button>
+                                ) : null}
                                 <div
-                                  ref={(element) => {
-                                    messageRefs.current[message.id] = element;
-                                  }}
                                   className={cn(
-                                    "flex w-full min-w-0 items-start gap-2 transition",
+                                    "flex min-w-0 items-end gap-1.5",
                                     isOutgoingMessage
-                                      ? "justify-end"
-                                      : "justify-start",
+                                      ? "ml-10 max-w-[calc(100%-2.5rem)] flex-row-reverse justify-end"
+                                      : "flex-1",
                                   )}
                                 >
-                                  {!isOutgoingMessage ? (
+                                  <div
+                                    className={cn(
+                                      "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl px-3 py-2 text-sm leading-5 shadow-sm",
+                                      isOutgoingMessage
+                                        ? platform === "cote"
+                                          ? "rounded-br-lg bg-[#06923E] text-white dark:bg-[#06923E] dark:text-white"
+                                          : "rounded-br-lg bg-orange-500 text-white dark:bg-orange-500 dark:text-white"
+                                        : platform === "cote"
+                                          ? "border border-[#06923E]/10 bg-white text-slate-800 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-slate-100"
+                                          : "border border-orange-100 bg-white text-slate-800 dark:border-orange-400/20 dark:bg-zinc-900 dark:text-zinc-100",
+                                    )}
+                                  >
+                                    {isSearchMatch ? (
+                                      <p className="whitespace-pre-wrap">
+                                        {renderHighlightedText(
+                                          text,
+                                          activeOccurrenceIndexInMessage,
+                                        )}
+                                      </p>
+                                    ) : (
+                                      <AnimatedChatMarkdown
+                                        content={text}
+                                        shouldAnimate={shouldAnimateMessage}
+                                        className={cn(
+                                          CHAT_MARKDOWN_CLASS_NAME,
+                                          isOutgoingMessage
+                                            ? "[&_th]:bg-white/15"
+                                            : "",
+                                        )}
+                                      />
+                                    )}
+                                  </div>
+                                  <div
+                                    className={cn(
+                                      "flex w-9 shrink-0 flex-col gap-0.5",
+                                      isOutgoingMessage
+                                        ? "items-end"
+                                        : "items-start",
+                                    )}
+                                  >
                                     <button
                                       type="button"
                                       onClick={() =>
-                                        setPreviewImageUrl(avatarSrc)
+                                        void handleCopyMessage(message.id, text)
                                       }
-                                      className="relative mt-1 size-8 shrink-0 cursor-pointer rounded-full outline-none transition hover:opacity-85"
-                                      aria-label="프로필 보기"
+                                      className="pointer-events-none p-0.5 text-slate-400 opacity-0 transition hover:text-slate-600 focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/message:pointer-events-auto group-hover/message:opacity-100 dark:text-zinc-500 dark:hover:text-zinc-300"
+                                      aria-label="메시지 복사"
                                     >
-                                      <Image
-                                        src={avatarSrc}
-                                        alt={avatarAlt}
-                                        width={32}
-                                        height={32}
-                                        className={cn(
-                                          "relative z-10 size-full rounded-full border object-cover",
-                                          ((isRequesterMessage &&
-                                            !handoffMeta?.requester.image) ||
-                                            (isAdminAuthoredMessage &&
-                                              !message.sender?.image)) &&
-                                            "grayscale",
-                                          platform === "cote"
-                                            ? "border-[#06923E]/25 bg-white"
-                                            : "border-orange-200 bg-white dark:border-orange-400/30",
-                                        )}
-                                      />
-                                      {isAdminAuthoredMessage ? (
-                                        <Crown
-                                          className="pointer-events-none absolute -top-2 left-1/2 z-0 h-3.5 w-3.5 -translate-x-1/2 fill-amber-300 text-amber-500 drop-shadow-sm"
-                                          strokeWidth={2.5}
-                                          aria-hidden="true"
-                                        />
-                                      ) : null}
-                                    </button>
-                                  ) : null}
-                                  <div
-                                    className={cn(
-                                      "flex min-w-0 items-end gap-1.5",
-                                      isOutgoingMessage
-                                        ? "ml-10 max-w-[calc(100%-2.5rem)] flex-row-reverse justify-end"
-                                        : "flex-1",
-                                    )}
-                                  >
-                                    <div
-                                      className={cn(
-                                        "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl px-3 py-2 text-sm leading-5 shadow-sm",
-                                        isOutgoingMessage
-                                          ? platform === "cote"
-                                            ? "rounded-br-lg bg-[#06923E] text-white dark:bg-[#06923E] dark:text-white"
-                                            : "rounded-br-lg bg-orange-500 text-white dark:bg-orange-500 dark:text-white"
-                                          : platform === "cote"
-                                            ? "border border-[#06923E]/10 bg-white text-slate-800 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-slate-100"
-                                            : "border border-orange-100 bg-white text-slate-800 dark:border-orange-400/20 dark:bg-zinc-900 dark:text-zinc-100",
-                                      )}
-                                    >
-                                      {isSearchMatch ? (
-                                        <p className="whitespace-pre-wrap">
-                                          {renderHighlightedText(
-                                            text,
-                                            activeOccurrenceIndexInMessage,
-                                          )}
-                                        </p>
+                                      {copiedMessageId === message.id ? (
+                                        <Check className="size-3.5" />
                                       ) : (
-                                        <AnimatedChatMarkdown
-                                          content={text}
-                                          shouldAnimate={shouldAnimateMessage}
-                                          className={cn(
-                                            CHAT_MARKDOWN_CLASS_NAME,
-                                            isOutgoingMessage
-                                              ? "[&_th]:bg-white/15"
-                                              : "",
-                                          )}
-                                        />
+                                        <Copy className="size-3.5" />
                                       )}
-                                    </div>
-                                    <div
-                                      className={cn(
-                                        "flex w-9 shrink-0 flex-col gap-0.5",
-                                        isOutgoingMessage
-                                          ? "items-end"
-                                          : "items-start",
-                                      )}
-                                    >
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          void handleCopyMessage(
-                                            message.id,
-                                            text,
-                                          )
-                                        }
-                                        className="p-0.5 text-slate-400 transition hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
-                                        aria-label="메시지 복사"
-                                      >
-                                        {copiedMessageId === message.id ? (
-                                          <Check className="size-3.5" />
-                                        ) : (
-                                          <Copy className="size-3.5" />
-                                        )}
-                                      </button>
-                                      {messageTime ? (
-                                        <span className="whitespace-nowrap text-[11px] text-slate-400 dark:text-zinc-500">
-                                          {messageTime}
-                                        </span>
-                                      ) : null}
-                                    </div>
+                                    </button>
+                                    {messageTime ? (
+                                      <span className="whitespace-nowrap text-[11px] text-slate-400 dark:text-zinc-500">
+                                        {messageTime}
+                                      </span>
+                                    ) : null}
                                   </div>
                                 </div>
-
-                                {sessionStatus === "unauthenticated" &&
-                                index === 0 &&
-                                !isUser ? (
-                                  <p className="text-center text-xs text-muted-foreground">
-                                    로그인 하시면 대화를 저장할 수 있습니다.
-                                  </p>
-                                ) : null}
                               </div>
-                            );
-                          })
-                        : null}
 
-                      {isAssistantResponding ? (
-                        <div className="flex w-full min-w-0 items-start justify-start gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setPreviewImageUrl("/logo.png")}
-                            className="mt-1 size-8 shrink-0 cursor-pointer rounded-full outline-none transition hover:opacity-85"
-                            aria-label="프로필 보기"
-                          >
-                            <Image
-                              src="/logo.png"
-                              alt="호록 프로필"
-                              width={32}
-                              height={32}
-                              className={cn(
-                                "size-full rounded-full border object-cover",
-                                platform === "cote"
-                                  ? "border-[#06923E]/25 bg-white"
-                                  : "border-orange-200 bg-white dark:border-orange-400/30",
-                              )}
-                            />
-                          </button>
-                          <div className="flex min-w-0 flex-1 items-end gap-1.5">
-                            <div
-                              className={cn(
-                                "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl rounded-bl-lg border bg-white px-3 py-2 text-sm text-slate-500 shadow-sm dark:text-zinc-300",
-                                platform === "cote"
-                                  ? "border-[#06923E]/10 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-slate-300"
-                                  : "border-orange-100 dark:border-orange-400/20 dark:bg-zinc-900 dark:text-zinc-300",
-                              )}
-                            >
-                              답변을 작성 중입니다...
+                              {canRenderUnauthenticatedUi &&
+                              index === 0 &&
+                              !isUser ? (
+                                <p className="text-center text-xs text-muted-foreground">
+                                  로그인 하시면 대화를 저장할 수 있습니다.
+                                </p>
+                              ) : null}
                             </div>
-                            <span className="w-9 shrink-0 whitespace-nowrap text-[11px] text-slate-400 dark:text-zinc-500">
-                              {formatMessageTime(new Date().toISOString())}
-                            </span>
-                          </div>
-                        </div>
-                      ) : null}
+                          );
+                        })
+                      : null}
 
-                      {error ? (
-                        <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-500/30 dark:bg-red-950/40 dark:text-red-300">
-                          챗봇 연결 중 문제가 발생했습니다. 잠시 후 다시 시도해
-                          주세요.
-                        </div>
-                      ) : null}
-
-                      {handoffMessage ? (
-                        <p className="px-1 text-center text-xs text-muted-foreground">
-                          {handoffMessage}
-                        </p>
-                      ) : null}
-
-                      <div ref={messagesEndRef} />
-                    </div>
-                  </div>
-
-                  {!isAdminHandoffView ? (
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col px-3 pb-2">
-                      <div className="pointer-events-auto flex h-10 items-center gap-1">
+                    {isAssistantResponding ? (
+                      <div className="flex w-full min-w-0 items-start justify-start gap-2">
                         <button
                           type="button"
-                          onClick={() => setShowSuggestions(!showSuggestions)}
-                          className={cn(
-                            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border bg-white transition hover:bg-slate-50 dark:bg-zinc-950 dark:hover:bg-zinc-900",
-                            platform === "cote"
-                              ? "border-[#06923E]/30 text-[#06923E] hover:border-[#06923E]/50"
-                              : "border-orange-300 text-orange-600 hover:border-orange-400",
-                          )}
-                          aria-label={
-                            showSuggestions
-                              ? "추천 질문 숨기기"
-                              : "추천 질문 보기"
-                          }
+                          onClick={() => setPreviewImageUrl("/logo.png")}
+                          className="mt-1 size-8 shrink-0 cursor-pointer rounded-full outline-none transition hover:opacity-85"
+                          aria-label="프로필 보기"
                         >
-                          {showSuggestions ? (
-                            <X className="size-3.5" />
-                          ) : (
-                            <ChevronRight className="size-3.5" />
-                          )}
-                        </button>
-
-                        {showSuggestions && (
-                          <div className="scrollbar-native-hidden flex-1 flex items-center flex-nowrap gap-1 overflow-x-auto">
-                            <button
-                              type="button"
-                              onClick={() => void handleHandoffButton()}
-                              disabled={isRequestingHandoff || isLoading}
-                              className={cn(
-                                "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border bg-white px-3 text-xs font-semibold transition disabled:cursor-default disabled:opacity-45 dark:bg-zinc-950",
-                                platform === "cote"
-                                  ? "border-[#06923E]/30 text-[#06923E] hover:border-[#06923E]/50 hover:bg-[#eef7f1] dark:border-[#46c86f]/30 dark:text-[#46c86f] dark:hover:bg-[#06923E]/10"
-                                  : "border-orange-300 text-orange-600 hover:border-orange-400 hover:bg-orange-50 dark:border-orange-400/35 dark:text-orange-300 dark:hover:bg-orange-950/30",
-                              )}
-                            >
-                              <Headphones className="size-3.5" />
-                              {isRequestingHandoff
-                                ? "요청 접수 중..."
-                                : isHandoffDraftMode
-                                  ? "문의 완료"
-                                  : "문의 모드"}
-                            </button>
-
-                            {CHAT_SUGGESTED_QUESTIONS.map((question) => (
-                              <button
-                                key={question}
-                                type="button"
-                                onClick={() =>
-                                  void handleSuggestedQuestion(question)
-                                }
-                                disabled={isLoading || isHandoffDraftMode}
-                                className={cn(
-                                  "inline-flex h-7 shrink-0 items-center justify-center rounded-full border px-3 text-xs font-semibold text-white transition disabled:cursor-default disabled:opacity-45",
-                                  platform === "cote"
-                                    ? "border-[#06923E] bg-[#06923E] hover:border-[#047a33] hover:bg-[#047a33]"
-                                    : "border-orange-500 bg-orange-500 hover:border-orange-600 hover:bg-orange-600",
-                                )}
-                              >
-                                {question}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <form
-                        onSubmit={handleSubmit}
-                        className="pointer-events-auto"
-                      >
-                        <div
-                          className={cn(
-                            "relative overflow-hidden rounded-3xl border bg-white shadow-md transition-shadow focus-within:shadow-lg",
-                            platform === "cote"
-                              ? "border-[#06923E]/25 dark:border-[#06923E]/30 dark:bg-slate-950"
-                              : "border-orange-200 dark:border-orange-400/25 dark:bg-zinc-900",
-                          )}
-                        >
-                          {/* 드래그 핸들 - 레이아웃에 영향 없는 absolute */}
-                          <div
-                            className="absolute inset-x-0 top-0 z-10 h-2 cursor-ns-resize"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              inputResizeRef.current = {
-                                startY: e.clientY,
-                                startHeight: inputHeight,
-                              };
-                              const onMouseMove = (moveEvent: MouseEvent) => {
-                                if (!inputResizeRef.current) return;
-                                const delta =
-                                  inputResizeRef.current.startY -
-                                  moveEvent.clientY;
-                                const nextHeight = Math.min(
-                                  CHAT_INPUT_MAX_HEIGHT,
-                                  Math.max(
-                                    CHAT_INPUT_MIN_HEIGHT,
-                                    inputResizeRef.current.startHeight + delta,
-                                  ),
-                                );
-                                setInputHeight(nextHeight);
-                              };
-                              const onMouseUp = () => {
-                                inputResizeRef.current = null;
-                                window.removeEventListener(
-                                  "mousemove",
-                                  onMouseMove,
-                                );
-                                window.removeEventListener(
-                                  "mouseup",
-                                  onMouseUp,
-                                );
-                              };
-                              window.addEventListener("mousemove", onMouseMove);
-                              window.addEventListener("mouseup", onMouseUp);
-                            }}
-                            aria-hidden="true"
-                          />
-                          <textarea
-                            ref={inputRef}
-                            value={input}
-                            onChange={(event) => setInput(event.target.value)}
-                            onPaste={handlePaste}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" && !event.shiftKey) {
-                                event.preventDefault();
-                                void handleSubmit(
-                                  event as unknown as React.FormEvent<HTMLFormElement>,
-                                );
-                              }
-                            }}
-                            disabled={isUploadingImage}
-                            placeholder={
-                              isUploadingImage
-                                ? "이미지 업로드 중..."
-                                : isHandoffDraftMode
-                                  ? "관리자에게 남길 문의를 입력하세요"
-                                  : "호록이에게 물어보세요"
-                            }
-                            rows={1}
-                            style={{ height: inputHeight }}
-                            className="block w-full resize-none overflow-y-auto bg-transparent pl-3 pr-12 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-zinc-100 dark:placeholder:text-zinc-500 disabled:opacity-50 [padding-block:0.6875rem]"
-                          />
-                          <button
-                            type="submit"
+                          <Image
+                            src="/logo.png"
+                            alt="호록 프로필"
+                            width={32}
+                            height={32}
                             className={cn(
-                              "absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-transparent transition disabled:cursor-default",
+                              "size-full rounded-full border object-cover",
                               platform === "cote"
-                                ? "text-[#06923E] hover:text-[#047a33] disabled:text-[#06923E]/35"
-                                : "text-orange-500 hover:text-orange-600 disabled:text-orange-200 dark:text-orange-400 dark:hover:text-orange-300 dark:disabled:text-orange-900",
+                                ? "border-[#06923E]/25 bg-white"
+                                : "border-orange-200 bg-white dark:border-orange-400/30",
                             )}
-                            disabled={
-                              !input.trim() || isLoading || isUploadingImage
-                            }
-                            aria-label="메시지 전송"
+                          />
+                        </button>
+                        <div className="flex min-w-0 flex-1 items-end gap-1.5">
+                          <div
+                            className={cn(
+                              "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl rounded-bl-lg border bg-white px-3 py-2 text-sm text-slate-500 shadow-sm dark:text-zinc-300",
+                              platform === "cote"
+                                ? "border-[#06923E]/10 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-slate-300"
+                                : "border-orange-100 dark:border-orange-400/20 dark:bg-zinc-900 dark:text-zinc-300",
+                            )}
                           >
-                            <Send className="size-4" />
-                          </button>
+                            답변을 작성 중입니다...
+                          </div>
+                          <span className="w-9 shrink-0 whitespace-nowrap text-[11px] text-slate-400 dark:text-zinc-500">
+                            {formatMessageTime(new Date().toISOString())}
+                          </span>
                         </div>
-                      </form>
-                    </div>
-                  ) : null}
+                      </div>
+                    ) : null}
+
+                    {error ? (
+                      <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-500/30 dark:bg-red-950/40 dark:text-red-300">
+                        챗봇 연결 중 문제가 발생했습니다. 잠시 후 다시 시도해
+                        주세요.
+                      </div>
+                    ) : null}
+
+                    {handoffMessage ? (
+                      <p className="px-1 text-center text-xs text-muted-foreground">
+                        {handoffMessage}
+                      </p>
+                    ) : null}
+
+                    <div ref={messagesEndRef} />
+                  </div>
                 </div>
 
-                {isAdminHandoffView ? (
-                  <form onSubmit={handleSubmit} className="border-t p-3">
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col px-3 pb-2">
+                  <div className="pointer-events-auto flex h-10 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowSuggestions(!showSuggestions)}
+                      className={cn(
+                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border bg-white transition hover:bg-slate-50 dark:bg-zinc-950 dark:hover:bg-zinc-900",
+                        platform === "cote"
+                          ? "border-[#06923E]/30 text-[#06923E] hover:border-[#06923E]/50"
+                          : "border-orange-200 text-orange-500 hover:border-orange-300 hover:text-orange-600 dark:border-orange-400/25 dark:text-orange-400 dark:hover:border-orange-400/35 dark:hover:text-orange-300",
+                      )}
+                      aria-label={
+                        showSuggestions ? "추천 질문 숨기기" : "추천 질문 보기"
+                      }
+                    >
+                      {showSuggestions ? (
+                        <X className="size-3.5" />
+                      ) : (
+                        <ChevronRight className="size-3.5" />
+                      )}
+                    </button>
+
+                    {showSuggestions && (
+                      <div className="scrollbar-native-hidden flex-1 flex items-center flex-nowrap gap-1 overflow-x-auto">
+                        {!isAdminHandoffView ? (
+                          <button
+                            type="button"
+                            onClick={() => void handleHandoffButton()}
+                            disabled={isRequestingHandoff || isLoading}
+                            className={cn(
+                              "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border bg-white px-3 text-xs font-semibold transition disabled:cursor-default disabled:opacity-45 dark:bg-zinc-950",
+                              platform === "cote"
+                                ? "border-[#06923E]/30 text-[#06923E] hover:border-[#06923E]/50 hover:bg-[#eef7f1] dark:border-[#46c86f]/30 dark:text-[#46c86f] dark:hover:bg-[#06923E]/10"
+                                : "border-orange-300 text-orange-600 hover:border-orange-400 hover:bg-orange-50 dark:border-orange-400/35 dark:text-orange-300 dark:hover:bg-orange-950/30",
+                            )}
+                          >
+                            <Headphones className="size-3.5" />
+                            {isRequestingHandoff
+                              ? "요청 접수 중..."
+                              : isHandoffDraftMode
+                                ? "문의 완료"
+                                : "문의 모드"}
+                          </button>
+                        ) : null}
+
+                        {suggestedQuestions.map((question) => (
+                          <button
+                            key={question}
+                            type="button"
+                            onClick={() => {
+                              if (isAdminHandoffView) {
+                                insertTextAtCursor(question);
+                                return;
+                              }
+
+                              void handleSuggestedQuestion(question);
+                            }}
+                            disabled={isLoading || isHandoffDraftMode}
+                            className={cn(
+                              "inline-flex h-7 shrink-0 items-center justify-center rounded-full border px-3 text-xs font-semibold text-white transition disabled:cursor-default disabled:opacity-45",
+                              platform === "cote"
+                                ? "border-[#06923E] bg-[#06923E] hover:border-[#047a33] hover:bg-[#047a33]"
+                                : "border-orange-500 bg-orange-500 hover:border-orange-600 hover:bg-orange-600",
+                            )}
+                          >
+                            {question}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <form onSubmit={handleSubmit} className="pointer-events-auto">
                     <div
                       className={cn(
-                        "relative rounded-3xl border bg-white shadow-md transition-shadow focus-within:shadow-lg",
+                        "relative overflow-hidden rounded-3xl border bg-white shadow-md transition-shadow focus-within:shadow-lg",
                         platform === "cote"
                           ? "border-[#06923E]/25 dark:border-[#06923E]/30 dark:bg-slate-950"
                           : "border-orange-200 dark:border-orange-400/25 dark:bg-zinc-900",
                       )}
                     >
+                      {/* 드래그 핸들 - 레이아웃에 영향 없는 absolute */}
+                      <div
+                        className="absolute inset-x-0 top-0 z-10 h-2 cursor-ns-resize"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          inputResizeRef.current = {
+                            startY: e.clientY,
+                            startHeight: inputHeight,
+                          };
+                          const onMouseMove = (moveEvent: MouseEvent) => {
+                            if (!inputResizeRef.current) return;
+                            const delta =
+                              inputResizeRef.current.startY - moveEvent.clientY;
+                            const nextHeight = Math.min(
+                              CHAT_INPUT_MAX_HEIGHT,
+                              Math.max(
+                                CHAT_INPUT_MIN_HEIGHT,
+                                inputResizeRef.current.startHeight + delta,
+                              ),
+                            );
+                            setInputHeight(nextHeight);
+                          };
+                          const onMouseUp = () => {
+                            inputResizeRef.current = null;
+                            window.removeEventListener(
+                              "mousemove",
+                              onMouseMove,
+                            );
+                            window.removeEventListener("mouseup", onMouseUp);
+                          };
+                          window.addEventListener("mousemove", onMouseMove);
+                          window.addEventListener("mouseup", onMouseUp);
+                        }}
+                        aria-hidden="true"
+                      />
                       <textarea
                         ref={inputRef}
                         value={input}
@@ -2932,11 +3024,15 @@ export default function HorokChat({
                         placeholder={
                           isUploadingImage
                             ? "이미지 업로드 중..."
-                            : "문의자에게 남길 답변을 입력하세요"
+                            : isAdminHandoffView
+                              ? "문의자에게 남길 답변을 입력하세요"
+                              : isHandoffDraftMode
+                                ? "관리자에게 남길 문의를 입력하세요"
+                                : "호록이에게 물어보세요"
                         }
                         rows={1}
                         style={{ height: inputHeight }}
-                        className="w-full resize-none overflow-y-auto bg-transparent pl-3 pr-12 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-zinc-100 dark:placeholder:text-zinc-500 disabled:opacity-50 [padding-block:0.6875rem]"
+                        className="block w-full resize-none overflow-y-auto bg-transparent pl-3 pr-12 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-zinc-100 dark:placeholder:text-zinc-500 disabled:opacity-50 [padding-block:0.6875rem]"
                       />
                       <button
                         type="submit"
@@ -2955,8 +3051,8 @@ export default function HorokChat({
                       </button>
                     </div>
                   </form>
-                ) : null}
-              </>
+                </div>
+              </div>
             )}
           </div>
 

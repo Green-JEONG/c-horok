@@ -108,6 +108,29 @@ export async function POST(req: Request) {
     );
   }
 
+  const expectedOutput = exampleOutput.trim();
+  const defaultConditions = expectedOutput
+    ? [
+        {
+          text: "콘솔 출력이 비어 있지 않아야 합니다.",
+          check: { type: "output_not_empty" },
+        },
+        {
+          text: `대소문자가 정확하게 구분되게 '${expectedOutput}'와 완전히 일치해야 합니다.`,
+          check: { type: "output_equals", value: expectedOutput },
+        },
+      ]
+    : [
+        {
+          text: "출력 결과가 비어 있어야 합니다.",
+          check: { type: "output_equals", value: "" },
+        },
+        {
+          text: "불필요한 문자나 공백이 출력되지 않아야 합니다.",
+          check: { type: "output_matches", pattern: "^\\s*$" },
+        },
+      ];
+
   const problem = await coteProblemDelegate.create({
     data: {
       number,
@@ -132,6 +155,7 @@ export async function POST(req: Request) {
           status: "pending",
           input: exampleInput,
           expected: exampleOutput,
+          conditions: defaultConditions,
         },
       ],
     },

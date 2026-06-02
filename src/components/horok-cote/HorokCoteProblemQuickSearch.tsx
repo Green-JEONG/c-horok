@@ -1,8 +1,9 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Bookmark, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HorokCoteProblem } from "@/lib/horok-cote-shared";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +14,7 @@ type HorokCoteProblemQuickSearchProps = {
   alwaysExpanded?: boolean;
 };
 
-const HOROK_COTE_SEARCH_WIDTH = 280;
+const HOROK_COTE_SEARCH_MIN_WIDTH = 220;
 
 export default function HorokCoteProblemQuickSearch({
   number,
@@ -22,12 +23,106 @@ export default function HorokCoteProblemQuickSearch({
   alwaysExpanded = false,
 }: HorokCoteProblemQuickSearchProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [query, setQuery] = useState("");
   const [overlayWidth, setOverlayWidth] = useState<number | null>(null);
   const [showTooltip, setShowTooltip] = useState(true);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+
+  const currentProblem = useMemo(() => {
+    if (number === undefined) {
+      return null;
+    }
+    return problems.find((p) => p.number === number) || null;
+  }, [problems, number]);
+
+  const fetchBookmarkStatus = useCallback(async () => {
+    if (!currentProblem || !session?.user) {
+      setIsBookmarked(false);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `/api/horok-cote/saved-code?problemSlug=${encodeURIComponent(
+          currentProblem.slug,
+        )}`,
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setIsBookmarked(!!data.isBookmarked);
+      }
+    } catch (error) {
+      console.error("Failed to fetch bookmark status:", error);
+    }
+  }, [currentProblem, session?.user]);
+
+  useEffect(() => {
+    fetchBookmarkStatus();
+  }, [fetchBookmarkStatus]);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      fetchBookmarkStatus();
+    };
+    window.addEventListener("cote-bookmark-updated", handleUpdate);
+    return () => {
+      window.removeEventListener("cote-bookmark-updated", handleUpdate);
+    };
+  }, [fetchBookmarkStatus]);
+
+  const handleBookmarkToggle = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!session?.user) {
+      alert("로그인이 필요한 기능입니다.");
+      return;
+    }
+
+    if (!currentProblem) {
+      return;
+    }
+
+    try {
+      if (isBookmarked) {
+        const response = await fetch(
+          `/api/horok-cote/saved-code?problemSlug=${encodeURIComponent(
+            currentProblem.slug,
+          )}`,
+          { method: "DELETE" },
+        );
+        if (response.ok) {
+          setIsBookmarked(false);
+          window.dispatchEvent(new Event("cote-bookmark-updated"));
+        } else {
+          alert("북마크 해제에 실패했습니다.");
+        }
+      } else {
+        const response = await fetch("/api/horok-cote/saved-code", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            problemSlug: currentProblem.slug,
+            problemNumber: currentProblem.number,
+            language: "python",
+            sourceCode: "",
+          }),
+        });
+        if (response.ok) {
+          setIsBookmarked(true);
+          window.dispatchEvent(new Event("cote-bookmark-updated"));
+        } else {
+          alert("북마크 등록에 실패했습니다.");
+        }
+      }
+    } catch (error) {
+      console.error("Failed to toggle bookmark:", error);
+      alert("오류가 발생했습니다.");
+    }
+  };
 
   const suggestions = useMemo(() => {
     const trimmedQuery = query.trim().toLowerCase();
@@ -66,9 +161,9 @@ export default function HorokCoteProblemQuickSearch({
 
       const rect = wrapper.getBoundingClientRect();
       const viewportMargin = 16;
-      const nextWidth = Math.min(
-        HOROK_COTE_SEARCH_WIDTH,
-        Math.max(220, window.innerWidth - rect.left - viewportMargin),
+      const nextWidth = Math.max(
+        HOROK_COTE_SEARCH_MIN_WIDTH,
+        window.innerWidth - rect.left - viewportMargin,
       );
 
       setOverlayWidth(nextWidth);
@@ -109,7 +204,28 @@ export default function HorokCoteProblemQuickSearch({
   if (!isEditing && !alwaysExpanded) {
     return (
       <div className="relative z-30 min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2 overflow-hidden border border-transparent py-2">
+        <div className="flex min-h-10 min-w-0 items-center gap-2 overflow-hidden border border-transparent">
+          {number !== undefined && (
+            <button
+              type="button"
+              onClick={handleBookmarkToggle}
+              className={cn(
+                "shrink-0 flex items-center justify-center p-1 rounded-md transition hover:bg-slate-100 dark:hover:bg-slate-800",
+                isBookmarked
+                  ? "text-[#06923E] dark:text-[#46c86f]"
+                  : "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-400",
+              )}
+              title={isBookmarked ? "찜하기 해제" : "찜하기"}
+              aria-label={isBookmarked ? "찜하기 해제" : "찜하기"}
+            >
+              <Bookmark
+                className={cn(
+                  "size-4.5",
+                  isBookmarked && "fill-[#06923E] dark:fill-[#46c86f]",
+                )}
+              />
+            </button>
+          )}
           <button
             type="button"
             onDoubleClick={() => setIsEditing(true)}
@@ -127,7 +243,7 @@ export default function HorokCoteProblemQuickSearch({
           </button>
         </div>
         {showTooltip ? (
-          <div className="pointer-events-none absolute left-2.5 top-9 z-40">
+          <div className="pointer-events-none absolute left-10.5 top-9 z-40">
             <button
               type="button"
               onClick={() => setShowTooltip(false)}
