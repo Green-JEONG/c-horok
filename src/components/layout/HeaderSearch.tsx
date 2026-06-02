@@ -251,10 +251,11 @@ export default function HeaderSearch() {
         <button
           type="submit"
           disabled={!canSubmitSearch}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center transition-colors ${canSubmitSearch
+          className={`flex h-9 w-9 shrink-0 items-center justify-center transition-colors ${
+            canSubmitSearch
               ? "text-muted-foreground hover:text-foreground"
               : "cursor-not-allowed text-muted-foreground/35"
-            }`}
+          }`}
           aria-label="검색"
         >
           <Search className="h-4 w-4" />

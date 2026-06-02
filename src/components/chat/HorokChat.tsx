@@ -6,6 +6,7 @@ import {
   Check,
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   ChevronUp,
   Copy,
   Crown,
@@ -25,10 +26,12 @@ import {
   type MouseEvent as ReactMouseEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 import MarkdownRenderer from "@/components/posts/MarkdownRenderer";
 import type { HorokCoteProblem } from "@/lib/horok-cote-shared";
@@ -36,6 +39,8 @@ import {
   getHorokCoteChatIntroMessage,
   getHorokCoteChatThreadTitle,
 } from "@/lib/horok-cote-shared";
+import { POST_THUMBNAIL_BUCKET } from "@/lib/post-thumbnails";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 type ChatThreadSummary = {
@@ -125,6 +130,8 @@ const FLOATING_MIN_SIZE: FloatingSize = {
   width: 250,
   height: 280,
 };
+const CHAT_INPUT_MIN_HEIGHT = 40;
+const CHAT_INPUT_MAX_HEIGHT = 240;
 const CHAT_BOTTOM_STICK_THRESHOLD = 80;
 const CHAT_SUGGESTED_QUESTIONS = [
   "넌 누구야?",
@@ -198,6 +205,16 @@ function isNearScrollBottom(element: HTMLDivElement) {
     element.scrollHeight - element.scrollTop - element.clientHeight <=
     CHAT_BOTTOM_STICK_THRESHOLD
   );
+}
+
+function getTextareaAutoHeight(textarea: HTMLTextAreaElement) {
+  textarea.style.height = "auto";
+  const nextHeight = Math.min(
+    CHAT_INPUT_MAX_HEIGHT,
+    Math.max(CHAT_INPUT_MIN_HEIGHT, textarea.scrollHeight),
+  );
+  textarea.style.height = `${nextHeight}px`;
+  return nextHeight;
 }
 
 function AnimatedChatMarkdown({
@@ -533,6 +550,7 @@ export default function HorokChat({
   const [handoffMeta, setHandoffMeta] = useState<ChatHandoffMeta | null>(null);
   const [handoffMessage, setHandoffMessage] = useState<string | null>(null);
   const [isHandoffDraftMode, setIsHandoffDraftMode] = useState(false);
+  const [hasSentHandoffMessage, setHasSentHandoffMessage] = useState(false);
   const [isRequestingHandoff, setIsRequestingHandoff] = useState(false);
   const [isSavingHandoffMessage, setIsSavingHandoffMessage] = useState(false);
   const [floatingPosition, setFloatingPosition] =
@@ -542,10 +560,15 @@ export default function HorokChat({
   );
   const [threadSwipeState, setThreadSwipeState] =
     useState<ThreadSwipeState | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [inputHeight, setInputHeight] = useState(CHAT_INPUT_MIN_HEIGHT);
+  const [showSuggestions, setShowSuggestions] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesViewportRef = useRef<HTMLDivElement | null>(null);
   const shouldStickToBottomRef = useRef(true);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const activeThreadIdRef = useRef<string | null>(null);
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -570,6 +593,10 @@ export default function HorokChat({
   const problemThreadRequestRef = useRef<string | null>(null);
   const notificationThreadRequestRef = useRef<string | null>(null);
   const shouldKeepNotificationThreadOpenRef = useRef(false);
+  const inputResizeRef = useRef<{
+    startY: number;
+    startHeight: number;
+  } | null>(null);
 
   const {
     messages: rawMessages,
@@ -715,6 +742,16 @@ export default function HorokChat({
     return sortUniqueThreadsByRecentActivity(nextThreads);
   }, [threadCategory, threads]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 입력 내용과 패널 폭이 바뀔 때 줄바꿈 기준에 맞춰 높이를 다시 계산합니다.
+  useLayoutEffect(() => {
+    const textarea = inputRef.current;
+    if (!textarea || !isPanelOpen || isThreadMode) {
+      return;
+    }
+
+    setInputHeight(getTextareaAutoHeight(textarea));
+  }, [floatingSize.width, input, isPanelOpen, isThreadMode]);
+
   useEffect(() => {
     if (!isPanelOpen || isThreadMode || isSearchOpen) {
       return;
@@ -774,6 +811,19 @@ export default function HorokChat({
       observer.disconnect();
     };
   }, [isEmbedded, isSearchOpen, isThreadMode]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isHandoffDraftMode && isPanelOpen) {
+      const timer = setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [isHandoffDraftMode, isPanelOpen]);
 
   useEffect(() => {
     if (isEmbedded || typeof window === "undefined") {
@@ -1483,6 +1533,7 @@ export default function HorokChat({
       setHandoffMessage(
         "문의 내용을 이어서 입력하거나, 문의 완료하기를 눌러 관리자에게 남겨주세요.",
       );
+      setHasSentHandoffMessage(true);
       await loadChatState(nextThreadId);
       return true;
     } catch (handoffMessageError) {
@@ -1541,6 +1592,95 @@ export default function HorokChat({
     }
   }
 
+  const insertTextAtCursor = (text: string) => {
+    const inputEl = inputRef.current;
+    if (!inputEl) {
+      setInput((prev) => `${prev}${prev ? " " : ""}${text}`);
+      return;
+    }
+
+    const start = inputEl.selectionStart ?? input.length;
+    const end = inputEl.selectionEnd ?? input.length;
+    const before = input.slice(0, start);
+    const after = input.slice(end);
+    const prefix = before && !before.endsWith(" ") ? " " : "";
+    const suffix = after && !after.startsWith(" ") ? " " : "";
+    const nextInput = `${before}${prefix}${text}${suffix}${after}`;
+    const nextCursorPosition = (before + prefix + text).length;
+
+    setInput(nextInput);
+
+    requestAnimationFrame(() => {
+      inputEl.focus();
+      inputEl.setSelectionRange(nextCursorPosition, nextCursorPosition);
+    });
+  };
+
+  const handlePaste = async (
+    event: React.ClipboardEvent<HTMLTextAreaElement>,
+  ) => {
+    if (isUploadingImage) return;
+
+    const items = event.clipboardData.items;
+    const files: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.kind === "file" && item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          files.push(file);
+        }
+      }
+    }
+
+    if (files.length === 0) return;
+
+    event.preventDefault();
+
+    setIsUploadingImage(true);
+
+    try {
+      const markdownImages: string[] = [];
+
+      for (const file of files) {
+        const safeFileName =
+          file.name
+            .normalize("NFKD")
+            .replace(/[^\w.-]+/g, "-")
+            .replace(/-+/g, "-")
+            .replace(/^-|-$/g, "")
+            .toLowerCase() || "image";
+
+        const nextPath = `public/chat/${crypto.randomUUID()}-${safeFileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(POST_THUMBNAIL_BUCKET)
+          .upload(nextPath, file, {
+            cacheControl: "3600",
+            contentType: file.type || undefined,
+            upsert: false,
+          });
+
+        if (uploadError) {
+          throw new Error(uploadError.message);
+        }
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from(POST_THUMBNAIL_BUCKET).getPublicUrl(nextPath);
+
+        markdownImages.push(`![image](${publicUrl})`);
+      }
+
+      insertTextAtCursor(markdownImages.join(" "));
+    } catch (err) {
+      console.error("Chat image paste upload error:", err);
+      alert("이미지 업로드 중 오류가 발생했습니다.");
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isAdminHandoffView) {
@@ -1575,15 +1715,25 @@ export default function HorokChat({
         "문의 내용을 입력해 주세요. 입력한 내용에는 AI가 답하지 않아요.",
       );
       setIsHandoffDraftMode(true);
+      setHasSentHandoffMessage(false);
       inputRef.current?.focus();
       return;
     }
+
+    let currentHasSent = hasSentHandoffMessage;
 
     if (input.trim()) {
       const didSave = await saveHandoffText(input);
       if (!didSave) {
         return;
       }
+      currentHasSent = true;
+    }
+
+    if (!currentHasSent) {
+      setIsHandoffDraftMode(false);
+      setHandoffMessage(null);
+      return;
     }
 
     setIsRequestingHandoff(true);
@@ -1985,7 +2135,7 @@ export default function HorokChat({
         >
           <div
             className={cn(
-              "relative px-4 py-3 text-primary-foreground",
+              "relative px-3 pt-3 pb-2 text-primary-foreground",
               platform === "cote" ? "bg-[#06923E]" : "bg-primary",
             )}
           >
@@ -2151,7 +2301,12 @@ export default function HorokChat({
             )}
           >
             {isThreadMode ? (
-              <div className="scrollbar-orange flex-1 overflow-y-auto">
+              <div
+                className={cn(
+                  platform === "cote" ? "scrollbar-green" : "scrollbar-orange",
+                  "flex-1 overflow-y-auto",
+                )}
+              >
                 <div className="p-3">
                   <div className="mb-3 flex items-center gap-1">
                     {threadCategories.map((category) => {
@@ -2310,12 +2465,17 @@ export default function HorokChat({
                   <div
                     ref={messagesViewportRef}
                     onScroll={handleMessagesScroll}
-                    className="scrollbar-orange h-full overflow-y-auto"
+                    className={cn(
+                      platform === "cote"
+                        ? "scrollbar-green"
+                        : "scrollbar-orange",
+                      "h-full overflow-y-auto",
+                    )}
                   >
                     <div
                       className={cn(
                         "flex flex-col space-y-3 px-3 pt-3",
-                        isAdminHandoffView ? "pb-3" : "pb-14",
+                        isAdminHandoffView ? "pb-3" : "pb-20",
                       )}
                     >
                       {hasMessages
@@ -2377,7 +2537,14 @@ export default function HorokChat({
                               <div key={message.id} className="space-y-3">
                                 {showDateBadge ? (
                                   <div className="flex justify-center">
-                                    <div className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500 dark:bg-zinc-900 dark:text-zinc-400">
+                                    <div
+                                      className={cn(
+                                        "rounded-full px-3 py-1 text-xs",
+                                        platform === "cote"
+                                          ? "border border-[#06923E]/10 bg-white text-slate-500 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-zinc-400"
+                                          : "bg-slate-100 text-slate-500 dark:bg-zinc-900 dark:text-zinc-400",
+                                      )}
+                                    >
                                       {formatMessageDateBadge(
                                         resolvedTimestamp,
                                       )}
@@ -2397,7 +2564,14 @@ export default function HorokChat({
                                   )}
                                 >
                                   {!isOutgoingMessage ? (
-                                    <div className="relative mt-1 size-8 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewImageUrl(avatarSrc)
+                                      }
+                                      className="relative mt-1 size-8 shrink-0 cursor-pointer rounded-full outline-none transition hover:opacity-85"
+                                      aria-label="프로필 보기"
+                                    >
                                       <Image
                                         src={avatarSrc}
                                         alt={avatarAlt}
@@ -2422,7 +2596,7 @@ export default function HorokChat({
                                           aria-hidden="true"
                                         />
                                       ) : null}
-                                    </div>
+                                    </button>
                                   ) : null}
                                   <div
                                     className={cn(
@@ -2434,7 +2608,7 @@ export default function HorokChat({
                                   >
                                     <div
                                       className={cn(
-                                        "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl px-4 py-3 text-sm leading-5 shadow-sm",
+                                        "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl px-3 py-2 text-sm leading-5 shadow-sm",
                                         isOutgoingMessage
                                           ? platform === "cote"
                                             ? "rounded-br-lg bg-[#06923E] text-white dark:bg-[#06923E] dark:text-white"
@@ -2512,22 +2686,29 @@ export default function HorokChat({
 
                       {isAssistantResponding ? (
                         <div className="flex w-full min-w-0 items-start justify-start gap-2">
-                          <Image
-                            src="/logo.png"
-                            alt="호록 프로필"
-                            width={32}
-                            height={32}
-                            className={cn(
-                              "mt-1 size-8 shrink-0 rounded-full border object-cover",
-                              platform === "cote"
-                                ? "border-[#06923E]/25 bg-white"
-                                : "border-orange-200 bg-white dark:border-orange-400/30",
-                            )}
-                          />
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImageUrl("/logo.png")}
+                            className="mt-1 size-8 shrink-0 cursor-pointer rounded-full outline-none transition hover:opacity-85"
+                            aria-label="프로필 보기"
+                          >
+                            <Image
+                              src="/logo.png"
+                              alt="호록 프로필"
+                              width={32}
+                              height={32}
+                              className={cn(
+                                "size-full rounded-full border object-cover",
+                                platform === "cote"
+                                  ? "border-[#06923E]/25 bg-white"
+                                  : "border-orange-200 bg-white dark:border-orange-400/30",
+                              )}
+                            />
+                          </button>
                           <div className="flex min-w-0 flex-1 items-end gap-1.5">
                             <div
                               className={cn(
-                                "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl rounded-bl-lg border bg-white px-4 py-3 text-sm text-slate-500 shadow-sm dark:text-zinc-300",
+                                "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl rounded-bl-lg border bg-white px-3 py-2 text-sm text-slate-500 shadow-sm dark:text-zinc-300",
                                 platform === "cote"
                                   ? "border-[#06923E]/10 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-slate-300"
                                   : "border-orange-100 dark:border-orange-400/20 dark:bg-zinc-900 dark:text-zinc-300",
@@ -2543,7 +2724,7 @@ export default function HorokChat({
                       ) : null}
 
                       {error ? (
-                        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-500/30 dark:bg-red-950/40 dark:text-red-300">
+                        <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-500/30 dark:bg-red-950/40 dark:text-red-300">
                           챗봇 연결 중 문제가 발생했습니다. 잠시 후 다시 시도해
                           주세요.
                         </div>
@@ -2559,103 +2740,222 @@ export default function HorokChat({
                     </div>
                   </div>
 
-                  <div
-                    className={cn(
-                      "pointer-events-none absolute inset-x-0 bottom-0 px-3",
-                      isAdminHandoffView && "hidden",
-                    )}
-                  >
-                    <div className="scrollbar-hide pointer-events-auto flex flex-nowrap gap-2 overflow-x-auto">
-                      {!isAdminHandoffView ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => void handleHandoffButton()}
-                            disabled={isRequestingHandoff || isLoading}
-                            className={cn(
-                              "inline-flex shrink-0 items-center gap-1.5 rounded-full border bg-white px-3 py-1.5 text-xs font-semibold text-orange-600 transition disabled:cursor-default disabled:opacity-45 dark:bg-zinc-950 dark:text-orange-300",
-                              platform === "cote"
-                                ? "border-orange-300 hover:border-orange-400 hover:bg-orange-50 dark:border-orange-400/35 dark:hover:bg-orange-950/30"
-                                : "border-orange-300 hover:border-orange-400 hover:bg-orange-50 dark:border-orange-400/35 dark:hover:bg-orange-950/30",
-                            )}
-                          >
-                            <Headphones className="size-3.5" />
-                            {isRequestingHandoff
-                              ? "요청 접수 중..."
-                              : isHandoffDraftMode
-                                ? "문의 완료"
-                                : "문의 모드"}
-                          </button>
+                  {!isAdminHandoffView ? (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col px-3 pb-2">
+                      <div className="pointer-events-auto flex h-10 items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowSuggestions(!showSuggestions)}
+                          className={cn(
+                            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border bg-white transition hover:bg-slate-50 dark:bg-zinc-950 dark:hover:bg-zinc-900",
+                            platform === "cote"
+                              ? "border-[#06923E]/30 text-[#06923E] hover:border-[#06923E]/50"
+                              : "border-orange-300 text-orange-600 hover:border-orange-400",
+                          )}
+                          aria-label={
+                            showSuggestions
+                              ? "추천 질문 숨기기"
+                              : "추천 질문 보기"
+                          }
+                        >
+                          {showSuggestions ? (
+                            <X className="size-3.5" />
+                          ) : (
+                            <ChevronRight className="size-3.5" />
+                          )}
+                        </button>
 
-                          {CHAT_SUGGESTED_QUESTIONS.map((question) => (
+                        {showSuggestions && (
+                          <div className="scrollbar-native-hidden flex-1 flex items-center flex-nowrap gap-1 overflow-x-auto">
                             <button
-                              key={question}
                               type="button"
-                              onClick={() =>
-                                void handleSuggestedQuestion(question)
-                              }
-                              disabled={isLoading || isHandoffDraftMode}
+                              onClick={() => void handleHandoffButton()}
+                              disabled={isRequestingHandoff || isLoading}
                               className={cn(
-                                "shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold text-white transition disabled:cursor-default disabled:opacity-45",
+                                "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border bg-white px-3 text-xs font-semibold transition disabled:cursor-default disabled:opacity-45 dark:bg-zinc-950",
                                 platform === "cote"
-                                  ? "border-[#06923E] bg-[#06923E] hover:border-[#047a33] hover:bg-[#047a33]"
-                                  : "border-orange-500 bg-orange-500 hover:border-orange-600 hover:bg-orange-600",
+                                  ? "border-[#06923E]/30 text-[#06923E] hover:border-[#06923E]/50 hover:bg-[#eef7f1] dark:border-[#46c86f]/30 dark:text-[#46c86f] dark:hover:bg-[#06923E]/10"
+                                  : "border-orange-300 text-orange-600 hover:border-orange-400 hover:bg-orange-50 dark:border-orange-400/35 dark:text-orange-300 dark:hover:bg-orange-950/30",
                               )}
                             >
-                              {question}
+                              <Headphones className="size-3.5" />
+                              {isRequestingHandoff
+                                ? "요청 접수 중..."
+                                : isHandoffDraftMode
+                                  ? "문의 완료"
+                                  : "문의 모드"}
                             </button>
-                          ))}
-                        </>
-                      ) : null}
+
+                            {CHAT_SUGGESTED_QUESTIONS.map((question) => (
+                              <button
+                                key={question}
+                                type="button"
+                                onClick={() =>
+                                  void handleSuggestedQuestion(question)
+                                }
+                                disabled={isLoading || isHandoffDraftMode}
+                                className={cn(
+                                  "inline-flex h-7 shrink-0 items-center justify-center rounded-full border px-3 text-xs font-semibold text-white transition disabled:cursor-default disabled:opacity-45",
+                                  platform === "cote"
+                                    ? "border-[#06923E] bg-[#06923E] hover:border-[#047a33] hover:bg-[#047a33]"
+                                    : "border-orange-500 bg-orange-500 hover:border-orange-600 hover:bg-orange-600",
+                                )}
+                              >
+                                {question}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <form
+                        onSubmit={handleSubmit}
+                        className="pointer-events-auto"
+                      >
+                        <div
+                          className={cn(
+                            "relative overflow-hidden rounded-3xl border bg-white shadow-md transition-shadow focus-within:shadow-lg",
+                            platform === "cote"
+                              ? "border-[#06923E]/25 dark:border-[#06923E]/30 dark:bg-slate-950"
+                              : "border-orange-200 dark:border-orange-400/25 dark:bg-zinc-900",
+                          )}
+                        >
+                          {/* 드래그 핸들 - 레이아웃에 영향 없는 absolute */}
+                          <div
+                            className="absolute inset-x-0 top-0 z-10 h-2 cursor-ns-resize"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              inputResizeRef.current = {
+                                startY: e.clientY,
+                                startHeight: inputHeight,
+                              };
+                              const onMouseMove = (moveEvent: MouseEvent) => {
+                                if (!inputResizeRef.current) return;
+                                const delta =
+                                  inputResizeRef.current.startY -
+                                  moveEvent.clientY;
+                                const nextHeight = Math.min(
+                                  CHAT_INPUT_MAX_HEIGHT,
+                                  Math.max(
+                                    CHAT_INPUT_MIN_HEIGHT,
+                                    inputResizeRef.current.startHeight + delta,
+                                  ),
+                                );
+                                setInputHeight(nextHeight);
+                              };
+                              const onMouseUp = () => {
+                                inputResizeRef.current = null;
+                                window.removeEventListener(
+                                  "mousemove",
+                                  onMouseMove,
+                                );
+                                window.removeEventListener(
+                                  "mouseup",
+                                  onMouseUp,
+                                );
+                              };
+                              window.addEventListener("mousemove", onMouseMove);
+                              window.addEventListener("mouseup", onMouseUp);
+                            }}
+                            aria-hidden="true"
+                          />
+                          <textarea
+                            ref={inputRef}
+                            value={input}
+                            onChange={(event) => setInput(event.target.value)}
+                            onPaste={handlePaste}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" && !event.shiftKey) {
+                                event.preventDefault();
+                                void handleSubmit(
+                                  event as unknown as React.FormEvent<HTMLFormElement>,
+                                );
+                              }
+                            }}
+                            disabled={isUploadingImage}
+                            placeholder={
+                              isUploadingImage
+                                ? "이미지 업로드 중..."
+                                : isHandoffDraftMode
+                                  ? "관리자에게 남길 문의를 입력하세요"
+                                  : "호록이에게 물어보세요"
+                            }
+                            rows={1}
+                            style={{ height: inputHeight }}
+                            className="block w-full resize-none overflow-y-auto bg-transparent pl-3 pr-12 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-zinc-100 dark:placeholder:text-zinc-500 disabled:opacity-50 [padding-block:0.6875rem]"
+                          />
+                          <button
+                            type="submit"
+                            className={cn(
+                              "absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-transparent transition disabled:cursor-default",
+                              platform === "cote"
+                                ? "text-[#06923E] hover:text-[#047a33] disabled:text-[#06923E]/35"
+                                : "text-orange-500 hover:text-orange-600 disabled:text-orange-200 dark:text-orange-400 dark:hover:text-orange-300 dark:disabled:text-orange-900",
+                            )}
+                            disabled={
+                              !input.trim() || isLoading || isUploadingImage
+                            }
+                            aria-label="메시지 전송"
+                          >
+                            <Send className="size-4" />
+                          </button>
+                        </div>
+                      </form>
                     </div>
-                  </div>
+                  ) : null}
                 </div>
 
-                <form
-                  onSubmit={handleSubmit}
-                  className={cn(
-                    "border-t p-3",
-                    platform === "cote"
-                      ? "border-[#06923E]/10 dark:border-[#06923E]/20"
-                      : "border-orange-100 dark:border-orange-400/20",
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "relative rounded-3xl border bg-white shadow-sm",
-                      platform === "cote"
-                        ? "border-[#06923E]/25 dark:border-[#06923E]/30 dark:bg-slate-950"
-                        : "border-orange-200 dark:border-orange-400/25 dark:bg-zinc-900",
-                    )}
-                  >
-                    <input
-                      ref={inputRef}
-                      value={input}
-                      onChange={(event) => setInput(event.target.value)}
-                      placeholder={
-                        isAdminHandoffView
-                          ? "문의자에게 남길 답변을 입력하세요"
-                          : isHandoffDraftMode
-                            ? "관리자에게 남길 문의를 입력하세요"
-                            : "호록이에게 물어보세요"
-                      }
-                      className="h-10 w-full bg-transparent pl-3 pr-12 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-                    />
-                    <button
-                      type="submit"
+                {isAdminHandoffView ? (
+                  <form onSubmit={handleSubmit} className="border-t p-3">
+                    <div
                       className={cn(
-                        "absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-transparent transition disabled:cursor-default",
+                        "relative rounded-3xl border bg-white shadow-md transition-shadow focus-within:shadow-lg",
                         platform === "cote"
-                          ? "text-[#06923E] hover:text-[#047a33] disabled:text-[#06923E]/35"
-                          : "text-orange-500 hover:text-orange-600 disabled:text-orange-200 dark:text-orange-400 dark:hover:text-orange-300 dark:disabled:text-orange-900",
+                          ? "border-[#06923E]/25 dark:border-[#06923E]/30 dark:bg-slate-950"
+                          : "border-orange-200 dark:border-orange-400/25 dark:bg-zinc-900",
                       )}
-                      disabled={!input.trim() || isLoading}
-                      aria-label="메시지 전송"
                     >
-                      <Send className="size-4" />
-                    </button>
-                  </div>
-                </form>
+                      <textarea
+                        ref={inputRef}
+                        value={input}
+                        onChange={(event) => setInput(event.target.value)}
+                        onPaste={handlePaste}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && !event.shiftKey) {
+                            event.preventDefault();
+                            void handleSubmit(
+                              event as unknown as React.FormEvent<HTMLFormElement>,
+                            );
+                          }
+                        }}
+                        disabled={isUploadingImage}
+                        placeholder={
+                          isUploadingImage
+                            ? "이미지 업로드 중..."
+                            : "문의자에게 남길 답변을 입력하세요"
+                        }
+                        rows={1}
+                        style={{ height: inputHeight }}
+                        className="w-full resize-none overflow-y-auto bg-transparent pl-3 pr-12 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-zinc-100 dark:placeholder:text-zinc-500 disabled:opacity-50 [padding-block:0.6875rem]"
+                      />
+                      <button
+                        type="submit"
+                        className={cn(
+                          "absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-transparent transition disabled:cursor-default",
+                          platform === "cote"
+                            ? "text-[#06923E] hover:text-[#047a33] disabled:text-[#06923E]/35"
+                            : "text-orange-500 hover:text-orange-600 disabled:text-orange-200 dark:text-orange-400 dark:hover:text-orange-300 dark:disabled:text-orange-900",
+                        )}
+                        disabled={
+                          !input.trim() || isLoading || isUploadingImage
+                        }
+                        aria-label="메시지 전송"
+                      >
+                        <Send className="size-4" />
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
               </>
             )}
           </div>
@@ -2789,6 +3089,42 @@ export default function HorokChat({
           </button>
         ) : null}
       </div>
+
+      {previewImageUrl && mounted
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[9999] flex items-center justify-center px-6 animate-in fade-in duration-200"
+              role="dialog"
+              aria-modal="true"
+              aria-label="프로필 이미지"
+            >
+              <button
+                type="button"
+                className="absolute inset-0 z-0 bg-black/60"
+                onClick={() => setPreviewImageUrl(null)}
+                aria-label="프로필 이미지 닫기"
+              />
+              <div className="relative z-10 rounded-2xl bg-white p-4 shadow-2xl dark:bg-zinc-900 animate-in zoom-in-95 duration-200">
+                <Image
+                  src={previewImageUrl}
+                  alt="프로필 이미지 확대"
+                  width={360}
+                  height={360}
+                  className="max-h-[80vh] max-w-[80vw] object-contain"
+                />
+                <button
+                  type="button"
+                  onClick={() => setPreviewImageUrl(null)}
+                  className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-background/80 text-muted-foreground backdrop-blur-sm transition hover:bg-muted hover:text-foreground"
+                  aria-label="프로필 이미지 닫기"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

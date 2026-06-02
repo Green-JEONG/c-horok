@@ -27,6 +27,7 @@ export default function HorokCoteProblemQuickSearch({
   const [isEditing, setIsEditing] = useState(false);
   const [query, setQuery] = useState("");
   const [overlayWidth, setOverlayWidth] = useState<number | null>(null);
+  const [showTooltip, setShowTooltip] = useState(true);
 
   const suggestions = useMemo(() => {
     const trimmedQuery = query.trim().toLowerCase();
@@ -108,7 +109,7 @@ export default function HorokCoteProblemQuickSearch({
   if (!isEditing && !alwaysExpanded) {
     return (
       <div className="relative z-30 min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+        <div className="flex min-w-0 items-center gap-2 overflow-hidden border border-transparent py-2">
           <button
             type="button"
             onDoubleClick={() => setIsEditing(true)}
@@ -125,16 +126,19 @@ export default function HorokCoteProblemQuickSearch({
             {title}
           </button>
         </div>
-        <div className="pointer-events-none absolute left-1 top-[calc(100%+8px)] z-40">
-          <button
-            type="button"
-            onDoubleClick={() => setIsEditing(true)}
-            className="pointer-events-auto relative whitespace-nowrap rounded-2xl bg-[#06923E] px-2.5 py-1 text-[11px] font-medium text-white shadow-lg transition hover:bg-[#047a33]"
-          >
-            더블클릭해 검색
-            <span className="absolute bottom-full left-3 h-0 w-0 border-x-[6px] border-b-[8px] border-x-transparent border-b-[#06923E]" />
-          </button>
-        </div>
+        {showTooltip ? (
+          <div className="pointer-events-none absolute left-2.5 top-9 z-40">
+            <button
+              type="button"
+              onClick={() => setShowTooltip(false)}
+              onDoubleClick={() => setIsEditing(true)}
+              className="group pointer-events-auto relative whitespace-nowrap rounded-2xl bg-[#06923E] px-2.5 py-1 text-[11px] font-medium text-white shadow-lg transition hover:bg-[#047a33]"
+            >
+              더블클릭해 검색
+              <span className="absolute bottom-full left-3 h-0 w-0 border-x-[6px] border-b-[8px] border-x-transparent border-b-[#06923E] transition-colors group-hover:border-b-[#047a33]" />
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   }

@@ -53,7 +53,8 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.75 0.18 60); /* FF9A00 */
+  --primary: oklch(0.75 0.18 60);
+  /* FF9A00 */
   --primary-foreground: oklch(0.98 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -87,7 +88,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.8 0.18 60); /* 밝은 FF9A00 */
+  --primary: oklch(0.8 0.18 60);
+  /* 밝은 FF9A00 */
   --primary-foreground: oklch(0.15 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
@@ -118,6 +120,7 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -247,6 +250,32 @@
 
   .scrollbar-orange::-webkit-scrollbar-thumb:hover {
     background-color: oklch(0.68 0.19 55);
+  }
+
+  .scrollbar-green {
+    scrollbar-color: #06923e transparent;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-green::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-green::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-green::-webkit-scrollbar-thumb {
+    background-color: #06923e;
+    border: 1.5px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+  }
+
+  .scrollbar-green::-webkit-scrollbar-thumb:hover {
+    background-color: #047a33;
   }
 
   .scrollbar-native-hidden {

@@ -97,7 +97,7 @@ export default function HorokCoteProblemBrowser({
       ) : null}
 
       <section className="flex min-h-0 flex-1 flex-col">
-        <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto px-1 py-1">
+        <div className="scrollbar-green min-h-0 flex-1 overflow-y-auto px-1 py-1">
           {paginatedProblems.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2">
               {paginatedProblems.map((problem) => (

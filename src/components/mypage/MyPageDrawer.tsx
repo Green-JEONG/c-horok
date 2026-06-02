@@ -26,15 +26,15 @@ type Props = {
 type Notification = {
   id: number;
   type:
-  | "FRIEND_REQUEST"
-  | "POST_COMMENT"
-  | "COMMENT_REPLY"
-  | "POST_LIKE"
-  | "NEW_POST"
-  | "POST_REACTION"
-  | "COMMENT_REACTION"
-  | "NEW_FOLLOWER"
-  | "CHAT_HANDOFF";
+    | "FRIEND_REQUEST"
+    | "POST_COMMENT"
+    | "COMMENT_REPLY"
+    | "POST_LIKE"
+    | "NEW_POST"
+    | "POST_REACTION"
+    | "COMMENT_REACTION"
+    | "NEW_FOLLOWER"
+    | "CHAT_HANDOFF";
   actor_name: string | null;
   actor_image?: string | null;
   actor_id?: number | null;
@@ -506,8 +506,8 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                         ? "border-red-500 bg-red-500 px-3 text-xs font-semibold text-white hover:bg-red-600"
                         : "size-8 border-border bg-background text-muted-foreground hover:border-primary/30 hover:bg-primary/10 hover:text-foreground",
                       isNotificationDeleteMode &&
-                      selectedNotificationIds.length === 0 &&
-                      "opacity-60",
+                        selectedNotificationIds.length === 0 &&
+                        "opacity-60",
                     )}
                   >
                     {isNotificationDeleteMode ? (
@@ -543,12 +543,17 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                   const showDateBadge =
                     !previousNotification ||
                     getNotificationDateKey(previousNotification.created_at) !==
-                    getNotificationDateKey(n.created_at);
+                      getNotificationDateKey(n.created_at);
 
                   return (
                     <li key={n.id} className="space-y-2">
                       {showDateBadge ? (
-                        <div className="flex justify-center">
+                        <div
+                          className={cn(
+                            "flex justify-center",
+                            !previousNotification ? "mt-1 mb-2" : "mt-6 mb-2",
+                          )}
+                        >
                           <span className="rounded-full bg-background px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm ring-1 ring-border">
                             {formatNotificationDateBadge(n.created_at)}
                           </span>
@@ -558,15 +563,15 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                       <div className="group flex items-start gap-2">
                         <button
                           type="button"
-                          className="flex flex-1 items-start gap-2 text-left text-[15px] leading-[18px] text-muted-foreground hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-70 [&_strong]:text-foreground"
+                          className="flex w-full min-w-0 flex-1 items-start gap-2 text-left text-[15px] leading-[18px] text-muted-foreground hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-70 [&_strong]:text-foreground"
                           onClick={async () => {
                             if (isNotificationDeleteMode) {
                               setSelectedNotificationIds((current) =>
                                 current.includes(n.id)
                                   ? current.filter(
-                                    (notificationId) =>
-                                      notificationId !== n.id,
-                                  )
+                                      (notificationId) =>
+                                        notificationId !== n.id,
+                                    )
                                   : [...current, n.id],
                               );
                               return;
@@ -733,7 +738,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                             className={cn(
                               "min-w-0 flex-1",
                               (n.is_post_deleted || n.is_comment_deleted) &&
-                              "line-through decoration-foreground",
+                                "line-through decoration-foreground",
                             )}
                           >
                             {renderEmphasizedNotificationMessage(
@@ -852,8 +857,9 @@ export default function MyPageDrawer({ open, onClose }: Props) {
               alt={`${profile?.name ?? session?.user?.name ?? "사용자"} 프로필 확대`}
               width={360}
               height={360}
-              className={`max-h-[80vh] max-w-[80vw] object-contain ${!(profile?.image ?? session?.user?.image) ? "grayscale" : ""
-                }`}
+              className={`max-h-[80vh] max-w-[80vw] object-contain ${
+                !(profile?.image ?? session?.user?.image) ? "grayscale" : ""
+              }`}
             />
             <button
               type="button"

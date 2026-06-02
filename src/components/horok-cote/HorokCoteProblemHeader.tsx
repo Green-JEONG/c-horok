@@ -29,7 +29,7 @@ export default function HorokCoteProblemHeader({
   const router = useRouter();
 
   return (
-    <div className="border-b border-slate-200 pb-5 dark:border-slate-800">
+    <div className="flex flex-col gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
           <Link
@@ -50,19 +50,27 @@ export default function HorokCoteProblemHeader({
               router.push(`/horok-cote?level=${encodeURIComponent(nextLevel)}`)
             }
           />
-          <ChevronRight className="size-4 shrink-0 text-slate-300 dark:text-slate-600" />
-          <HorokCoteProblemQuickSearch
-            number={number}
-            title={title}
-            problems={problems}
-          />
-        </div>
-        <div className="relative z-10 flex shrink-0 items-center gap-2">
-          <HeaderActions />
-          <div className="rounded-full border border-slate-200 bg-slate-50 p-1 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-            <ThemeToggle />
+          <ChevronRight className="hidden size-4 shrink-0 text-slate-300 dark:text-slate-600 md:block" />
+          <div className="hidden md:block">
+            <HorokCoteProblemQuickSearch
+              number={number}
+              title={title}
+              problems={problems}
+            />
           </div>
         </div>
+        <div className="relative z-10 flex shrink-0 items-center gap-1">
+          <HeaderActions />
+          <ThemeToggle />
+        </div>
+      </div>
+      <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 md:hidden">
+        <ChevronRight className="size-4 shrink-0 text-slate-300 dark:text-slate-600" />
+        <HorokCoteProblemQuickSearch
+          number={number}
+          title={title}
+          problems={problems}
+        />
       </div>
     </div>
   );

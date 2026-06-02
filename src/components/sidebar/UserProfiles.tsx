@@ -219,7 +219,7 @@ export default function UserProfiles() {
                   >
                     팔로워 {profile.followerCount}명
                   </Link>
-                  <span>|</span>
+                  <span>·</span>
                   <Link
                     href={postsHref}
                     className="transition hover:text-foreground"

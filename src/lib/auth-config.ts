@@ -13,68 +13,10 @@ const smtpEmailConfig = getSmtpEmailConfig();
 
 type AuthPlatform = "tech" | "cote";
 
-function getPlatformCookies(platform: AuthPlatform): NextAuthConfig["cookies"] {
-  if (platform === "tech") {
-    return undefined;
-  }
-
-  const secure = process.env.NODE_ENV === "production";
-  const sharedOptions = {
-    sameSite: "lax" as const,
-    path: "/",
-    secure,
-  };
-
-  return {
-    sessionToken: {
-      name: "authjs.cote.session-token",
-      options: {
-        ...sharedOptions,
-        httpOnly: true,
-      },
-    },
-    callbackUrl: {
-      name: "authjs.cote.callback-url",
-      options: sharedOptions,
-    },
-    csrfToken: {
-      name: "authjs.cote.csrf-token",
-      options: {
-        ...sharedOptions,
-        httpOnly: true,
-      },
-    },
-    pkceCodeVerifier: {
-      name: "authjs.cote.pkce.code_verifier",
-      options: {
-        ...sharedOptions,
-        httpOnly: true,
-        maxAge: 60 * 15,
-      },
-    },
-    state: {
-      name: "authjs.cote.state",
-      options: {
-        ...sharedOptions,
-        httpOnly: true,
-        maxAge: 60 * 15,
-      },
-    },
-    nonce: {
-      name: "authjs.cote.nonce",
-      options: {
-        ...sharedOptions,
-        httpOnly: true,
-      },
-    },
-  };
-}
-
 export function createAuthConfig(platform: AuthPlatform): NextAuthConfig {
   return {
     adapter: authAdapter,
     basePath: platform === "cote" ? "/api/cote-auth" : "/api/auth",
-    cookies: getPlatformCookies(platform),
     session: {
       strategy: "jwt",
     },

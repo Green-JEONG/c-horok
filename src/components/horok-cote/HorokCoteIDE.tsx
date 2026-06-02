@@ -107,9 +107,9 @@ export default function HorokCoteIDE({ problem, onSolved }: HorokCoteIDEProps) {
   }
 
   return (
-    <section className="scrollbar-hide flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]">
+    <section className="scrollbar-green flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]">
       <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-2.5 dark:border-slate-800 sm:px-5">
-        <div className="scrollbar-hide flex min-w-0 flex-1 items-center gap-2 overflow-x-auto whitespace-nowrap">
+        <div className="scrollbar-green flex min-w-0 flex-1 items-center gap-2 overflow-x-auto whitespace-nowrap">
           {(["python", "java", "cpp"] as Language[]).map((language) => {
             const meta = languageMeta[language];
             const isActive = selectedLanguage === language;
@@ -174,7 +174,7 @@ export default function HorokCoteIDE({ problem, onSolved }: HorokCoteIDEProps) {
               }
             }}
             spellCheck={false}
-            className="scrollbar-hide h-full min-h-0 w-full overflow-y-auto overflow-x-auto resize-none bg-transparent py-4 pl-10 pr-4 font-mono text-[15px] leading-7 text-slate-800 outline-none dark:text-slate-100 sm:text-base"
+            className="scrollbar-green h-full min-h-0 w-full overflow-y-auto overflow-x-auto resize-none bg-transparent py-4 pl-10 pr-4 font-mono text-[15px] leading-7 text-slate-800 outline-none dark:text-slate-100 sm:text-base"
             aria-label={`${currentLanguage.label} 코드 에디터`}
           />
         </div>
@@ -215,7 +215,7 @@ export default function HorokCoteIDE({ problem, onSolved }: HorokCoteIDEProps) {
 
           <div className="flex min-h-0 flex-1 flex-col px-4 sm:px-5 sm:pb-5">
             <div className="flex min-h-[96px] shrink-0 flex-col rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 sm:h-full sm:min-h-[160px]">
-              <pre className="scrollbar-hide min-h-0 flex-1 overflow-auto px-4 py-4 font-mono text-[15px] leading-7 text-slate-800 dark:text-slate-100 sm:text-base">
+              <pre className="scrollbar-green min-h-0 flex-1 overflow-auto px-4 py-4 font-mono text-[15px] leading-7 text-slate-800 dark:text-slate-100 sm:text-base">
                 {executionState.output || "(출력 없음)"}
               </pre>
             </div>

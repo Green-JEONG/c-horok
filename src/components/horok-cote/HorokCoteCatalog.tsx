@@ -28,7 +28,7 @@ export default function HorokCoteCatalog({
 
   return (
     <>
-      <div className="border-b border-slate-200 pb-5 dark:border-slate-800">
+      <div className="border-b border-slate-200 pb-3 dark:border-slate-800">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-hidden text-sm text-slate-500 dark:text-slate-400">
             <Link
@@ -55,9 +55,7 @@ export default function HorokCoteCatalog({
           <div className="flex shrink-0 items-center gap-2">
             <HorokCoteCreateProblemModal />
             <HeaderActions />
-            <div className="rounded-full border border-slate-200 bg-slate-50 p-1 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-              <ThemeToggle />
-            </div>
+            <ThemeToggle />
           </div>
         </div>
         <div className="mt-3 w-full sm:hidden">
