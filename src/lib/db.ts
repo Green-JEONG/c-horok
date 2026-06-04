@@ -538,26 +538,49 @@ export async function findPostsByKeywordPaged(
 }
 
 export async function findUserContributions(userId: number) {
-  const posts = await prisma.post.findMany({
-    where: {
-      userId: BigInt(userId),
-      isDeleted: false,
-      category: {
-        is: {
-          name: {
-            notIn: [...ALL_NOTICE_TAG_OPTIONS],
+  const userBigIntId = BigInt(userId);
+  const [posts, solvedProblems] = await Promise.all([
+    prisma.post.findMany({
+      where: {
+        userId: userBigIntId,
+        isDeleted: false,
+        category: {
+          is: {
+            name: {
+              notIn: [...ALL_NOTICE_TAG_OPTIONS],
+            },
           },
         },
       },
-    },
-    select: { createdAt: true },
-    orderBy: { createdAt: "asc" },
-  });
+      select: { createdAt: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.coteProblemProgress.findMany({
+      where: {
+        userId: userBigIntId,
+        status: "solved",
+        solvedAt: {
+          not: null,
+        },
+      },
+      select: { solvedAt: true },
+      orderBy: { solvedAt: "asc" },
+    }),
+  ]);
 
   const counts = new Map<string, number>();
 
   for (const post of posts) {
     const date = formatLocalDate(post.createdAt);
+    counts.set(date, (counts.get(date) ?? 0) + 1);
+  }
+
+  for (const solvedProblem of solvedProblems) {
+    if (!solvedProblem.solvedAt) {
+      continue;
+    }
+
+    const date = formatLocalDate(solvedProblem.solvedAt);
     counts.set(date, (counts.get(date) ?? 0) + 1);
   }
 

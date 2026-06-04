@@ -21,6 +21,7 @@ const navItems = [
     href: "/horok-cote",
     label: "코딩테스트",
     icon: ExternalLink,
+    openInNewTab: true,
     match: (p: string) => p === "/horok-cote" || p.startsWith("/horok-cote/"),
   },
   {
@@ -44,6 +45,8 @@ export default function HeaderNav() {
           <Link
             key={item.href}
             href={item.href}
+            target={item.openInNewTab ? "_blank" : undefined}
+            rel={item.openInNewTab ? "noopener noreferrer" : undefined}
             className={clsx(
               "flex min-w-0 items-center justify-center gap-1.5 border-b-2 px-2 py-0.5 text-center whitespace-nowrap transition-colors",
               isActive
