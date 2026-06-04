@@ -128,8 +128,16 @@ export default function ContributionGrid({ userId }: { userId?: number }) {
           gridTemplateColumns: `repeat(${visibleWeeks}, minmax(0, 1fr))`,
         }}
       >
-        {visibleDays.map((date) => {
+        {visibleDays.map((date, index) => {
           const count = map.get(date) ?? 0;
+          const isFirstWeek = index < 7;
+          const isLastWeek = index >= visibleDays.length - 7;
+          const tooltipPositionClass = isLastWeek
+            ? "right-0"
+            : isFirstWeek
+              ? "left-0"
+              : "left-1/2 -translate-x-1/2";
+
           return (
             <div
               key={date}
@@ -138,7 +146,9 @@ export default function ContributionGrid({ userId }: { userId?: number }) {
               className={`contribution-day group relative flex aspect-square w-full items-center justify-center text-[8px] font-semibold leading-none tabular-nums ${getColor(count)} ${getTextColor(count)}`}
             >
               {count > 0 ? count : null}
-              <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[11px] font-medium leading-none text-background shadow-md group-hover:block">
+              <span
+                className={`pointer-events-none absolute bottom-full z-20 mb-1 hidden whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[11px] font-medium leading-none text-background shadow-md group-hover:block ${tooltipPositionClass}`}
+              >
                 {date}: {count}회
               </span>
             </div>
