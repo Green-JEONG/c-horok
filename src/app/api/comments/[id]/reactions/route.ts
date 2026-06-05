@@ -25,6 +25,7 @@ async function getViewableComment(
       postId: true,
       content: true,
       isDeleted: true,
+      isHidden: true,
       isSecret: true,
       post: {
         select: {
@@ -35,6 +36,10 @@ async function getViewableComment(
   });
 
   if (!comment || comment.isDeleted) {
+    return null;
+  }
+
+  if (comment.isHidden && Number(comment.userId) !== options?.userId) {
     return null;
   }
 
