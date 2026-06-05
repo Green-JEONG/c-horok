@@ -65,6 +65,12 @@ type TabletResizeState = {
   viewportWidth: number;
 };
 
+type ProblemSectionResizeState = {
+  startPointer: number;
+  startRatio: number;
+  containerHeight: number;
+};
+
 type PanelId = "problem" | "ide" | "chat";
 
 type PanelDropTarget =
@@ -181,6 +187,10 @@ export default function HorokCoteWorkspace({
   const mobileSwipeStateRef = useRef<MobileSwipeState | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const tabletResizeStateRef = useRef<TabletResizeState | null>(null);
+  const problemSectionResizeStateRef = useRef<ProblemSectionResizeState | null>(
+    null,
+  );
+  const problemPanelContentRef = useRef<HTMLDivElement | null>(null);
   const movingPanelRef = useRef<PanelId | null>(null);
   const movingPanelPreviewRef = useRef<HTMLElement | null>(null);
   const movingPanelOffsetRef = useRef({ x: 0, y: 0 });
@@ -199,6 +209,7 @@ export default function HorokCoteWorkspace({
   const [desktopSizes, setDesktopSizes] = useState([...DESKTOP_DEFAULT_SIZES]);
   const [mobileSizes, setMobileSizes] = useState([...MOBILE_DEFAULT_SIZES]);
   const [tabletPageRatios, setTabletPageRatios] = useState([0.5, 0.5]);
+  const [problemDescriptionRatio, setProblemDescriptionRatio] = useState(0.5);
   const [panelOrder, setPanelOrder] = useState<PanelId[]>(DEFAULT_PANEL_ORDER);
   const [movingPanelId, setMovingPanelId] = useState<PanelId | null>(null);
   const [panelDropTarget, setPanelDropTarget] =
@@ -208,6 +219,8 @@ export default function HorokCoteWorkspace({
   const [isTabletResizing, setIsTabletResizing] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(true);
+  const [isProblemSectionResizing, setIsProblemSectionResizing] =
+    useState(false);
 
   useEffect(() => {
     activeMobilePageRef.current = activeMobilePage;
@@ -400,6 +413,41 @@ export default function HorokCoteWorkspace({
       window.removeEventListener("pointerup", handlePointerUp);
     };
   }, [isTablet, isTabletResizing, mobileSizes]);
+
+  useEffect(() => {
+    if (!isProblemSectionResizing) {
+      return;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const resizeState = problemSectionResizeStateRef.current;
+
+      if (!resizeState || resizeState.containerHeight <= 0) {
+        return;
+      }
+
+      const deltaRatio =
+        (event.clientY - resizeState.startPointer) /
+        resizeState.containerHeight;
+
+      setProblemDescriptionRatio(
+        clamp(resizeState.startRatio + deltaRatio, 0.25, 0.75),
+      );
+    };
+
+    const handlePointerUp = () => {
+      problemSectionResizeStateRef.current = null;
+      setIsProblemSectionResizing(false);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [isProblemSectionResizing]);
 
   useEffect(() => {
     if (!movingPanelId) {
@@ -754,6 +802,28 @@ export default function HorokCoteWorkspace({
     setIsTabletResizing(true);
   }
 
+  function handleProblemSectionResizeStart(
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const container = problemPanelContentRef.current;
+
+    if (!container) {
+      return;
+    }
+
+    const rect = container.getBoundingClientRect();
+
+    problemSectionResizeStateRef.current = {
+      startPointer: event.clientY,
+      startRatio: problemDescriptionRatio,
+      containerHeight: rect.height,
+    };
+    setIsProblemSectionResizing(true);
+  }
+
   function handlePanelMoveStart(
     panelId: PanelId,
     event: ReactPointerEvent<HTMLButtonElement>,
@@ -940,8 +1010,17 @@ export default function HorokCoteWorkspace({
   });
 
   const problemPanelContent = (
-    <div className="flex h-full min-h-0 flex-col">
-      <section className="scrollbar-green min-h-0 flex-1 overflow-y-auto pb-5">
+    <div
+      ref={problemPanelContentRef}
+      className={cn(
+        "flex h-full min-h-0 flex-col",
+        isProblemSectionResizing && "select-none",
+      )}
+    >
+      <section
+        className="scrollbar-green min-h-0 overflow-y-auto pb-5"
+        style={{ flex: `${problemDescriptionRatio} 1 0%` }}
+      >
         <div className="min-w-0 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div className="text-base font-bold text-slate-700 dark:text-slate-200 sm:text-lg">
@@ -972,7 +1051,15 @@ export default function HorokCoteWorkspace({
         </div>
       </section>
 
-      <section className="scrollbar-green min-h-0 flex-1 overflow-y-auto border-t border-slate-200 pt-5 dark:border-slate-800">
+      <ProblemSectionResizeHandle
+        isActive={isProblemSectionResizing}
+        onPointerDown={handleProblemSectionResizeStart}
+      />
+
+      <section
+        className="scrollbar-green min-h-0 overflow-y-auto pt-5"
+        style={{ flex: `${1 - problemDescriptionRatio} 1 0%` }}
+      >
         <div className="min-w-0 space-y-3">
           <div className="text-base font-bold text-slate-700 dark:text-slate-200 sm:text-lg">
             예제
@@ -1038,6 +1125,10 @@ export default function HorokCoteWorkspace({
   const visibleMobilePanelEntries = mobilePanelEntries.filter(
     ({ panelIndex }) => !collapsedPanels[panelIndex],
   );
+  const panelPaginationPageCount = mobilePanels.length;
+  const activePanelPaginationPage = Math.round(
+    clamp(activeMobilePage, 0, panelPaginationPageCount - 1),
+  );
   const problemVisiblePanelIndex = visibleMobilePanelEntries.findIndex(
     ({ panel }) => panel.id === "problem",
   );
@@ -1064,7 +1155,11 @@ export default function HorokCoteWorkspace({
         : "before"
       : undefined;
   const getActiveSinglePanelIndex = () => {
-    if (isDesktop || hiddenPanelCount > 0) {
+    if (isDesktop) {
+      return visibleMobilePanelEntries[activePanelPaginationPage]?.panelIndex;
+    }
+
+    if (hiddenPanelCount > 0) {
       return undefined;
     }
 
@@ -1374,295 +1469,135 @@ export default function HorokCoteWorkspace({
 
   const isHideDropTargetActive = panelDropTarget?.type === "hide";
   const canHideActiveSinglePanel = getActiveSinglePanelIndex() !== undefined;
+  const showMobilePaginationControls = !isDesktop && mobilePageCount > 1;
+  const showPanelPaginationDots = panelPaginationPageCount > 1;
+  const workspaceBottomControls = (
+    <div className="relative z-20 grid h-9 grid-cols-[2.25rem_1fr_2.25rem] items-center">
+      {showMobilePaginationControls ? (
+        <button
+          type="button"
+          onClick={() => goToMobilePage(activeMobilePage - 1)}
+          disabled={activeMobilePage <= 0}
+          className="flex size-9 items-center justify-center justify-self-start rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition hover:border-[#06923E]/45 hover:bg-[#eef7f1] hover:text-[#06923E] disabled:pointer-events-none disabled:opacity-0 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200 dark:hover:border-[#46c86f]/50 dark:hover:bg-[#06923E]/10 dark:hover:text-[#46c86f]"
+          aria-label="이전 패널 페이지로 이동"
+        >
+          <ChevronLeft className="size-5" />
+        </button>
+      ) : (
+        <span aria-hidden="true" />
+      )}
+      <div className="flex items-center justify-center gap-5">
+        {showPanelPaginationDots ? (
+          Array.from({ length: panelPaginationPageCount }, (_, index) => {
+            const hiddenPanelLabelForIndex = collapsedPanels[index]
+              ? mobilePanels[index]?.label
+              : undefined;
+            const isActivePanelDot = activePanelPaginationPage === index;
+            const shouldShowVisibilityButton =
+              Boolean(hiddenPanelLabelForIndex) ||
+              (isActivePanelDot && hiddenPanelCount === 0);
+
+            return shouldShowVisibilityButton ? (
+              <WorkspaceHideButton
+                key={`panel-page-${index + 1}`}
+                canHideActivePanel={
+                  isActivePanelDot && hiddenPanelCount === 0
+                    ? canHideActiveSinglePanel
+                    : false
+                }
+                hiddenPanelLabel={hiddenPanelLabelForIndex}
+                isCurrentPage={isActivePanelDot && !hiddenPanelLabelForIndex}
+                isDropTargetActive={isHideDropTargetActive}
+                isReadyForDrop={
+                  isActivePanelDot &&
+                  Boolean(movingPanelId) &&
+                  hiddenPanelCount === 0
+                }
+                onClick={handleCentralVisibilityButtonClick}
+              />
+            ) : (
+              <button
+                key={`panel-page-${index + 1}`}
+                type="button"
+                onClick={() =>
+                  isDesktop ? setActiveMobilePage(index) : goToMobilePage(index)
+                }
+                className={cn(
+                  "size-3 rounded-full transition hover:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06923E]/45 focus-visible:ring-offset-2 dark:focus-visible:ring-[#46c86f]/45",
+                  isActivePanelDot
+                    ? "bg-[#06923E] dark:bg-[#46c86f]"
+                    : "bg-slate-300 dark:bg-slate-700",
+                )}
+                aria-label={`${index + 1}번째 패널 페이지로 이동`}
+                aria-current={isActivePanelDot ? "page" : undefined}
+              />
+            );
+          })
+        ) : (
+          <WorkspaceHideButton
+            canHideActivePanel={canHideActiveSinglePanel}
+            hiddenPanelLabel={hiddenPanelLabel}
+            isCurrentPage
+            isDropTargetActive={isHideDropTargetActive}
+            isReadyForDrop={Boolean(movingPanelId) && hiddenPanelCount === 0}
+            onClick={handleCentralVisibilityButtonClick}
+          />
+        )}
+      </div>
+      {showMobilePaginationControls ? (
+        <button
+          type="button"
+          onClick={() => goToMobilePage(activeMobilePage + 1)}
+          disabled={activeMobilePage >= mobilePageCount - 1}
+          className="flex size-9 items-center justify-center justify-self-end rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition hover:border-[#06923E]/45 hover:bg-[#eef7f1] hover:text-[#06923E] disabled:pointer-events-none disabled:opacity-0 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200 dark:hover:border-[#46c86f]/50 dark:hover:bg-[#06923E]/10 dark:hover:text-[#46c86f]"
+          aria-label="다음 패널 페이지로 이동"
+        >
+          <ChevronRight className="size-5" />
+        </button>
+      ) : (
+        <span aria-hidden="true" />
+      )}
+    </div>
+  );
 
   if (!isDesktop) {
     return (
       <div
         ref={containerRef}
-        className="relative flex min-h-0 flex-1 flex-col pt-2"
+        className="relative flex min-h-0 flex-1 flex-col pt-3"
       >
-        <div className="grid shrink-0 grid-cols-[2.25rem_1fr_2.25rem] items-center pb-2">
-          {mobilePageCount > 1 ? (
-            <button
-              type="button"
-              onClick={() => goToMobilePage(activeMobilePage - 1)}
-              disabled={activeMobilePage <= 0}
-              className="flex size-9 items-center justify-center justify-self-start rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition hover:border-[#06923E]/45 hover:bg-[#eef7f1] hover:text-[#06923E] disabled:pointer-events-none disabled:opacity-0 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200 dark:hover:border-[#46c86f]/50 dark:hover:bg-[#06923E]/10 dark:hover:text-[#46c86f]"
-              aria-label="이전 패널 페이지로 이동"
-            >
-              <ChevronLeft className="size-5" />
-            </button>
-          ) : (
-            <span aria-hidden="true" />
-          )}
-          <WorkspaceHideButton
-            canHideActivePanel={canHideActiveSinglePanel}
-            hiddenPanelLabel={hiddenPanelLabel}
-            isDropTargetActive={isHideDropTargetActive}
-            isReadyForDrop={Boolean(movingPanelId) && hiddenPanelCount === 0}
-            onClick={handleCentralVisibilityButtonClick}
-          />
-          {mobilePageCount > 1 ? (
-            <button
-              type="button"
-              onClick={() => goToMobilePage(activeMobilePage + 1)}
-              disabled={activeMobilePage >= mobilePageCount - 1}
-              className="flex size-9 items-center justify-center justify-self-end rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition hover:border-[#06923E]/45 hover:bg-[#eef7f1] hover:text-[#06923E] disabled:pointer-events-none disabled:opacity-0 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200 dark:hover:border-[#46c86f]/50 dark:hover:bg-[#06923E]/10 dark:hover:text-[#46c86f]"
-              aria-label="다음 패널 페이지로 이동"
-            >
-              <ChevronRight className="size-5" />
-            </button>
-          ) : (
-            <span aria-hidden="true" />
-          )}
-        </div>
         <div
-          ref={mobileViewportRef}
-          onScroll={handleMobileViewportScroll}
-          onPointerDown={handleMobileSwipeStart}
-          onPointerUp={handleMobileSwipeEnd}
-          onPointerCancel={handleMobileSwipeCancel}
-          onPointerLeave={handleMobileSwipeCancel}
-          className="scrollbar-hide flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth"
+          className={cn(
+            "grid min-h-0 flex-1",
+            "grid-rows-[minmax(0,1fr)_2.25rem]",
+          )}
         >
-          {isTablet && hiddenPanelCount === 0
-            ? visibleMobilePanelEntries.map(({ panel, panelIndex }) => {
-                const isCollapsed = collapsedPanels[panelIndex];
-                const continuousTabletRatio = tabletPageRatios[0] ?? 0.5;
-                const panelBasis =
-                  panelIndex === 1
-                    ? `calc(${(1 - continuousTabletRatio) * 100}% - 0.75rem)`
-                    : `calc(${continuousTabletRatio * 100}% - 0.75rem)`;
-
-                return (
-                  <Fragment key={`tablet-continuous-${panel.id}`}>
-                    <div
-                      data-tablet-continuous-panel-index={panelIndex}
-                      className="flex min-h-0 min-w-0 snap-start items-stretch overflow-hidden"
-                      style={{
-                        flex: `0 0 ${panelBasis}`,
-                      }}
-                    >
-                      <WorkspacePanel
-                        panelId={panel.id}
-                        dropSide={getPanelDropSide(panel.id)}
-                        style={{
-                          flex: "1 1 0%",
-                          minWidth: "0px",
-                        }}
-                        className={cn(
-                          panel.id === "problem" && !isCollapsed
-                            ? "overflow-hidden rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
-                            : "overflow-hidden",
-                          isCollapsed &&
-                            "rounded-none border-transparent bg-transparent p-0",
-                          movingPanelId === panel.id && "opacity-30",
-                        )}
-                        isCollapsed={isCollapsed}
-                        moveHandle={
-                          !isCollapsed ? (
-                            <PanelMoveHandle
-                              isActive={movingPanelId === panel.id}
-                              label={panel.label}
-                              panelId={panel.id}
-                              onPointerDown={handlePanelMoveStart}
-                            />
-                          ) : undefined
-                        }
-                      >
-                        {panel.content}
-                      </WorkspacePanel>
-                    </div>
-                    {panelIndex < 2 ? (
-                      <div className="z-40 flex w-6 shrink-0 items-center justify-center">
-                        <TabletPanelResizeHandle
-                          className="mx-0"
-                          onPointerDown={(event) =>
-                            handleTabletResizeStart(panelIndex, event)
-                          }
-                        />
-                      </div>
-                    ) : null}
-                  </Fragment>
-                );
-              })
-            : isTablet
-              ? tabletPages.map((pagePanelEntries, pageIndex) => {
-                  const firstPanelRatio = tabletPageRatios[pageIndex] ?? 0.5;
-                  const visibleTabletEntries = pagePanelEntries.filter(
-                    ({ panelIndex }) => !collapsedPanels[panelIndex],
-                  );
-
-                  if (hiddenPanelCount > 0) {
-                    return (
-                      <div
-                        key={`tablet-page-${pageIndex + 1}`}
-                        data-mobile-page-index={pageIndex}
-                        className="flex min-h-0 min-w-0 flex-[0_0_100%] snap-start items-stretch overflow-hidden"
-                      >
-                        {pagePanelEntries.map(({ panel, panelIndex }) => {
-                          const isCollapsed = collapsedPanels[panelIndex];
-                          const visibleIndex = visibleTabletEntries.findIndex(
-                            (entry) => entry.panelIndex === panelIndex,
-                          );
-                          const shouldShowResizeHandle =
-                            visibleIndex === 1 &&
-                            visibleTabletEntries.length > 1;
-
-                          return (
-                            <Fragment key={panel.id}>
-                              {shouldShowResizeHandle ? (
-                                <TabletPanelResizeHandle
-                                  onPointerDown={(event) =>
-                                    handleTabletResizeStart(pageIndex, event)
-                                  }
-                                />
-                              ) : null}
-                              <WorkspacePanel
-                                panelId={panel.id}
-                                dropSide={getPanelDropSide(panel.id)}
-                                style={{
-                                  flex: isCollapsed
-                                    ? `0 0 ${COLLAPSED_PANEL_SIZE}px`
-                                    : visibleTabletEntries.length > 1 &&
-                                        visibleIndex === 0
-                                      ? `${firstPanelRatio} 1 0%`
-                                      : visibleTabletEntries.length > 1
-                                        ? `${1 - firstPanelRatio} 1 0%`
-                                        : "1 1 0%",
-                                  minWidth: isCollapsed ? "0px" : undefined,
-                                }}
-                                className={cn(
-                                  panel.label === "문제" && !isCollapsed
-                                    ? "overflow-hidden rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
-                                    : "overflow-hidden",
-                                  isCollapsed &&
-                                    "rounded-none border-transparent bg-transparent p-0",
-                                  movingPanelId === panel.id && "opacity-30",
-                                )}
-                                isCollapsed={isCollapsed}
-                                moveHandle={
-                                  !isCollapsed ? (
-                                    <PanelMoveHandle
-                                      isActive={movingPanelId === panel.id}
-                                      label={panel.label}
-                                      panelId={panel.id}
-                                      onPointerDown={handlePanelMoveStart}
-                                    />
-                                  ) : undefined
-                                }
-                              >
-                                {panel.content}
-                              </WorkspacePanel>
-                            </Fragment>
-                          );
-                        })}
-                      </div>
-                    );
-                  }
-
-                  const [firstPanelEntry, secondPanelEntry] = pagePanelEntries;
-                  const firstPanel = firstPanelEntry.panel;
-                  const secondPanel = secondPanelEntry.panel;
-                  const isFirstPanelCollapsed =
-                    collapsedPanels[firstPanelEntry.panelIndex];
-                  const isSecondPanelCollapsed =
-                    collapsedPanels[secondPanelEntry.panelIndex];
-                  const isTabletResizeVisible =
-                    !isFirstPanelCollapsed && !isSecondPanelCollapsed;
+          <div
+            ref={mobileViewportRef}
+            onScroll={handleMobileViewportScroll}
+            onPointerDown={handleMobileSwipeStart}
+            onPointerUp={handleMobileSwipeEnd}
+            onPointerCancel={handleMobileSwipeCancel}
+            onPointerLeave={handleMobileSwipeCancel}
+            className="scrollbar-hide flex min-h-0 snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth"
+          >
+            {isTablet && hiddenPanelCount === 0
+              ? visibleMobilePanelEntries.map(({ panel, panelIndex }) => {
+                  const isCollapsed = collapsedPanels[panelIndex];
+                  const continuousTabletRatio = tabletPageRatios[0] ?? 0.5;
+                  const panelBasis =
+                    panelIndex === 1
+                      ? `calc(${(1 - continuousTabletRatio) * 100}% - 0.75rem)`
+                      : `calc(${continuousTabletRatio * 100}% - 0.75rem)`;
 
                   return (
-                    <div
-                      key={`tablet-page-${pageIndex + 1}`}
-                      data-mobile-page-index={pageIndex}
-                      className="flex min-h-0 min-w-0 flex-[0_0_100%] snap-start items-stretch overflow-hidden"
-                    >
-                      <WorkspacePanel
-                        panelId={firstPanel.id}
-                        dropSide={getPanelDropSide(firstPanel.id)}
-                        style={{
-                          flex: isFirstPanelCollapsed
-                            ? `0 0 ${COLLAPSED_PANEL_SIZE}px`
-                            : isSecondPanelCollapsed
-                              ? "1 1 0%"
-                              : `${firstPanelRatio} 1 0%`,
-                          minWidth: isFirstPanelCollapsed ? "0px" : undefined,
-                        }}
-                        className={cn(
-                          firstPanel.label === "문제" && !isFirstPanelCollapsed
-                            ? "overflow-hidden rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
-                            : "overflow-hidden",
-                          isFirstPanelCollapsed &&
-                            "rounded-none border-transparent bg-transparent p-0",
-                          movingPanelId === firstPanel.id && "opacity-30",
-                        )}
-                        isCollapsed={isFirstPanelCollapsed}
-                        moveHandle={
-                          !isFirstPanelCollapsed ? (
-                            <PanelMoveHandle
-                              isActive={movingPanelId === firstPanel.id}
-                              label={firstPanel.label}
-                              panelId={firstPanel.id}
-                              onPointerDown={handlePanelMoveStart}
-                            />
-                          ) : undefined
-                        }
-                      >
-                        {firstPanel.content}
-                      </WorkspacePanel>
-                      {isTabletResizeVisible ? (
-                        <TabletPanelResizeHandle
-                          onPointerDown={(event) =>
-                            handleTabletResizeStart(pageIndex, event)
-                          }
-                        />
-                      ) : null}
-                      <WorkspacePanel
-                        panelId={secondPanel.id}
-                        dropSide={getPanelDropSide(secondPanel.id)}
-                        style={{
-                          flex: isSecondPanelCollapsed
-                            ? `0 0 ${COLLAPSED_PANEL_SIZE}px`
-                            : isFirstPanelCollapsed
-                              ? "1 1 0%"
-                              : `${1 - firstPanelRatio} 1 0%`,
-                          minWidth: isSecondPanelCollapsed ? "0px" : undefined,
-                        }}
-                        className={cn(
-                          secondPanel.label === "문제" &&
-                            !isSecondPanelCollapsed
-                            ? "overflow-hidden rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
-                            : "overflow-hidden",
-                          isSecondPanelCollapsed &&
-                            "rounded-none border-transparent bg-transparent p-0",
-                          movingPanelId === secondPanel.id && "opacity-30",
-                        )}
-                        isCollapsed={isSecondPanelCollapsed}
-                        moveHandle={
-                          !isSecondPanelCollapsed ? (
-                            <PanelMoveHandle
-                              isActive={movingPanelId === secondPanel.id}
-                              label={secondPanel.label}
-                              panelId={secondPanel.id}
-                              onPointerDown={handlePanelMoveStart}
-                            />
-                          ) : undefined
-                        }
-                      >
-                        {secondPanel.content}
-                      </WorkspacePanel>
-                    </div>
-                  );
-                })
-              : visibleMobilePanelEntries.map(
-                  ({ panel, panelIndex }, pageIndex) => {
-                    const isCollapsed = collapsedPanels[panelIndex];
-
-                    return (
+                    <Fragment key={`tablet-continuous-${panel.id}`}>
                       <div
-                        key={`mobile-page-${panel.id}`}
-                        data-mobile-page-index={pageIndex}
-                        className="flex min-h-0 min-w-0 flex-[0_0_100%] snap-start items-stretch overflow-hidden"
+                        data-tablet-continuous-panel-index={panelIndex}
+                        className="flex min-h-0 min-w-0 snap-start items-stretch overflow-hidden"
+                        style={{
+                          flex: `0 0 ${panelBasis}`,
+                        }}
                       >
                         <WorkspacePanel
                           panelId={panel.id}
@@ -1677,6 +1612,7 @@ export default function HorokCoteWorkspace({
                               : "overflow-hidden",
                             isCollapsed &&
                               "rounded-none border-transparent bg-transparent p-0",
+                            movingPanelId === panel.id && "opacity-30",
                           )}
                           isCollapsed={isCollapsed}
                           moveHandle={
@@ -1693,30 +1629,237 @@ export default function HorokCoteWorkspace({
                           {panel.content}
                         </WorkspacePanel>
                       </div>
+                      {panelIndex < 2 ? (
+                        <div className="z-40 flex w-6 shrink-0 items-center justify-center">
+                          <TabletPanelResizeHandle
+                            className="mx-0"
+                            onPointerDown={(event) =>
+                              handleTabletResizeStart(panelIndex, event)
+                            }
+                          />
+                        </div>
+                      ) : null}
+                    </Fragment>
+                  );
+                })
+              : isTablet
+                ? tabletPages.map((pagePanelEntries, pageIndex) => {
+                    const firstPanelRatio = tabletPageRatios[pageIndex] ?? 0.5;
+                    const visibleTabletEntries = pagePanelEntries.filter(
+                      ({ panelIndex }) => !collapsedPanels[panelIndex],
                     );
-                  },
-                )}
-        </div>
 
-        {mobilePageCount > 1 ? (
-          <div className="relative z-20 flex shrink-0 items-center justify-center gap-5">
-            {Array.from({ length: mobilePageCount }, (_, index) => (
-              <button
-                key={`mobile-page-${index + 1}`}
-                type="button"
-                onClick={() => goToMobilePage(index)}
-                className={cn(
-                  "size-3 rounded-full transition hover:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06923E]/45 focus-visible:ring-offset-2 dark:focus-visible:ring-[#46c86f]/45",
-                  activeMobilePage === index
-                    ? "bg-[#06923E] dark:bg-[#46c86f]"
-                    : "bg-slate-300 dark:bg-slate-700",
-                )}
-                aria-label={`${index + 1}번째 패널 페이지로 이동`}
-                aria-current={activeMobilePage === index ? "page" : undefined}
-              />
-            ))}
+                    if (hiddenPanelCount > 0) {
+                      return (
+                        <div
+                          key={`tablet-page-${pageIndex + 1}`}
+                          data-mobile-page-index={pageIndex}
+                          className="flex min-h-0 min-w-0 flex-[0_0_100%] snap-start items-stretch overflow-hidden"
+                        >
+                          {pagePanelEntries.map(({ panel, panelIndex }) => {
+                            const isCollapsed = collapsedPanels[panelIndex];
+                            const visibleIndex = visibleTabletEntries.findIndex(
+                              (entry) => entry.panelIndex === panelIndex,
+                            );
+                            const shouldShowResizeHandle =
+                              visibleIndex === 1 &&
+                              visibleTabletEntries.length > 1;
+
+                            return (
+                              <Fragment key={panel.id}>
+                                {shouldShowResizeHandle ? (
+                                  <TabletPanelResizeHandle
+                                    onPointerDown={(event) =>
+                                      handleTabletResizeStart(pageIndex, event)
+                                    }
+                                  />
+                                ) : null}
+                                <WorkspacePanel
+                                  panelId={panel.id}
+                                  dropSide={getPanelDropSide(panel.id)}
+                                  style={{
+                                    flex: isCollapsed
+                                      ? `0 0 ${COLLAPSED_PANEL_SIZE}px`
+                                      : visibleTabletEntries.length > 1 &&
+                                          visibleIndex === 0
+                                        ? `${firstPanelRatio} 1 0%`
+                                        : visibleTabletEntries.length > 1
+                                          ? `${1 - firstPanelRatio} 1 0%`
+                                          : "1 1 0%",
+                                    minWidth: isCollapsed ? "0px" : undefined,
+                                  }}
+                                  className={cn(
+                                    panel.label === "문제" && !isCollapsed
+                                      ? "overflow-hidden rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
+                                      : "overflow-hidden",
+                                    isCollapsed &&
+                                      "rounded-none border-transparent bg-transparent p-0",
+                                    movingPanelId === panel.id && "opacity-30",
+                                  )}
+                                  isCollapsed={isCollapsed}
+                                  moveHandle={
+                                    !isCollapsed ? (
+                                      <PanelMoveHandle
+                                        isActive={movingPanelId === panel.id}
+                                        label={panel.label}
+                                        panelId={panel.id}
+                                        onPointerDown={handlePanelMoveStart}
+                                      />
+                                    ) : undefined
+                                  }
+                                >
+                                  {panel.content}
+                                </WorkspacePanel>
+                              </Fragment>
+                            );
+                          })}
+                        </div>
+                      );
+                    }
+
+                    const [firstPanelEntry, secondPanelEntry] =
+                      pagePanelEntries;
+                    const firstPanel = firstPanelEntry.panel;
+                    const secondPanel = secondPanelEntry.panel;
+                    const isFirstPanelCollapsed =
+                      collapsedPanels[firstPanelEntry.panelIndex];
+                    const isSecondPanelCollapsed =
+                      collapsedPanels[secondPanelEntry.panelIndex];
+                    const isTabletResizeVisible =
+                      !isFirstPanelCollapsed && !isSecondPanelCollapsed;
+
+                    return (
+                      <div
+                        key={`tablet-page-${pageIndex + 1}`}
+                        data-mobile-page-index={pageIndex}
+                        className="flex min-h-0 min-w-0 flex-[0_0_100%] snap-start items-stretch overflow-hidden"
+                      >
+                        <WorkspacePanel
+                          panelId={firstPanel.id}
+                          dropSide={getPanelDropSide(firstPanel.id)}
+                          style={{
+                            flex: isFirstPanelCollapsed
+                              ? `0 0 ${COLLAPSED_PANEL_SIZE}px`
+                              : isSecondPanelCollapsed
+                                ? "1 1 0%"
+                                : `${firstPanelRatio} 1 0%`,
+                            minWidth: isFirstPanelCollapsed ? "0px" : undefined,
+                          }}
+                          className={cn(
+                            firstPanel.label === "문제" &&
+                              !isFirstPanelCollapsed
+                              ? "overflow-hidden rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
+                              : "overflow-hidden",
+                            isFirstPanelCollapsed &&
+                              "rounded-none border-transparent bg-transparent p-0",
+                            movingPanelId === firstPanel.id && "opacity-30",
+                          )}
+                          isCollapsed={isFirstPanelCollapsed}
+                          moveHandle={
+                            !isFirstPanelCollapsed ? (
+                              <PanelMoveHandle
+                                isActive={movingPanelId === firstPanel.id}
+                                label={firstPanel.label}
+                                panelId={firstPanel.id}
+                                onPointerDown={handlePanelMoveStart}
+                              />
+                            ) : undefined
+                          }
+                        >
+                          {firstPanel.content}
+                        </WorkspacePanel>
+                        {isTabletResizeVisible ? (
+                          <TabletPanelResizeHandle
+                            onPointerDown={(event) =>
+                              handleTabletResizeStart(pageIndex, event)
+                            }
+                          />
+                        ) : null}
+                        <WorkspacePanel
+                          panelId={secondPanel.id}
+                          dropSide={getPanelDropSide(secondPanel.id)}
+                          style={{
+                            flex: isSecondPanelCollapsed
+                              ? `0 0 ${COLLAPSED_PANEL_SIZE}px`
+                              : isFirstPanelCollapsed
+                                ? "1 1 0%"
+                                : `${1 - firstPanelRatio} 1 0%`,
+                            minWidth: isSecondPanelCollapsed
+                              ? "0px"
+                              : undefined,
+                          }}
+                          className={cn(
+                            secondPanel.label === "문제" &&
+                              !isSecondPanelCollapsed
+                              ? "overflow-hidden rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
+                              : "overflow-hidden",
+                            isSecondPanelCollapsed &&
+                              "rounded-none border-transparent bg-transparent p-0",
+                            movingPanelId === secondPanel.id && "opacity-30",
+                          )}
+                          isCollapsed={isSecondPanelCollapsed}
+                          moveHandle={
+                            !isSecondPanelCollapsed ? (
+                              <PanelMoveHandle
+                                isActive={movingPanelId === secondPanel.id}
+                                label={secondPanel.label}
+                                panelId={secondPanel.id}
+                                onPointerDown={handlePanelMoveStart}
+                              />
+                            ) : undefined
+                          }
+                        >
+                          {secondPanel.content}
+                        </WorkspacePanel>
+                      </div>
+                    );
+                  })
+                : visibleMobilePanelEntries.map(
+                    ({ panel, panelIndex }, pageIndex) => {
+                      const isCollapsed = collapsedPanels[panelIndex];
+
+                      return (
+                        <div
+                          key={`mobile-page-${panel.id}`}
+                          data-mobile-page-index={pageIndex}
+                          className="flex min-h-0 min-w-0 flex-[0_0_100%] snap-start items-stretch overflow-hidden"
+                        >
+                          <WorkspacePanel
+                            panelId={panel.id}
+                            dropSide={getPanelDropSide(panel.id)}
+                            style={{
+                              flex: "1 1 0%",
+                              minWidth: "0px",
+                            }}
+                            className={cn(
+                              panel.id === "problem" && !isCollapsed
+                                ? "overflow-hidden rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
+                                : "overflow-hidden",
+                              isCollapsed &&
+                                "rounded-none border-transparent bg-transparent p-0",
+                            )}
+                            isCollapsed={isCollapsed}
+                            moveHandle={
+                              !isCollapsed ? (
+                                <PanelMoveHandle
+                                  isActive={movingPanelId === panel.id}
+                                  label={panel.label}
+                                  panelId={panel.id}
+                                  onPointerDown={handlePanelMoveStart}
+                                />
+                              ) : undefined
+                            }
+                          >
+                            {panel.content}
+                          </WorkspacePanel>
+                        </div>
+                      );
+                    },
+                  )}
           </div>
-        ) : null}
+
+          {workspaceBottomControls}
+        </div>
       </div>
     );
   }
@@ -1725,93 +1868,90 @@ export default function HorokCoteWorkspace({
     <div
       ref={containerRef}
       className={cn(
-        "relative flex min-h-0 flex-1 flex-col pt-2",
+        "relative flex min-h-0 flex-1 flex-col pt-3",
         (isDragging || movingPanelId) && "select-none",
         movingPanelId && "cursor-grabbing",
       )}
     >
-      <div className="flex shrink-0 justify-center pb-2">
-        <WorkspaceHideButton
-          canHideActivePanel={canHideActiveSinglePanel}
-          hiddenPanelLabel={hiddenPanelLabel}
-          isDropTargetActive={isHideDropTargetActive}
-          isReadyForDrop={Boolean(movingPanelId) && hiddenPanelCount === 0}
-          onClick={handleCentralVisibilityButtonClick}
-        />
-      </div>
-      <div
-        className="grid min-h-0 flex-1 items-stretch"
-        style={{ gridTemplateColumns: desktopGridTemplateColumns }}
-      >
-        {mobilePanels.map((panel, index) => {
-          const isCollapsed = collapsedPanels[index];
-          const isProblemPanel = panel.id === "problem";
+      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_2.25rem]">
+        <div className="scrollbar-hide flex min-h-0 snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth pb-4">
+          <div
+            className="grid min-h-0 flex-1 items-stretch"
+            style={{ gridTemplateColumns: desktopGridTemplateColumns }}
+          >
+            {mobilePanels.map((panel, index) => {
+              const isCollapsed = collapsedPanels[index];
+              const isProblemPanel = panel.id === "problem";
 
-          return (
-            <Fragment key={panel.id}>
-              <WorkspacePanel
-                panelId={panel.id}
-                dropSide={getPanelDropSide(panel.id)}
-                style={{
-                  gridColumn: `${index * 2 + 1}`,
-                  minWidth: "0px",
-                  minHeight: "0px",
-                  background: isCollapsed ? "transparent" : undefined,
-                  borderWidth: isCollapsed ? 0 : undefined,
-                  borderRadius: isCollapsed ? 0 : undefined,
-                }}
-                className={cn(
-                  isProblemPanel &&
-                    "rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]",
-                  isCollapsed &&
-                    "overflow-visible rounded-none border-transparent bg-transparent p-0",
-                  movingPanelId === panel.id && "opacity-30",
-                )}
-                isCollapsed={isCollapsed}
-                moveHandle={
-                  !isCollapsed ? (
-                    <PanelMoveHandle
-                      isActive={movingPanelId === panel.id}
-                      label={panel.label}
-                      panelId={panel.id}
-                      onPointerDown={handlePanelMoveStart}
-                    />
-                  ) : undefined
-                }
-              >
-                {panel.content}
-              </WorkspacePanel>
+              return (
+                <Fragment key={panel.id}>
+                  <WorkspacePanel
+                    panelId={panel.id}
+                    dropSide={getPanelDropSide(panel.id)}
+                    style={{
+                      gridColumn: `${index * 2 + 1}`,
+                      minWidth: "0px",
+                      minHeight: "0px",
+                      background: isCollapsed ? "transparent" : undefined,
+                      borderWidth: isCollapsed ? 0 : undefined,
+                      borderRadius: isCollapsed ? 0 : undefined,
+                    }}
+                    className={cn(
+                      isProblemPanel &&
+                        "rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]",
+                      isCollapsed &&
+                        "overflow-visible rounded-none border-transparent bg-transparent p-0",
+                      movingPanelId === panel.id && "opacity-30",
+                    )}
+                    isCollapsed={isCollapsed}
+                    moveHandle={
+                      !isCollapsed ? (
+                        <PanelMoveHandle
+                          isActive={movingPanelId === panel.id}
+                          label={panel.label}
+                          panelId={panel.id}
+                          onPointerDown={handlePanelMoveStart}
+                        />
+                      ) : undefined
+                    }
+                  >
+                    {panel.content}
+                  </WorkspacePanel>
 
-              {index === 0 && !collapsedPanels[0] && !collapsedPanels[1] ? (
-                <div
-                  className="flex min-h-0 items-center justify-center"
-                  style={{ gridColumn: "2" }}
-                >
-                  <ResizeHandle
-                    isDesktop={isDesktop}
-                    onPointerDown={(event) => handleResizeStart(0, event)}
-                  />
-                </div>
-              ) : null}
+                  {index === 0 && !collapsedPanels[0] && !collapsedPanels[1] ? (
+                    <div
+                      className="flex min-h-0 items-center justify-center"
+                      style={{ gridColumn: "2" }}
+                    >
+                      <ResizeHandle
+                        isDesktop={isDesktop}
+                        onPointerDown={(event) => handleResizeStart(0, event)}
+                      />
+                    </div>
+                  ) : null}
 
-              {index === 1 &&
-              ((!collapsedPanels[1] && !collapsedPanels[2]) ||
-                (collapsedPanels[1] &&
-                  !collapsedPanels[0] &&
-                  !collapsedPanels[2])) ? (
-                <div
-                  className="flex min-h-0 items-center justify-center"
-                  style={{ gridColumn: "4" }}
-                >
-                  <ResizeHandle
-                    isDesktop={isDesktop}
-                    onPointerDown={(event) => handleResizeStart(1, event)}
-                  />
-                </div>
-              ) : null}
-            </Fragment>
-          );
-        })}
+                  {index === 1 &&
+                  ((!collapsedPanels[1] && !collapsedPanels[2]) ||
+                    (collapsedPanels[1] &&
+                      !collapsedPanels[0] &&
+                      !collapsedPanels[2])) ? (
+                    <div
+                      className="flex min-h-0 items-center justify-center"
+                      style={{ gridColumn: "4" }}
+                    >
+                      <ResizeHandle
+                        isDesktop={isDesktop}
+                        onPointerDown={(event) => handleResizeStart(1, event)}
+                      />
+                    </div>
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </div>
+        </div>
+
+        {workspaceBottomControls}
       </div>
     </div>
   );
@@ -1837,6 +1977,26 @@ function TabletPanelResizeHandle({
       <span className="absolute inset-1 rounded-full bg-slate-300/90 transition group-hover:bg-[#06923E] dark:bg-slate-600 dark:group-hover:bg-[#46c86f]" />
       <span className="absolute left-1/2 top-1/2 h-9 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-300/70 transition group-hover:bg-[#06923E]/80 dark:bg-slate-500 dark:group-hover:bg-[#46c86f]/85" />
     </button>
+  );
+}
+
+function ProblemSectionResizeHandle({
+  isActive,
+  onPointerDown,
+}: {
+  isActive: boolean;
+  onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onPointerDown={onPointerDown}
+      className={cn(
+        "h-px w-full shrink-0 cursor-ns-resize touch-none bg-slate-200 transition hover:bg-[#06923E]/55 dark:bg-slate-800 dark:hover:bg-[#46c86f]/60",
+        isActive && "bg-[#06923E]/70 dark:bg-[#46c86f]/70",
+      )}
+      aria-label="문제 설명과 예제 높이 조절"
+    />
   );
 }
 
@@ -1926,12 +2086,14 @@ function WorkspacePanel({
 function WorkspaceHideButton({
   canHideActivePanel,
   hiddenPanelLabel,
+  isCurrentPage = false,
   isDropTargetActive,
   isReadyForDrop,
   onClick,
 }: {
   canHideActivePanel: boolean;
   hiddenPanelLabel?: string;
+  isCurrentPage?: boolean;
   isDropTargetActive: boolean;
   isReadyForDrop: boolean;
   onClick: () => void;
@@ -1955,7 +2117,8 @@ function WorkspaceHideButton({
       onClick={onClick}
       className={cn(
         "z-50 flex size-9 items-center justify-center justify-self-center rounded-full border border-slate-200 bg-white/95 text-slate-500 shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition hover:border-[#06923E]/45 hover:bg-[#eef7f1] hover:text-[#06923E] dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-300 dark:hover:border-[#46c86f]/50 dark:hover:bg-[#06923E]/10 dark:hover:text-[#46c86f]",
-        hasHiddenPanel && "border-[#06923E]/45 text-[#06923E]",
+        isCurrentPage &&
+          "border-[#06923E]/45 text-[#06923E] dark:border-[#46c86f]/50 dark:text-[#46c86f]",
         isReadyForDrop &&
           "border-[#06923E]/45 text-[#06923E] dark:border-[#46c86f]/50 dark:text-[#46c86f]",
         isDropTargetActive &&

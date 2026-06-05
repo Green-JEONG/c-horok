@@ -395,6 +395,7 @@ export default function HorokCoteIDE({
     try {
       const response = await fetch(
         `/api/horok-cote/submissions?problemSlug=${encodeURIComponent(problem.slug)}`,
+        { cache: "no-store" },
       );
       if (response.ok) {
         const data = await response.json();
@@ -496,15 +497,6 @@ export default function HorokCoteIDE({
       window.addEventListener("mouseup", onUp);
     },
     [resultPanelHeight],
-  );
-
-  const handleResultPanelMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      const panelTop = e.currentTarget.getBoundingClientRect().top;
-      e.currentTarget.style.cursor =
-        e.clientY - panelTop <= 8 ? "row-resize" : "";
-    },
-    [],
   );
 
   useEffect(() => {
@@ -733,7 +725,7 @@ export default function HorokCoteIDE({
 
   return (
     <>
-      <section className="scrollbar-green flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]">
+      <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]">
         <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-2.5 dark:border-slate-800 sm:px-5">
           <div className="scrollbar-green flex min-w-0 flex-1 items-center gap-2 overflow-x-auto whitespace-nowrap">
             {(["python", "java", "cpp", "javascript"] as Language[]).map(
@@ -818,20 +810,21 @@ export default function HorokCoteIDE({
             />
           </div>
 
-          {/* biome-ignore lint/a11y/noStaticElementInteractions: top border is used as a resize handle */}
           <div
-            onMouseDown={handleResultPanelMouseDown}
-            onMouseMove={handleResultPanelMouseMove}
-            onMouseLeave={(event) => {
-              event.currentTarget.style.cursor = "";
-            }}
-            className="flex min-h-0 flex-col border-t border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
+            className="relative flex min-h-0 flex-col border-t border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
             style={
               resultPanelHeight !== null
                 ? { height: resultPanelHeight, flex: "none" }
                 : { flex: `0 0 ${RESULT_PANEL_DEFAULT_RATIO * 100}%` }
             }
           >
+            <div
+              onMouseDown={handleResultPanelMouseDown}
+              className="group absolute inset-x-0 top-0 z-20 h-2 cursor-row-resize"
+              aria-hidden="true"
+            >
+              <span className="absolute inset-x-0 top-0 h-px bg-transparent transition-colors group-hover:bg-[#06923E]/55 dark:group-hover:bg-[#46c86f]/60" />
+            </div>
             <div className="relative flex select-none items-center justify-between gap-3 px-4 py-2 sm:px-5">
               <div className="flex items-center gap-3">
                 <button
@@ -875,8 +868,8 @@ export default function HorokCoteIDE({
               </div>
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col px-4 sm:px-5 sm:pb-5">
-              <div className="flex min-h-[95%] shrink-0 flex-col rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 sm:h-full sm:min-h-[160px] overflow-hidden">
+            <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 sm:px-5 sm:pb-5">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
                 {activeTab === "result" ? (
                   <div className="scrollbar-green min-h-0 flex-1 overflow-auto px-5 py-4 space-y-4">
                     {isRunning && (
@@ -1117,7 +1110,6 @@ export default function HorokCoteIDE({
                   </div>
                 )}
               </div>
-              <div className="h-5 shrink-0" aria-hidden="true" />
             </div>
           </div>
         </div>
