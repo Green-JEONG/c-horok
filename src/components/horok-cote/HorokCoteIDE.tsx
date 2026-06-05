@@ -195,9 +195,9 @@ function ConditionList({
               className={cn(
                 "text-slate-600 dark:text-slate-300 leading-relaxed transition-colors duration-200",
                 showResult &&
-                (isPassed
-                  ? "text-emerald-700 dark:text-emerald-300"
-                  : "text-rose-700 dark:text-rose-300"),
+                  (isPassed
+                    ? "text-emerald-700 dark:text-emerald-300"
+                    : "text-rose-700 dark:text-rose-300"),
                 isChecking && "font-medium text-[#06923E] dark:text-[#46c86f]",
               )}
             >
@@ -399,6 +399,8 @@ export default function HorokCoteIDE({
       if (response.ok) {
         const data = await response.json();
         setSubmissions(data);
+      } else {
+        console.error("Failed to fetch submissions:", response.status);
       }
     } catch (error) {
       console.error("Failed to fetch submissions:", error);
@@ -632,7 +634,7 @@ export default function HorokCoteIDE({
           setCaseProgress(
             ((conditionIndex + nextConditionProgress / 100) /
               conditions.length) *
-            100,
+              100,
           );
         }
 
@@ -700,11 +702,7 @@ export default function HorokCoteIDE({
         sourceCode: code,
       }),
     })
-      .then((res) => {
-        if (res.ok) {
-          window.dispatchEvent(new Event("cote-bookmark-updated"));
-        }
-      })
+      .then(() => null)
       .catch(() => {
         return null;
       });

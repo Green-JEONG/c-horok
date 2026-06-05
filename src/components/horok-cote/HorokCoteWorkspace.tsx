@@ -1438,7 +1438,7 @@ export default function HorokCoteWorkspace({
                   <Fragment key={`tablet-continuous-${panel.id}`}>
                     <div
                       data-tablet-continuous-panel-index={panelIndex}
-                      className="flex min-h-0 min-w-0 snap-start items-stretch"
+                      className="flex min-h-0 min-w-0 snap-start items-stretch overflow-hidden"
                       style={{
                         flex: `0 0 ${panelBasis}`,
                       }}
@@ -1452,8 +1452,8 @@ export default function HorokCoteWorkspace({
                         }}
                         className={cn(
                           panel.id === "problem" && !isCollapsed
-                            ? "rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
-                            : "overflow-visible",
+                            ? "overflow-hidden rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
+                            : "overflow-hidden",
                           isCollapsed &&
                             "rounded-none border-transparent bg-transparent p-0",
                           movingPanelId === panel.id && "opacity-30",
@@ -1498,7 +1498,7 @@ export default function HorokCoteWorkspace({
                       <div
                         key={`tablet-page-${pageIndex + 1}`}
                         data-mobile-page-index={pageIndex}
-                        className="flex min-h-0 min-w-0 flex-[0_0_100%] snap-start items-stretch overflow-visible"
+                        className="flex min-h-0 min-w-0 flex-[0_0_100%] snap-start items-stretch overflow-hidden"
                       >
                         {pagePanelEntries.map(({ panel, panelIndex }) => {
                           const isCollapsed = collapsedPanels[panelIndex];
@@ -1534,8 +1534,8 @@ export default function HorokCoteWorkspace({
                                 }}
                                 className={cn(
                                   panel.label === "문제" && !isCollapsed
-                                    ? "rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
-                                    : "overflow-visible",
+                                    ? "overflow-hidden rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
+                                    : "overflow-hidden",
                                   isCollapsed &&
                                     "rounded-none border-transparent bg-transparent p-0",
                                   movingPanelId === panel.id && "opacity-30",
@@ -1575,7 +1575,7 @@ export default function HorokCoteWorkspace({
                     <div
                       key={`tablet-page-${pageIndex + 1}`}
                       data-mobile-page-index={pageIndex}
-                      className="flex min-h-0 min-w-0 flex-[0_0_100%] snap-start items-stretch overflow-visible"
+                      className="flex min-h-0 min-w-0 flex-[0_0_100%] snap-start items-stretch overflow-hidden"
                     >
                       <WorkspacePanel
                         panelId={firstPanel.id}
@@ -1590,8 +1590,8 @@ export default function HorokCoteWorkspace({
                         }}
                         className={cn(
                           firstPanel.label === "문제" && !isFirstPanelCollapsed
-                            ? "rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
-                            : "overflow-visible",
+                            ? "overflow-hidden rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
+                            : "overflow-hidden",
                           isFirstPanelCollapsed &&
                             "rounded-none border-transparent bg-transparent p-0",
                           movingPanelId === firstPanel.id && "opacity-30",
@@ -1631,8 +1631,8 @@ export default function HorokCoteWorkspace({
                         className={cn(
                           secondPanel.label === "문제" &&
                             !isSecondPanelCollapsed
-                            ? "rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
-                            : "overflow-visible",
+                            ? "overflow-hidden rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
+                            : "overflow-hidden",
                           isSecondPanelCollapsed &&
                             "rounded-none border-transparent bg-transparent p-0",
                           movingPanelId === secondPanel.id && "opacity-30",
@@ -1662,7 +1662,7 @@ export default function HorokCoteWorkspace({
                       <div
                         key={`mobile-page-${panel.id}`}
                         data-mobile-page-index={pageIndex}
-                        className="flex min-h-0 min-w-0 flex-[0_0_100%] snap-start items-stretch overflow-visible"
+                        className="flex min-h-0 min-w-0 flex-[0_0_100%] snap-start items-stretch overflow-hidden"
                       >
                         <WorkspacePanel
                           panelId={panel.id}
@@ -1673,8 +1673,8 @@ export default function HorokCoteWorkspace({
                           }}
                           className={cn(
                             panel.id === "problem" && !isCollapsed
-                              ? "rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
-                              : "overflow-visible",
+                              ? "overflow-hidden rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-3.5 dark:border-slate-800 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
+                              : "overflow-hidden",
                             isCollapsed &&
                               "rounded-none border-transparent bg-transparent p-0",
                           )}
@@ -1699,7 +1699,7 @@ export default function HorokCoteWorkspace({
         </div>
 
         {mobilePageCount > 1 ? (
-          <div className="flex shrink-0 items-center justify-center gap-5">
+          <div className="relative z-20 flex shrink-0 items-center justify-center gap-5">
             {Array.from({ length: mobilePageCount }, (_, index) => (
               <button
                 key={`mobile-page-${index + 1}`}
