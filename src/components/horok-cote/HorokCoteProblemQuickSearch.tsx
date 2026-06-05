@@ -95,6 +95,7 @@ export default function HorokCoteProblemQuickSearch({
         if (response.ok) {
           setIsBookmarked(false);
           window.dispatchEvent(new Event("cote-bookmark-updated"));
+          router.refresh();
         } else {
           alert("북마크 해제에 실패했습니다.");
         }
@@ -107,13 +108,15 @@ export default function HorokCoteProblemQuickSearch({
           body: JSON.stringify({
             problemSlug: currentProblem.slug,
             problemNumber: currentProblem.number,
-            language: "python",
+            language: "bookmark",
             sourceCode: "",
+            isBookmarked: true,
           }),
         });
         if (response.ok) {
           setIsBookmarked(true);
           window.dispatchEvent(new Event("cote-bookmark-updated"));
+          router.refresh();
         } else {
           alert("북마크 등록에 실패했습니다.");
         }

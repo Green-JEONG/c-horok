@@ -51,7 +51,7 @@ export async function GET(req: Request) {
           select: { problemSlug: true, status: true },
         }),
         prisma.coteSavedCode.findMany({
-          where: { userId: BigInt(userId) },
+          where: { userId: BigInt(userId), language: "bookmark" },
           select: { problemSlug: true },
         }),
       ]);

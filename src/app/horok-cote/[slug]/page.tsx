@@ -69,7 +69,7 @@ export default async function HorokCoteProblemPage({
           select: { problemSlug: true, status: true },
         }),
         prisma.coteSavedCode.findMany({
-          where: { userId: BigInt(userId) },
+          where: { userId: BigInt(userId), language: "bookmark" },
           select: { problemSlug: true },
         }),
       ]);

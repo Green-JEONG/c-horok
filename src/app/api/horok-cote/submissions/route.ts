@@ -1,10 +1,26 @@
 import { NextResponse } from "next/server";
 import { coteAuth } from "@/app/api/cote-auth/[...nextauth]/route";
+import { getUserIdByEmail } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(req: Request) {
+async function getCurrentCoteUserId() {
   const session = await coteAuth();
-  if (!session?.user?.id || !/^\d+$/.test(session.user.id)) {
+
+  if (session?.user?.id && /^\d+$/.test(session.user.id)) {
+    return BigInt(session.user.id);
+  }
+
+  if (session?.user?.email) {
+    const userId = await getUserIdByEmail(session.user.email);
+    return userId ? BigInt(userId) : null;
+  }
+
+  return null;
+}
+
+export async function GET(req: Request) {
+  const userId = await getCurrentCoteUserId();
+  if (!userId) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
@@ -18,7 +34,6 @@ export async function GET(req: Request) {
     );
   }
 
-  const userId = BigInt(session.user.id);
   const coteSubmissionDelegate = (
     prisma as typeof prisma & { coteSubmission: unknown }
   ).coteSubmission as unknown as {
@@ -85,8 +100,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await coteAuth();
-  if (!session?.user?.id || !/^\d+$/.test(session.user.id)) {
+  const userId = await getCurrentCoteUserId();
+  if (!userId) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
@@ -115,7 +130,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "Invalid payload" }, { status: 400 });
   }
 
-  const userId = BigInt(session.user.id);
   const coteSubmissionDelegate = (
     prisma as typeof prisma & { coteSubmission: unknown }
   ).coteSubmission as unknown as {

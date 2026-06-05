@@ -4,7 +4,16 @@ import { Search, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useDeferredValue, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  Fragment,
+  useContext,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { isNoticeCategoryName } from "@/lib/notice-categories";
 import {
   getTechFaqPath,
@@ -69,6 +78,35 @@ const SEARCH_PREVIEW_GROUPS = [
   },
 ] as const;
 
+type HeaderSearchState = {
+  query: string;
+  setQuery: React.Dispatch<React.SetStateAction<string>>;
+};
+
+const HeaderSearchStateContext = createContext<HeaderSearchState | null>(null);
+
+export function HeaderSearchProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [query, setQuery] = useState("");
+  const value = useMemo(() => ({ query, setQuery }), [query]);
+
+  return (
+    <HeaderSearchStateContext.Provider value={value}>
+      {children}
+    </HeaderSearchStateContext.Provider>
+  );
+}
+
+function useHeaderSearchState() {
+  const sharedState = useContext(HeaderSearchStateContext);
+  const [localQuery, setLocalQuery] = useState("");
+
+  return sharedState ?? { query: localQuery, setQuery: setLocalQuery };
+}
+
 function getSuggestionHref(post: SearchSuggestion) {
   return post.category_name === "FAQ"
     ? getTechFaqPath(post.id)
@@ -78,13 +116,16 @@ function getSuggestionHref(post: SearchSuggestion) {
 }
 
 export default function HeaderSearch() {
-  const [query, setQuery] = useState("");
+  const { query, setQuery } = useHeaderSearchState();
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [userSuggestions, setUserSuggestions] = useState<UserSuggestion[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [totalResultCount, setTotalResultCount] = useState<number | null>(null);
   const [userResultCount, setUserResultCount] = useState(0);
+  const [mobileSuggestionTop, setMobileSuggestionTop] = useState<number | null>(
+    null,
+  );
   const [postGroupResultCounts, setPostGroupResultCounts] =
     useState<SearchPreviewPostCounts>({
       posts: 0,
@@ -204,6 +245,28 @@ export default function HeaderSearch() {
   }, []);
 
   const shouldShowSuggestions = query.trim().length >= 2 && isOpen;
+
+  useEffect(() => {
+    if (!shouldShowSuggestions) {
+      setMobileSuggestionTop(null);
+      return;
+    }
+
+    function updateMobileSuggestionTop() {
+      const wrapperRect = wrapperRef.current?.getBoundingClientRect();
+      setMobileSuggestionTop(wrapperRect ? wrapperRect.bottom : null);
+    }
+
+    updateMobileSuggestionTop();
+    window.addEventListener("resize", updateMobileSuggestionTop);
+    window.addEventListener("scroll", updateMobileSuggestionTop, true);
+
+    return () => {
+      window.removeEventListener("resize", updateMobileSuggestionTop);
+      window.removeEventListener("scroll", updateMobileSuggestionTop, true);
+    };
+  }, [shouldShowSuggestions]);
+
   const canSubmitSearch = query.trim().length > 0;
   const hasSuggestions = userSuggestions.length > 0 || suggestions.length > 0;
   const suggestionGroups = SEARCH_PREVIEW_GROUPS.map((group) => ({
@@ -263,7 +326,16 @@ export default function HeaderSearch() {
       </form>
 
       {shouldShowSuggestions ? (
-        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border bg-background shadow-xl">
+        <div
+          className="fixed top-[var(--header-search-suggestion-top)] right-4 left-4 z-50 mt-2 overflow-hidden rounded-2xl border bg-background shadow-xl sm:absolute sm:top-full sm:right-0 sm:left-0"
+          style={
+            mobileSuggestionTop === null
+              ? undefined
+              : ({
+                  "--header-search-suggestion-top": `${mobileSuggestionTop}px`,
+                } as React.CSSProperties)
+          }
+        >
           {isLoading ? (
             <p className="px-4 py-4 text-sm text-muted-foreground">
               검색 결과를 찾는 중...

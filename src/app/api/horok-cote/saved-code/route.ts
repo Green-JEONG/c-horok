@@ -1,10 +1,34 @@
 import { NextResponse } from "next/server";
 import { coteAuth } from "@/app/api/cote-auth/[...nextauth]/route";
+import { getUserIdByEmail } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(req: Request) {
+const BOOKMARK_LANGUAGE = "bookmark";
+const CODE_LANGUAGES = ["python", "java", "cpp", "javascript"] as const;
+type CodeLanguage = (typeof CODE_LANGUAGES)[number];
+
+function isCodeLanguage(language: string): language is CodeLanguage {
+  return CODE_LANGUAGES.includes(language as CodeLanguage);
+}
+
+async function getCurrentCoteUserId() {
   const session = await coteAuth();
-  if (!session?.user?.id || !/^\d+$/.test(session.user.id)) {
+
+  if (session?.user?.id && /^\d+$/.test(session.user.id)) {
+    return BigInt(session.user.id);
+  }
+
+  if (session?.user?.email) {
+    const userId = await getUserIdByEmail(session.user.email);
+    return userId ? BigInt(userId) : null;
+  }
+
+  return null;
+}
+
+export async function GET(req: Request) {
+  const userId = await getCurrentCoteUserId();
+  if (!userId) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
@@ -18,7 +42,6 @@ export async function GET(req: Request) {
     );
   }
 
-  const userId = BigInt(session.user.id);
   const coteSavedCodeDelegate = (
     prisma as typeof prisma & { coteSavedCode: unknown }
   ).coteSavedCode as unknown as {
@@ -53,26 +76,23 @@ export async function GET(req: Request) {
   };
 
   for (const record of records) {
-    if (
-      record.language === "python" ||
-      record.language === "java" ||
-      record.language === "cpp" ||
-      record.language === "javascript"
-    ) {
-      codes[record.language as "python" | "java" | "cpp" | "javascript"] =
-        record.sourceCode;
+    if (isCodeLanguage(record.language)) {
+      codes[record.language] = record.sourceCode;
     }
   }
 
   return NextResponse.json({
+    ...codes,
     codes,
-    isBookmarked: records.length > 0,
+    isBookmarked: records.some(
+      (record) => record.language === BOOKMARK_LANGUAGE,
+    ),
   });
 }
 
 export async function POST(req: Request) {
-  const session = await coteAuth();
-  if (!session?.user?.id || !/^\d+$/.test(session.user.id)) {
+  const userId = await getCurrentCoteUserId();
+  if (!userId) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
@@ -81,22 +101,27 @@ export async function POST(req: Request) {
     problemNumber?: number;
     language?: string;
     sourceCode?: string;
+    isBookmarked?: boolean;
   } | null;
 
   const problemSlug =
     typeof body?.problemSlug === "string" ? body.problemSlug.trim() : "";
   const problemNumber =
     typeof body?.problemNumber === "number" ? body.problemNumber : null;
-  const language =
+  const requestedLanguage =
     typeof body?.language === "string" ? body.language.trim() : "";
+  const isBookmarkRequest = body?.isBookmarked === true;
+  const language = isBookmarkRequest ? BOOKMARK_LANGUAGE : requestedLanguage;
   const sourceCode =
     typeof body?.sourceCode === "string" ? body.sourceCode : "";
 
-  if (!problemSlug || !language) {
+  if (
+    !problemSlug ||
+    !language ||
+    (!isBookmarkRequest && !isCodeLanguage(language))
+  ) {
     return NextResponse.json({ message: "Invalid payload" }, { status: 400 });
   }
-
-  const userId = BigInt(session.user.id);
 
   const coteSavedCodeDelegate = (
     prisma as typeof prisma & { coteSavedCode: unknown }
@@ -124,7 +149,7 @@ export async function POST(req: Request) {
     },
     update: {
       problemNumber,
-      sourceCode,
+      sourceCode: isBookmarkRequest ? "" : sourceCode,
       updatedAt: new Date(),
     },
     create: {
@@ -132,7 +157,7 @@ export async function POST(req: Request) {
       problemSlug,
       problemNumber,
       language,
-      sourceCode,
+      sourceCode: isBookmarkRequest ? "" : sourceCode,
     },
   });
 
@@ -140,8 +165,8 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const session = await coteAuth();
-  if (!session?.user?.id || !/^\d+$/.test(session.user.id)) {
+  const userId = await getCurrentCoteUserId();
+  if (!userId) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
@@ -155,7 +180,6 @@ export async function DELETE(req: Request) {
     );
   }
 
-  const userId = BigInt(session.user.id);
   const coteSavedCodeDelegate = (
     prisma as typeof prisma & { coteSavedCode: unknown }
   ).coteSavedCode as unknown as {
@@ -163,6 +187,7 @@ export async function DELETE(req: Request) {
       where: {
         userId: bigint;
         problemSlug: string;
+        language: string;
       };
     }) => Promise<unknown>;
   };
@@ -171,6 +196,7 @@ export async function DELETE(req: Request) {
     where: {
       userId,
       problemSlug,
+      language: BOOKMARK_LANGUAGE,
     },
   });
 
