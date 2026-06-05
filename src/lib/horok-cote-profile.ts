@@ -36,7 +36,7 @@ async function getCurrentPlatformAuthUser(platform: PlatformProfileKind) {
   };
 }
 
-async function ensureHorokCoteSchema() {
+export async function ensureHorokCoteSchema() {
   if (!horokCoteSchemaPromise) {
     horokCoteSchemaPromise = prisma
       .$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS horok_cote`)
@@ -115,6 +115,12 @@ async function ensureHorokCoteSchema() {
         prisma.$executeRawUnsafe(`
           ALTER TABLE horok_cote.problem_progress
           ADD COLUMN IF NOT EXISTS solved_duration_seconds INTEGER
+        `),
+      )
+      .then(() =>
+        prisma.$executeRawUnsafe(`
+          ALTER TABLE horok_cote.submissions
+          ADD COLUMN IF NOT EXISTS elapsed_seconds INTEGER
         `),
       )
       .then(() => undefined);

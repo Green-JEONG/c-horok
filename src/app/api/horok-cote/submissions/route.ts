@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { coteAuth } from "@/app/api/cote-auth/[...nextauth]/route";
 import { getUserIdByEmail } from "@/lib/db";
+import { ensureHorokCoteSchema } from "@/lib/horok-cote-profile";
 import { prisma } from "@/lib/prisma";
 
 async function getCurrentCoteUserId() {
@@ -33,6 +34,8 @@ export async function GET(req: Request) {
       { status: 400 },
     );
   }
+
+  await ensureHorokCoteSchema();
 
   const coteSubmissionDelegate = (
     prisma as typeof prisma & { coteSubmission: unknown }
@@ -89,7 +92,11 @@ export async function GET(req: Request) {
       createdAt: r.createdAt.toISOString(),
     }));
 
-    return NextResponse.json(serialized);
+    return NextResponse.json(serialized, {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    });
   } catch (error) {
     console.error("Failed to load submissions:", error);
     return NextResponse.json(
@@ -130,6 +137,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "Invalid payload" }, { status: 400 });
   }
 
+  await ensureHorokCoteSchema();
+
   const coteSubmissionDelegate = (
     prisma as typeof prisma & { coteSubmission: unknown }
   ).coteSubmission as unknown as {
@@ -159,7 +168,14 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json(
+      { ok: true },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
   } catch (error) {
     console.error("Failed to create submission:", error);
     return NextResponse.json(

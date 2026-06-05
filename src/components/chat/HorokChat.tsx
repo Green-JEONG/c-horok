@@ -2974,7 +2974,7 @@ export default function HorokChat({
                     >
                       {/* 드래그 핸들 - 레이아웃에 영향 없는 absolute */}
                       <div
-                        className="absolute inset-x-0 top-0 z-10 h-2 cursor-ns-resize"
+                        className="group absolute inset-x-0 top-0 z-10 h-2 cursor-ns-resize"
                         onMouseDown={(e) => {
                           e.preventDefault();
                           inputResizeRef.current = {
@@ -3006,7 +3006,9 @@ export default function HorokChat({
                           window.addEventListener("mouseup", onMouseUp);
                         }}
                         aria-hidden="true"
-                      />
+                      >
+                        <span className="absolute inset-x-4 top-0 h-px bg-transparent transition-colors group-hover:bg-[#06923E]/65 dark:group-hover:bg-[#46c86f]/70" />
+                      </div>
                       <textarea
                         ref={inputRef}
                         value={input}
