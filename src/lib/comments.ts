@@ -87,10 +87,7 @@ export async function getCommentsByPost(
       OR: [
         { isHidden: false },
         ...(options?.viewerUserId
-          ? [
-              { userId: BigInt(options.viewerUserId) },
-              { post: { userId: BigInt(options.viewerUserId) } },
-            ]
+          ? [{ userId: BigInt(options.viewerUserId) }]
           : []),
       ],
     },
@@ -144,6 +141,12 @@ export async function getAdminAnswersByPost(
     where: {
       postId: BigInt(postId),
       isDeleted: false,
+      OR: [
+        { isHidden: false },
+        ...(options?.viewerUserId
+          ? [{ userId: BigInt(options.viewerUserId) }]
+          : []),
+      ],
       user: {
         is: {
           role: "ADMIN",
