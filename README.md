@@ -1,5 +1,5 @@
 <div align="center">
-  <a href="https://horok.co.kr">
+  <a href="https://c-horok.com">
     <img width="205" height="215" alt="c.horok_logo" src="https://github.com/user-attachments/assets/bfb7ba2d-724d-4c15-bcae-1be0d81c6ff2" />
   </a>
 

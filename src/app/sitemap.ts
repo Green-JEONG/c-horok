@@ -3,12 +3,12 @@ import { listHorokCoteProblems } from "@/lib/horok-cote";
 // import { getSiteUrl } from "@/lib/site-url"; // 이 함수가 non-www를 주면 문제가 반복됨.
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = "https://www.horok.co.kr";
+  const baseUrl = "https://c-horok.com";
   const horokCoteProblems = await listHorokCoteProblems();
 
   return [
     {
-      url: baseUrl, // https://www.horok.co.kr (끝에 / 없음)
+      url: baseUrl, // https://c-horok.com (끝에 / 없음)
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 1,
