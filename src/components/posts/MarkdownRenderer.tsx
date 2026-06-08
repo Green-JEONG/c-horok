@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react";
+import type { ComponentProps, CSSProperties } from "react";
 import { Fragment } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
@@ -12,9 +12,14 @@ type Props = {
   className?: string;
 };
 
+const inlineCodeClassName =
+  "rounded-md bg-orange-100 px-1.5 py-0.5 font-mono text-[0.9em] text-orange-900 dark:bg-orange-300/85 dark:text-orange-950";
+
+type MarkdownLayout = "default" | "inline-row";
+
 export default function MarkdownRenderer({ content, className = "" }: Props) {
   const normalizedContent = normalizeHtmlLikeMarkdown(content);
-  const segments = splitAlignedSegments(normalizedContent);
+  const segments = splitLayoutSegments(normalizedContent);
 
   return (
     <div
@@ -22,16 +27,16 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
         "max-w-none text-left text-base leading-8 text-foreground",
         "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4",
         "[&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground",
-        "[&_code]:rounded [&_code]:bg-orange-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.9em] [&_code]:text-orange-900 dark:[&_code]:bg-transparent dark:[&_code]:text-inherit",
+        "[&_code]:rounded [&_code]:bg-orange-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.9em] [&_code]:text-orange-900 dark:[&_code]:bg-orange-300/85 dark:[&_code]:text-orange-950",
         "[&_h1]:mt-8 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-bold",
         "[&_h2]:mt-7 [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold",
         "[&_h3]:mt-6 [&_h3]:mb-3 [&_h3]:text-xl [&_h3]:font-semibold",
         "[&_hr]:my-6 [&_hr]:border-border",
-        "[&_img]:my-4 [&_img]:block [&_img]:h-auto [&_img]:w-full",
+        "[&_img]:max-w-full",
         "[&_li]:my-1",
         "[&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6",
         "[&_p]:my-4 [&_p]:whitespace-pre-wrap",
-        "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
+        "[&_pre_code]:bg-transparent [&_pre_code]:p-0 dark:[&_pre_code]:bg-transparent dark:[&_pre_code]:text-inherit",
         "[&_table]:my-4 [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-hidden",
         "[&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2",
         "[&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:px-3 [&_th]:py-2 [&_th]:text-left",
@@ -43,17 +48,25 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
         <Fragment key={`${segment.type}-${segment.start}`}>
           {segment.type === "markdown" ? (
             renderMarkdownBody(segment.content)
+          ) : segment.type === "flex" ? (
+            <div
+              className="my-4 flex flex-wrap items-start"
+              style={{ gap: segment.gap ?? 10 }}
+            >
+              {renderMarkdownBody(segment.content, "inline-row")}
+            </div>
           ) : (
             <div
-              className={
+              className={cn(
+                "my-4",
                 segment.type === "center"
                   ? "text-center"
                   : segment.type === "right"
                     ? "text-right"
-                    : "text-left"
-              }
+                    : "text-left",
+              )}
             >
-              {renderMarkdownBody(segment.content)}
+              {renderMarkdownBody(segment.content, "inline-row")}
             </div>
           )}
         </Fragment>
@@ -62,7 +75,10 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
   );
 }
 
-function renderMarkdownBody(content: string) {
+function renderMarkdownBody(
+  content: string,
+  layout: MarkdownLayout = "default",
+) {
   const sanitizeSchema = {
     ...defaultSchema,
     attributes: {
@@ -70,6 +86,13 @@ function renderMarkdownBody(content: string) {
       code: [...(defaultSchema.attributes?.code ?? []), ["className"]],
       span: [...(defaultSchema.attributes?.span ?? []), ["className"]],
       div: [...(defaultSchema.attributes?.div ?? []), ["className"]],
+      img: [
+        ...(defaultSchema.attributes?.img ?? []),
+        "alt",
+        "title",
+        "width",
+        "height",
+      ],
     },
   };
 
@@ -78,9 +101,30 @@ function renderMarkdownBody(content: string) {
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[rehypeHighlight, [rehypeSanitize, sanitizeSchema]]}
       components={{
+        p({ children }) {
+          if (layout === "inline-row") {
+            return <div className="contents">{children}</div>;
+          }
+
+          return <p className="my-4 whitespace-pre-wrap">{children}</p>;
+        },
         img(props) {
-          const { src, alt } = props;
+          const { src, alt, title, width, height } = props;
           const normalizedAlt = alt?.trim().toLowerCase();
+          const dimensions = parseImageDimensions({
+            title: typeof title === "string" ? title : undefined,
+            width,
+            height,
+          });
+          const imageStyle = getImageStyle(dimensions);
+          const imageClassName =
+            layout === "inline-row"
+              ? dimensions
+                ? "inline-block max-w-full align-top"
+                : "inline-block h-auto max-w-full align-top"
+              : dimensions
+                ? "my-4 block max-w-full"
+                : "my-4 block h-auto w-full";
 
           if (normalizedAlt === "video" && typeof src === "string") {
             const youtubeEmbedUrl = toYouTubeEmbedUrl(src);
@@ -121,7 +165,8 @@ function renderMarkdownBody(content: string) {
             <img
               src={typeof src === "string" ? src : ""}
               alt={alt ?? ""}
-              className="my-4 block h-auto w-full"
+              className={imageClassName}
+              style={imageStyle}
             />
           );
         },
@@ -134,10 +179,7 @@ function renderMarkdownBody(content: string) {
           if (!isBlockCode) {
             return (
               <code
-                className={[
-                  "rounded-md bg-orange-100 px-1.5 py-0.5 font-mono text-[0.9em] text-orange-900 dark:bg-transparent dark:text-inherit",
-                  codeClassName,
-                ]
+                className={[inlineCodeClassName, codeClassName]
                   .filter(Boolean)
                   .join(" ")}
                 {...rest}
@@ -160,19 +202,22 @@ function renderMarkdownBody(content: string) {
   );
 }
 
-function splitAlignedSegments(content: string) {
-  const pattern = /\[(left|center|right)\]\n?([\s\S]*?)\n?\[\/\1\]/g;
+function splitLayoutSegments(content: string) {
+  const pattern =
+    /\[(flex(?:\s+gap=(\d+))?|left|center|right)\]\n?([\s\S]*?)\n?\[\/(?:flex|left|center|right)\]/g;
   const segments: Array<{
-    type: "markdown" | "left" | "center" | "right";
+    type: "markdown" | "left" | "center" | "right" | "flex";
     content: string;
     start: number;
+    gap?: number;
   }> = [];
   let lastIndex = 0;
   let match = pattern.exec(content);
 
   while (match) {
-    const [fullMatch, align, blockContent] = match;
+    const [fullMatch, opener, gapValue, blockContent] = match;
     const matchIndex = match.index;
+    const isFlex = opener.startsWith("flex");
 
     if (matchIndex > lastIndex) {
       segments.push({
@@ -183,9 +228,10 @@ function splitAlignedSegments(content: string) {
     }
 
     segments.push({
-      type: align as "left" | "center" | "right",
+      type: isFlex ? "flex" : (opener as "left" | "center" | "right"),
       content: blockContent,
       start: matchIndex,
+      gap: isFlex ? Number(gapValue ?? 10) : undefined,
     });
 
     lastIndex = matchIndex + fullMatch.length;
@@ -242,9 +288,190 @@ function getUrlPathname(url: string) {
   }
 }
 
+type ImageDimensions = {
+  width?: number;
+  height?: number;
+};
+
+function parseNumericDimension(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return undefined;
+}
+
+function parseImageAttributeBlock(attrBlock: string): ImageDimensions {
+  const sizeMatch = attrBlock.trim().match(/^(\d+)\s*x\s*(\d+)$/i);
+
+  return {
+    width:
+      parseNumericDimension(
+        attrBlock.match(/\bwidth\s*=\s*["']?(\d+)["']?/i)?.[1],
+      ) ?? parseNumericDimension(sizeMatch?.[1]),
+    height:
+      parseNumericDimension(
+        attrBlock.match(/\bheight\s*=\s*["']?(\d+)["']?/i)?.[1],
+      ) ?? parseNumericDimension(sizeMatch?.[2]),
+  };
+}
+
+function parseImageDimensions({
+  title,
+  width,
+  height,
+}: {
+  title?: string;
+  width?: unknown;
+  height?: unknown;
+}): ImageDimensions {
+  const dimensions: ImageDimensions = {
+    width: parseNumericDimension(width),
+    height: parseNumericDimension(height),
+  };
+
+  if (!title) {
+    return dimensions;
+  }
+
+  const widthFromTitle = title.match(/width\s*:\s*(\d+)/i)?.[1];
+  const heightFromTitle = title.match(/height\s*:\s*(\d+)/i)?.[1];
+  const sizeFromTitle = title.match(/(\d+)\s*x\s*(\d+)/i);
+
+  return {
+    width:
+      dimensions.width ??
+      parseNumericDimension(widthFromTitle) ??
+      parseNumericDimension(sizeFromTitle?.[1]),
+    height:
+      dimensions.height ??
+      parseNumericDimension(heightFromTitle) ??
+      parseNumericDimension(sizeFromTitle?.[2]),
+  };
+}
+
+function formatImageTitle(dimensions: ImageDimensions): string | undefined {
+  const parts: string[] = [];
+
+  if (dimensions.width) {
+    parts.push(`width:${dimensions.width}`);
+  }
+
+  if (dimensions.height) {
+    parts.push(`height:${dimensions.height}`);
+  }
+
+  return parts.length > 0 ? parts.join(";") : undefined;
+}
+
+function buildMarkdownImage(
+  alt: string,
+  src: string,
+  dimensions?: ImageDimensions,
+): string {
+  const title = dimensions ? formatImageTitle(dimensions) : undefined;
+
+  return title ? `![${alt}](${src} "${title}")` : `![${alt}](${src})`;
+}
+
+function getImageStyle(dimensions: ImageDimensions): CSSProperties | undefined {
+  const style: CSSProperties = {};
+
+  if (dimensions.width) {
+    style.width = dimensions.width;
+  }
+
+  if (dimensions.height) {
+    style.height = dimensions.height;
+  }
+
+  return Object.keys(style).length > 0 ? style : undefined;
+}
+
+function convertHtmlImgToMarkdown(content: string): string {
+  return content.replace(/<img\b([^>]*?)\/?>/gi, (_, attrs: string) => {
+    const src =
+      attrs.match(/\bsrc\s*=\s*["']([^"']+)["']/i)?.[1] ??
+      attrs.match(/\bsrc\s*=\s*([^\s>]+)/i)?.[1];
+    const alt = attrs.match(/\balt\s*=\s*["']([^"']*)["']/i)?.[1] ?? "";
+
+    if (!src) {
+      return "";
+    }
+
+    const dimensions = parseImageDimensions({
+      width: attrs.match(/\bwidth\s*=\s*["']?(\d+)["']?/i)?.[1],
+      height: attrs.match(/\bheight\s*=\s*["']?(\d+)["']?/i)?.[1],
+    });
+
+    return buildMarkdownImage(alt, src, dimensions);
+  });
+}
+
+function parseFlexGap(style: string): number {
+  const gapValue = style.match(/gap\s*:\s*(\d+)\s*px?/i)?.[1];
+  return gapValue ? Number(gapValue) : 10;
+}
+
+function convertHtmlFlexDivs(content: string): string {
+  return content.replace(
+    /<div\s+style=["']([^"']*display\s*:\s*flex[^"']*)["']\s*>([\s\S]*?)<\/div>/gi,
+    (_, style: string, inner: string) =>
+      `[flex gap=${parseFlexGap(style)}]\n${inner.trim()}\n[/flex]\n\n`,
+  );
+}
+
+function convertHtmlAlignedParagraphs(content: string): string {
+  return content.replace(
+    /<p\s+align=["'](left|center|right)["']\s*>([\s\S]*?)<\/p>/gi,
+    (_, align: string, inner: string) =>
+      `[${align}]\n${inner.trim()}\n[/${align}]\n\n`,
+  );
+}
+
+function collapseLayoutBlockImages(content: string): string {
+  return content.replace(
+    /\[(flex(?:\s+gap=\d+)?|left|center|right)\]\n([\s\S]*?)\n\[\/(?:flex|left|center|right)\]/g,
+    (full, opener: string, blockContent: string) => {
+      const collapsed = blockContent
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .join(" ");
+      const closingTag = opener.startsWith("flex") ? "flex" : opener;
+
+      return `[${opener}]\n${collapsed}\n[/${closingTag}]`;
+    },
+  );
+}
+
+function convertMarkdownImageAttributes(content: string): string {
+  return content.replace(
+    /!\[([^\]]*)]\(([^)\s]+)(?:\s+["']([^"']*)["'])?\)\s*\{([^}]+)\}/g,
+    (_, alt: string, src: string, existingTitle: string | undefined, attrBlock: string) => {
+      const dimensions = parseImageDimensions({
+        title: existingTitle,
+        ...parseImageAttributeBlock(attrBlock),
+      });
+
+      return buildMarkdownImage(alt, src, dimensions);
+    },
+  );
+}
+
 function normalizeHtmlLikeMarkdown(content: string): string {
-  return content
-    .replace(/<br\s*\/?>/gi, "\n")
+  const normalized = convertHtmlAlignedParagraphs(
+    convertHtmlFlexDivs(
+      content.replace(/<br\s*\/?>/gi, "\n"),
+    ),
+  )
     .replace(
       /<div\s+align=["']left["']>([\s\S]*?)<\/div>/gi,
       (_, text: string) => `[left]\n${text.trim()}\n[/left]`,
@@ -280,7 +507,14 @@ function normalizeHtmlLikeMarkdown(content: string): string {
       /<code>([\s\S]*?)<\/code>/gi,
       (_, text: string) => `\`${text.trim()}\``,
     )
-    .replace(/<p>([\s\S]*?)<\/p>/gi, (_, text: string) => `${text.trim()}\n\n`);
+    .replace(
+      /<p(?!\s+align=)([^>]*)>([\s\S]*?)<\/p>/gi,
+      (_, _attrs: string, text: string) => `${text.trim()}\n\n`,
+    );
+
+  return collapseLayoutBlockImages(
+    convertMarkdownImageAttributes(convertHtmlImgToMarkdown(normalized)),
+  );
 }
 
 function getCodeText(children: ComponentProps<"code">["children"]): string {
