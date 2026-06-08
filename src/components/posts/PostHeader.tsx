@@ -2,6 +2,7 @@ import { EyeOff, Lock } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import PostDownloadMenu from "@/components/posts/PostDownloadMenu";
 import type { DbPost } from "@/lib/db";
 import { isNoticeCategoryName } from "@/lib/notice-categories";
 import { formatSeoulDateTime } from "@/lib/utils";
@@ -47,8 +48,8 @@ export default function PostHeader({
 
   return (
     <header className="mb-3">
-      <h1 className="flex items-center gap-1 text-3xl font-bold leading-tight">
-        <span className="min-w-0">{post.title}</span>
+      <h1 className="flex items-center gap-2 text-3xl font-bold leading-tight">
+        <span className="min-w-0 flex-1">{post.title}</span>
         {showHiddenIcon || showSecretLock ? (
           <span className="inline-flex shrink-0 items-center gap-2">
             {showHiddenIcon ? (
@@ -60,10 +61,14 @@ export default function PostHeader({
           </span>
         ) : null}
         {titleAddon ? (
-          <span className="-ml-1 inline-flex shrink-0 items-center">
-            {titleAddon}
-          </span>
+          <span className="inline-flex shrink-0 items-center">{titleAddon}</span>
         ) : null}
+        <PostDownloadMenu
+          title={post.title}
+          content={post.content}
+          authorName={post.author_name}
+          createdAt={post.created_at}
+        />
       </h1>
 
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
