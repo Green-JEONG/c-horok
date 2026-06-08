@@ -2,7 +2,7 @@
 
 import { Check, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import MarkdownRenderer from "@/components/posts/MarkdownRenderer";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ import {
 } from "@/lib/post-thumbnails";
 import { getTechFeedNewPostPath } from "@/lib/routes";
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
 
 const markdownTools = [
   { label: "H1", action: "heading1" },
@@ -51,6 +52,48 @@ type EditorTab = "write" | "preview";
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getContentImageUrls(markdown: string) {
+  const urls: string[] = [];
+  const seen = new Set<string>();
+
+  const addUrl = (url: string | undefined) => {
+    const trimmed = url?.trim();
+
+    if (!trimmed || seen.has(trimmed)) {
+      return;
+    }
+
+    seen.add(trimmed);
+    urls.push(trimmed);
+  };
+
+  const markdownImageRegex =
+    /!\[([^\]]*)]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)(?:\s*\{[^}]*\})?/g;
+
+  for (const match of markdown.matchAll(markdownImageRegex)) {
+    const altText = match[1]?.trim().toLowerCase();
+
+    if (altText === "video") {
+      continue;
+    }
+
+    addUrl(match[2]);
+  }
+
+  const htmlImageRegex = /<img\b[^>]*\/?>/gi;
+
+  for (const match of markdown.matchAll(htmlImageRegex)) {
+    const attrs = match[0];
+    const src =
+      attrs.match(/\bsrc\s*=\s*["']([^"']+)["']/i)?.[1] ??
+      attrs.match(/\bsrc\s*=\s*([^\s>]+)/i)?.[1];
+
+    addUrl(src);
+  }
+
+  return urls;
 }
 
 function parseInquiryTitlePrefix(title: string, inquiryTagOptions: string[]) {
@@ -127,6 +170,7 @@ export default function PostEditor({
   const contentVideoInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
   const isTagComposingRef = useRef(false);
+  const isContentComposingRef = useRef(false);
   const initialInquiryTitle = parseInquiryTitlePrefix(
     initialTitle,
     inquiryTagOptions,
@@ -152,6 +196,9 @@ export default function PostEditor({
   );
   const [isBanner, setIsBanner] = useState(initialIsBanner);
   const [isSecret, setIsSecret] = useState(initialIsSecret);
+  const [selectedThumbnailUrl, setSelectedThumbnailUrl] = useState<string | null>(
+    initialThumbnail ?? null,
+  );
   const [isUploadingContentImage, setIsUploadingContentImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -261,6 +308,7 @@ export default function PostEditor({
       );
       setIsBanner(Boolean(draft.isBanner));
       setIsSecret(Boolean(draft.isSecret));
+      setSelectedThumbnailUrl(draft.thumbnailUrl ?? null);
     };
 
     void restoreDraft();
@@ -321,21 +369,27 @@ export default function PostEditor({
     return `[${selectedInquiryTag}] ${titleWithoutInquiryPrefix}`;
   }
 
-  function getFirstContentImageUrl(markdown: string) {
-    const imageRegex = /!\[([^\]]*)]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)/g;
+  const contentImageUrls = useMemo(
+    () => getContentImageUrls(content),
+    [content],
+  );
 
-    for (const match of markdown.matchAll(imageRegex)) {
-      const altText = match[1]?.trim().toLowerCase();
-      const imageUrl = match[2]?.trim();
-
-      if (altText === "video" || !imageUrl) {
-        continue;
+  useEffect(() => {
+    setSelectedThumbnailUrl((current) => {
+      if (contentImageUrls.length === 0) {
+        return null;
       }
 
-      return imageUrl;
-    }
+      if (current && contentImageUrls.includes(current)) {
+        return current;
+      }
 
-    return null;
+      return contentImageUrls[0] ?? null;
+    });
+  }, [contentImageUrls]);
+
+  function getFirstContentImageUrl(markdown: string) {
+    return getContentImageUrls(markdown)[0] ?? null;
   }
 
   function updateContentWithSelection(
@@ -378,16 +432,21 @@ export default function PostEditor({
   ) {
     if (event.key !== "Enter" || event.shiftKey) return;
 
+    if (isContentComposingRef.current || event.nativeEvent.isComposing) {
+      return;
+    }
+
     const textarea = event.currentTarget;
+    const value = textarea.value;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
 
     if (start !== end) return;
 
-    const lineStart = content.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
-    const lineEndIndex = content.indexOf("\n", start);
-    const lineEnd = lineEndIndex === -1 ? content.length : lineEndIndex;
-    const currentLine = content.slice(lineStart, lineEnd);
+    const lineStart = value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+    const lineEndIndex = value.indexOf("\n", start);
+    const lineEnd = lineEndIndex === -1 ? value.length : lineEndIndex;
+    const currentLine = value.slice(lineStart, lineEnd);
     const orderedMatch = currentLine.match(/^(\d+)\.\s(.*)$/);
 
     if (!orderedMatch) return;
@@ -395,13 +454,13 @@ export default function PostEditor({
     event.preventDefault();
 
     const [, currentNumber, currentText] = orderedMatch;
-    const before = content.slice(0, start);
-    const after = content.slice(end);
+    const before = value.slice(0, start);
+    const after = value.slice(end);
 
     if (currentText.trim().length === 0) {
       const nextContent =
-        content.slice(0, lineStart) +
-        content.slice(lineStart + orderedMatch[0].length);
+        value.slice(0, lineStart) +
+        value.slice(lineStart + orderedMatch[0].length);
       updateContentWithSelection(nextContent, lineStart);
       return;
     }
@@ -732,7 +791,8 @@ export default function PostEditor({
 
     try {
       const submitTitle = buildInquiryTitle(trimmedTitle);
-      const nextThumbnailUrl = getFirstContentImageUrl(trimmedContent);
+      const nextThumbnailUrl =
+        selectedThumbnailUrl ?? getFirstContentImageUrl(trimmedContent);
       const endpoint = mode === "edit" ? `/api/posts/${postId}` : "/api/posts";
       const method = mode === "edit" ? "PUT" : "POST";
       const response = await fetch(endpoint, {
@@ -816,6 +876,7 @@ export default function PostEditor({
         selectedInquiryTag,
         isBanner,
         isSecret,
+        thumbnailUrl: selectedThumbnailUrl,
         savedAt: new Date().toISOString(),
       };
 
@@ -1045,7 +1106,13 @@ export default function PostEditor({
               id="post-content"
               ref={contentRef}
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={(event) => setContent(event.target.value)}
+              onCompositionStart={() => {
+                isContentComposingRef.current = true;
+              }}
+              onCompositionEnd={() => {
+                isContentComposingRef.current = false;
+              }}
               onKeyDown={handleContentKeyDown}
               onPaste={handleContentPaste}
               rows={16}
@@ -1057,33 +1124,51 @@ export default function PostEditor({
         </div>
       </div>
 
-      <div
-        className={`grid gap-3 ${
-          canShowBannerOption ? "md:grid-cols-2" : "grid-cols-1"
-        }`}
-      >
-        {canShowBannerOption ? (
-          <label className="flex items-center gap-2 rounded-md border border-border/70 bg-muted/20 px-3 py-3 text-sm">
-            <input
-              type="checkbox"
-              checked={isBanner}
-              onChange={(event) => setIsBanner(event.target.checked)}
-              className="h-4 w-4"
-            />
-            <span>배너 노출</span>
-          </label>
-        ) : null}
+      {contentImageUrls.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-foreground">썸네일 선택</p>
+          <div className="scrollbar-orange flex gap-3 overflow-x-auto pb-1">
+            {contentImageUrls.map((imageUrl, index) => {
+              const isSelected = selectedThumbnailUrl === imageUrl;
 
+              return (
+                <button
+                  key={`${imageUrl}-${index}`}
+                  type="button"
+                  onClick={() => setSelectedThumbnailUrl(imageUrl)}
+                  className={cn(
+                    "relative h-20 w-20 shrink-0 overflow-hidden rounded-md border-2 transition",
+                    isSelected
+                      ? "border-primary ring-2 ring-primary/30"
+                      : "border-border hover:border-primary/50",
+                  )}
+                  aria-label={`썸네일 ${index + 1} 선택`}
+                  aria-pressed={isSelected}
+                >
+                  {/* biome-ignore lint/performance/noImgElement: thumbnail picker preview */}
+                  <img
+                    src={imageUrl}
+                    alt={`본문 이미지 ${index + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {canShowBannerOption ? (
         <label className="flex items-center gap-2 rounded-md border border-border/70 bg-muted/20 px-3 py-3 text-sm">
           <input
             type="checkbox"
-            checked={isSecret}
-            onChange={(event) => setIsSecret(event.target.checked)}
+            checked={isBanner}
+            onChange={(event) => setIsBanner(event.target.checked)}
             className="h-4 w-4"
           />
-          <span>비밀글로 작성</span>
+          <span>배너 노출</span>
         </label>
-      </div>
+      ) : null}
 
       {error ? (
         <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -1111,6 +1196,15 @@ export default function PostEditor({
         </Button>
 
         <div className="flex items-center gap-2">
+          <label className="inline-flex h-10 min-w-28 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-4 text-sm font-medium whitespace-nowrap shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50">
+            <input
+              type="checkbox"
+              checked={isSecret}
+              onChange={(event) => setIsSecret(event.target.checked)}
+              className="h-4 w-4"
+            />
+            <span>비밀글로 작성</span>
+          </label>
           {mode === "create" ? (
             <Button
               type="button"

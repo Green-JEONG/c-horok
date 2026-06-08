@@ -38,6 +38,9 @@ const answerMarkdownTools = [
 
 type AnswerMarkdownAction = (typeof answerMarkdownTools)[number]["action"];
 
+const emptyPreviewMessageClassName =
+  "m-0 p-0 text-base leading-7 text-zinc-400";
+
 export default function CommentForm({
   postId,
   parentId = null,
@@ -75,6 +78,7 @@ export default function CommentForm({
 }) {
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorAreaRef = useRef<HTMLDivElement>(null);
   const contentImageInputRef = useRef<HTMLInputElement>(null);
   const contentVideoInputRef = useRef<HTMLInputElement>(null);
   const [content, setContent] = useState("");
@@ -84,6 +88,9 @@ export default function CommentForm({
   const [isUploadingContentImage, setIsUploadingContentImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AnswerEditorTab>("write");
+  const [previewAreaHeight, setPreviewAreaHeight] = useState<number | null>(
+    null,
+  );
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -120,6 +127,8 @@ export default function CommentForm({
       }
 
       setContent("");
+      setActiveTab("write");
+      setPreviewAreaHeight(null);
       setIsSecret(initialIsSecret);
       setIsHidden(initialIsHidden);
       requestAnimationFrame(() => {
@@ -462,45 +471,39 @@ export default function CommentForm({
     }
   }
 
-  function renderAnswerTabButton(tab: AnswerEditorTab, label: ReactNode) {
-    const isActive = activeTab === tab;
+  function togglePreviewTab() {
+    if (activeTab === "write") {
+      const nextHeight =
+        editorAreaRef.current?.getBoundingClientRect().height ?? null;
 
-    return (
-      <button
-        type="button"
-        onClick={() => setActiveTab(tab)}
-        className={`w-20 border-b-2 px-1 pb-2 text-center text-sm font-medium transition ${
-          isActive
-            ? "border-primary text-foreground"
-            : "border-transparent text-muted-foreground"
-        }`}
-      >
-        {label}
-      </button>
-    );
+      if (nextHeight) {
+        setPreviewAreaHeight(nextHeight);
+      }
+
+      setActiveTab("preview");
+      return;
+    }
+
+    setActiveTab("write");
   }
 
-  const editorContent = simpleEditor ? (
-    <textarea
-      ref={textareaRef}
-      value={content}
-      onChange={(event) => {
-        setContent(event.target.value);
-        resizeTextarea(event.currentTarget);
-      }}
-      onKeyDown={handleContentKeyDown}
-      className="block h-7 min-h-7 w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-base leading-7 outline-none placeholder:text-zinc-400"
-      rows={1}
-      placeholder={placeholder}
-    />
-  ) : (
-    <div className="space-y-3">
-      <div className="flex items-center border-b border-border/70">
-        {renderAnswerTabButton("write", "본문")}
-        {renderAnswerTabButton("preview", "미리보기")}
-      </div>
+  const editorTabs = (
+    <button
+      type="button"
+      onClick={togglePreviewTab}
+      className="box-border inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-primary px-3 py-1.5 text-sm leading-none text-primary-foreground transition hover:bg-primary/90"
+    >
+      {activeTab === "preview" ? "미리보기 닫기" : "미리보기"}
+    </button>
+  );
 
-      {activeTab === "write" ? (
+  const editorBody = (
+    <div className="space-y-3">
+      {!cardHeader && controlsPlacement !== "below-card" ? (
+        <div className="flex justify-end">{editorTabs}</div>
+      ) : null}
+
+      {!simpleEditor && activeTab === "write" ? (
         <div className="flex flex-wrap gap-2">
           {answerMarkdownTools.map((tool) => (
             <button
@@ -516,36 +519,69 @@ export default function CommentForm({
         </div>
       ) : null}
 
-      {activeTab === "preview" ? (
-        <div
-          className={`rounded-lg border border-border/80 bg-background px-5 py-4 ${
-            isAnswerVariant ? "min-h-56" : "min-h-36"
-          }`}
-        >
-          {content.trim() ? (
-            <MarkdownRenderer
-              content={content}
-              className="text-base [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-            />
-          ) : (
-            <p className="text-base text-muted-foreground">
-              댓글을 입력하면 여기에 미리보기가 표시됩니다.
-            </p>
-          )}
-        </div>
-      ) : (
-        <textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(event) => setContent(event.target.value)}
-          onKeyDown={handleContentKeyDown}
-          className={`w-full resize-none rounded-lg border border-border/80 bg-background px-5 py-4 text-base leading-7 outline-none placeholder:text-zinc-400 ${
-            isAnswerVariant ? "min-h-56" : "min-h-36"
-          }`}
-          rows={isAnswerVariant ? 10 : 5}
-          placeholder={placeholder}
-        />
-      )}
+      <div
+        ref={editorAreaRef}
+        style={
+          simpleEditor && activeTab === "preview" && previewAreaHeight
+            ? { height: previewAreaHeight }
+            : undefined
+        }
+        className={
+          simpleEditor
+            ? "min-h-7"
+            : `rounded-lg border border-border/80 bg-background ${
+                isAnswerVariant ? "min-h-56" : "min-h-36"
+              }`
+        }
+      >
+        {activeTab === "preview" ? (
+          <div
+            className={`h-full ${
+              simpleEditor ? "overflow-y-auto" : "overflow-y-auto px-5 py-4"
+            }`}
+          >
+            {content.trim() ? (
+              <MarkdownRenderer
+                content={content}
+                className="text-base [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+              />
+            ) : (
+              <p
+                className={`${emptyPreviewMessageClassName} ${
+                  simpleEditor ? "min-h-7" : ""
+                }`}
+              >
+                댓글을 입력하면 여기에 미리보기가 표시됩니다.
+              </p>
+            )}
+          </div>
+        ) : simpleEditor ? (
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={(event) => {
+              setContent(event.target.value);
+              resizeTextarea(event.currentTarget);
+            }}
+            onKeyDown={handleContentKeyDown}
+            className="block h-7 min-h-7 w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-base leading-7 outline-none placeholder:text-zinc-400"
+            rows={1}
+            placeholder={placeholder}
+          />
+        ) : (
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
+            onKeyDown={handleContentKeyDown}
+            className={`w-full resize-none bg-transparent px-5 py-4 text-base leading-7 outline-none placeholder:text-zinc-400 ${
+              isAnswerVariant ? "min-h-56" : "min-h-36"
+            }`}
+            rows={isAnswerVariant ? 10 : 5}
+            placeholder={placeholder}
+          />
+        )}
+      </div>
     </div>
   );
 
@@ -685,15 +721,22 @@ export default function CommentForm({
       {controlsPlacement === "below-card" ? (
         <>
           <div className="rounded-md border bg-background p-4">
-            {cardHeader}
-            {editorContent}
+            <div className="mb-3 flex items-center justify-between gap-3">
+              {cardHeader ? (
+                <div className="flex min-w-0 flex-1 items-center">{cardHeader}</div>
+              ) : (
+                <div className="flex-1" />
+              )}
+              {editorTabs}
+            </div>
+            {editorBody}
           </div>
           <div className="mt-2">{formControls}</div>
           {errorMessage}
         </>
       ) : (
         <>
-          {editorContent}
+          {editorBody}
           {formControls}
           {errorMessage}
         </>

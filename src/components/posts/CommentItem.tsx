@@ -460,25 +460,25 @@ export default function CommentItem({
         <span className="absolute top-1/2 z-10 -left-[30px] size-3 -translate-y-1/2 rounded-full border-2 border-[var(--comment-graph-color)] bg-[var(--comment-graph-color)]" />
         <span className="absolute top-1/2 -left-6 h-0.5 w-6 -translate-y-1/2 bg-[var(--comment-graph-color)]" />
         <div className="flex justify-between gap-3 text-sm">
-          <span className="inline-flex min-w-0 items-center gap-2 text-base font-medium leading-6">
+          <span className="inline-flex min-w-0 items-center gap-3 text-2xl font-medium leading-9">
             <Link
               href={authorHref}
-              className="inline-flex min-w-0 items-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="inline-flex min-w-0 items-center gap-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               aria-label={`${comment.author} 홈으로 이동`}
             >
               <Image
                 src={comment.author_image ?? "/logo.png"}
                 alt={`${comment.author} 프로필`}
-                width={24}
-                height={24}
-                className={`h-6 w-6 shrink-0 rounded-full border object-cover ${!comment.author_image ? "grayscale" : ""}`}
+                width={36}
+                height={36}
+                className={`h-9 w-9 shrink-0 rounded-full border object-cover ${!comment.author_image ? "grayscale" : ""}`}
               />
               <span className="truncate">{comment.author}</span>
             </Link>
             {comment.author_role === "ADMIN" ? (
               <Crown
                 aria-label="관리자"
-                className="h-3.5 w-3.5 shrink-0 fill-amber-300 text-amber-500"
+                className="h-5 w-5 shrink-0 fill-amber-300 text-amber-500"
               />
             ) : null}
             {isHidden && !comment.is_deleted ? (
@@ -654,18 +654,18 @@ export default function CommentItem({
             className="mt-0"
             autoFocus
             cardHeader={
-              <div className="mb-2 flex items-center gap-2 text-base font-medium leading-6">
+              <div className="flex items-center gap-3 text-2xl font-medium leading-9">
                 <Link
                   href="/mypage"
-                  className="inline-flex min-w-0 items-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="inline-flex min-w-0 items-center gap-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   aria-label="마이페이지로 이동"
                 >
                   <Image
                     src={currentUserImage ?? "/logo.png"}
                     alt={`${currentUserName ?? "사용자"} 프로필`}
-                    width={24}
-                    height={24}
-                    className={`h-6 w-6 shrink-0 rounded-full border object-cover ${!currentUserImage ? "grayscale" : ""}`}
+                    width={36}
+                    height={36}
+                    className={`h-9 w-9 shrink-0 rounded-full border object-cover ${!currentUserImage ? "grayscale" : ""}`}
                   />
                   <span className="truncate">
                     {currentUserName ?? "사용자"}
@@ -674,7 +674,7 @@ export default function CommentItem({
                 {currentUserRole === "ADMIN" ? (
                   <Crown
                     aria-label="관리자"
-                    className="h-3.5 w-3.5 shrink-0 fill-amber-300 text-amber-500"
+                    className="h-5 w-5 shrink-0 fill-amber-300 text-amber-500"
                   />
                 ) : null}
               </div>
