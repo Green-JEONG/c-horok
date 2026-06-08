@@ -1,7 +1,9 @@
 "use client";
 
+import { Check, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import MarkdownRenderer from "@/components/posts/MarkdownRenderer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -153,8 +155,13 @@ export default function PostEditor({
   const [isUploadingContentImage, setIsUploadingContentImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [draftToast, setDraftToast] = useState<{
+    status: "success" | "error";
+    closing: boolean;
+  } | null>(null);
   const [activeTab, setActiveTab] = useState<EditorTab>("write");
   const [error, setError] = useState<string | null>(null);
+  const draftToastTimeoutRef = useRef<number | null>(null);
   const hasCheckedDraftRef = useRef(false);
   const currentDraftIdRef = useRef<string | null>(draftIdFromParams);
   const shouldShowCategoryBadge = !(
@@ -176,6 +183,44 @@ export default function PostEditor({
     fixedTagOptions,
     categoryLocked,
   });
+
+  const closeDraftToast = useCallback(() => {
+    if (draftToastTimeoutRef.current !== null) {
+      window.clearTimeout(draftToastTimeoutRef.current);
+      draftToastTimeoutRef.current = null;
+    }
+
+    setDraftToast((current) =>
+      current ? { ...current, closing: true } : current,
+    );
+
+    window.setTimeout(() => {
+      setDraftToast(null);
+    }, 260);
+  }, []);
+
+  const showDraftToast = useCallback(
+    (status: "success" | "error") => {
+      if (draftToastTimeoutRef.current !== null) {
+        window.clearTimeout(draftToastTimeoutRef.current);
+      }
+
+      setDraftToast({ status, closing: false });
+
+      draftToastTimeoutRef.current = window.setTimeout(() => {
+        closeDraftToast();
+      }, 3000);
+    },
+    [closeDraftToast],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (draftToastTimeoutRef.current !== null) {
+        window.clearTimeout(draftToastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (mode !== "create" || hasCheckedDraftRef.current) {
@@ -775,9 +820,16 @@ export default function PostEditor({
       };
 
       const savedDraft = await saveSyncedPostDraft(draftStorageKey, payload);
-      currentDraftIdRef.current = savedDraft?.id ?? currentDraftIdRef.current;
+
+      if (!savedDraft) {
+        showDraftToast("error");
+        return;
+      }
+
+      currentDraftIdRef.current = savedDraft.id ?? currentDraftIdRef.current;
+      showDraftToast("success");
     } catch {
-      setError("임시저장 중 오류가 발생했습니다.");
+      showDraftToast("error");
     } finally {
       window.setTimeout(() => {
         setIsSavingDraft(false);
@@ -1088,6 +1140,44 @@ export default function PostEditor({
           </Button>
         </div>
       </div>
+
+      {draftToast && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className={`fixed left-1/2 top-24 z-70 w-[min(340px,calc(100vw-40px))] -translate-x-1/2 transition-all duration-250 ease-out ${
+                draftToast.closing
+                  ? "-translate-y-4 opacity-0"
+                  : "translate-y-0 opacity-100"
+              }`}
+            >
+              <div className="relative flex items-center gap-3 rounded-md border border-transparent bg-white px-5 py-4 text-zinc-500 shadow-[0_12px_28px_rgba(0,0,0,0.16)] dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:shadow-[0_16px_32px_rgba(0,0,0,0.42)]">
+                {draftToast.status === "success" ? (
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#13c51b] text-white">
+                    <Check className="h-5.5 w-5.5 stroke-[3]" />
+                  </span>
+                ) : (
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-600 text-white">
+                    <X className="h-5.5 w-5.5 stroke-[3]" />
+                  </span>
+                )}
+                <p className="min-w-0 truncate pr-5 text-base font-medium tracking-normal text-slate-900 dark:text-slate-50">
+                  {draftToast.status === "success"
+                    ? "임시저장되었습니다."
+                    : "임시저장에 실패했습니다."}
+                </p>
+                <button
+                  type="button"
+                  onClick={closeDraftToast}
+                  className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center text-zinc-400 transition hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-200"
+                  aria-label="토스트 닫기"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </section>
   );
 }
