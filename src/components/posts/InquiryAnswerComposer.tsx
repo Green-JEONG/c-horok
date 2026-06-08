@@ -65,13 +65,13 @@ export default function InquiryAnswerComposer({
 
         {requiresLogin ? (
           <div className="rounded-md border bg-background p-4">
-            <div className="mb-2 flex items-center gap-2 text-base font-medium leading-6">
+            <div className="mb-2 flex items-center gap-3 text-2xl font-medium leading-9">
               <Image
                 src="/logo.png"
                 alt="로그인 필요 프로필"
-                width={24}
-                height={24}
-                className="h-6 w-6 shrink-0 rounded-full border object-cover"
+                width={36}
+                height={36}
+                className="h-9 w-9 shrink-0 rounded-full border object-cover"
               />
               <span>로그인 필요</span>
             </div>
@@ -95,18 +95,18 @@ export default function InquiryAnswerComposer({
             controlsPlacement="below-card"
             simpleEditor
             cardHeader={
-              <div className="mb-2 flex items-center gap-2 text-base font-medium leading-6">
+              <div className="flex items-center gap-3 text-2xl font-medium leading-9">
                 <Link
                   href="/mypage"
-                  className="inline-flex min-w-0 items-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="inline-flex min-w-0 items-center gap-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   aria-label="마이페이지로 이동"
                 >
                   <Image
                     src={currentUserImage ?? "/logo.png"}
                     alt={`${currentUserName ?? "사용자"} 프로필`}
-                    width={24}
-                    height={24}
-                    className={`h-6 w-6 shrink-0 rounded-full border object-cover ${!currentUserImage ? "grayscale" : ""}`}
+                    width={36}
+                    height={36}
+                    className={`h-9 w-9 shrink-0 rounded-full border object-cover ${!currentUserImage ? "grayscale" : ""}`}
                   />
                   <span className="truncate">
                     {currentUserName ?? "사용자"}
@@ -115,7 +115,7 @@ export default function InquiryAnswerComposer({
                 {currentUserRole === "ADMIN" ? (
                   <Crown
                     aria-label="관리자"
-                    className="h-3.5 w-3.5 shrink-0 fill-amber-300 text-amber-500"
+                    className="h-5 w-5 shrink-0 fill-amber-300 text-amber-500"
                   />
                 ) : null}
               </div>
