@@ -14,7 +14,8 @@
     "prisma:validate": "prisma validate",
     "prisma:pull": "prisma db pull",
     "prisma:push": "prisma db push",
-    "seed:horok-cote": "node scripts/seed-horok-cote-problems.mjs",
+    "seed:horok-coding": "node scripts/seed-horok-coding-problems.mjs",
+    "db:rename-platform-schemas": "node scripts/rename-platform-schemas.mjs",
     "prisma:studio": "prisma studio",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"

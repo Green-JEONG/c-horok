@@ -264,7 +264,7 @@ async function getPostDownloadCountMap(postIds: bigint[]) {
       post_id AS "postId",
       markdown_count AS "markdownCount",
       pdf_count AS "pdfCount"
-    FROM horok_tech.post_download_counts
+    FROM horok_log.post_download_counts
     WHERE post_id IN (${Prisma.join(uniquePostIds)})
   `;
 
@@ -761,7 +761,7 @@ export async function findUserContributions(userId: number) {
       select: { createdAt: true },
       orderBy: { createdAt: "asc" },
     }),
-    prisma.coteProblemProgress.findMany({
+    prisma.codingProblemProgress.findMany({
       where: {
         userId: userBigIntId,
         status: "solved",

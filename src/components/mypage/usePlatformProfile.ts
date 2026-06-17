@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-export type PlatformKind = "tech" | "cote";
+export type PlatformKind = "log" | "coding";
 
 export type PlatformProfile = {
   platform: PlatformKind;
@@ -13,11 +13,11 @@ export type PlatformProfile = {
 };
 
 export function getPlatformFromPathname(pathname: string | null): PlatformKind {
-  if (pathname?.startsWith("/horok-cote")) {
-    return "cote";
+  if (pathname?.startsWith("/horok-coding")) {
+    return "coding";
   }
 
-  return "tech";
+  return "log";
 }
 
 export function usePlatformProfile(enabled = true) {

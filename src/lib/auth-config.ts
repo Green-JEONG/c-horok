@@ -11,7 +11,7 @@ import { env } from "@/lib/env";
 
 const smtpEmailConfig = getSmtpEmailConfig();
 
-type AuthPlatform = "tech" | "cote";
+type AuthPlatform = "log" | "coding";
 
 const DEFAULT_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24;
 const REMEMBER_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
@@ -27,7 +27,7 @@ function getSessionExpiresAt(rememberLogin: boolean) {
 export function createAuthConfig(platform: AuthPlatform): NextAuthConfig {
   return {
     adapter: authAdapter,
-    basePath: platform === "cote" ? "/api/cote-auth" : "/api/auth",
+    basePath: platform === "coding" ? "/api/coding-auth" : "/api/auth",
     session: {
       strategy: "jwt",
       maxAge: REMEMBER_SESSION_MAX_AGE_SECONDS,

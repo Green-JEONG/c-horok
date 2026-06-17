@@ -1,18 +1,18 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
-import { coteAuth } from "@/app/api/cote-auth/[...nextauth]/route";
+import { codingAuth } from "@/app/api/coding-auth/[...nextauth]/route";
 import {
   checkPlatformNicknameAvailability,
   getCurrentPlatformProfile,
   updateCurrentPlatformProfile,
-} from "@/lib/horok-cote-profile";
+} from "@/lib/horok-coding-profile";
 import { validateNickname } from "@/lib/nickname";
 import { validatePassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 
 function parsePlatform(value: string | null) {
-  return value === "cote" ? "cote" : "tech";
+  return value === "coding" ? "coding" : "log";
 }
 
 export async function GET(req: Request) {
@@ -33,7 +33,7 @@ export async function PATCH(req: Request) {
     const platform = parsePlatform(
       typeof body?.platform === "string" ? body.platform : null,
     );
-    const session = await (platform === "cote" ? coteAuth() : auth());
+    const session = await (platform === "coding" ? codingAuth() : auth());
 
     if (!session?.user?.id) {
       return NextResponse.json(

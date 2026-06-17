@@ -16,7 +16,7 @@ import {
   type SortType,
 } from "@/lib/post-sort";
 import { prisma } from "@/lib/prisma";
-import { getTechNoticePath } from "@/lib/routes";
+import { getLogNoticePath } from "@/lib/routes";
 
 export const LEGACY_NOTICE_SEED = [
   {
@@ -431,7 +431,7 @@ export async function findBannerNotices(limit = 5) {
   return notices.slice(0, limit).map<NoticeBannerItem>((notice) => ({
     id: Number(notice.id),
     title: stripLegacyNoticePrefix(notice.title),
-    href: getTechNoticePath(Number(notice.id)),
+    href: getLogNoticePath(Number(notice.id)),
   }));
 }
 

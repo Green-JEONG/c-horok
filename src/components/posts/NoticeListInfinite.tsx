@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import SectionPagination from "@/components/mypage/sections/SectionPagination";
 import MarkdownRenderer from "@/components/posts/MarkdownRenderer";
 import PostEditor from "@/components/posts/PostEditor";
-import { getTechNoticePath } from "@/lib/routes";
+import { getLogNoticePath } from "@/lib/routes";
 
 type NoticeListItem = {
   id: number;
@@ -290,7 +290,7 @@ export default function NoticeListInfinite({
       from: buildCurrentListHref(),
     });
 
-    return `${getTechNoticePath(noticeId)}?${params.toString()}`;
+    return `${getLogNoticePath(noticeId)}?${params.toString()}`;
   }
 
   function updateSort(nextSortKey: NoticeTableSortKey) {

@@ -13,7 +13,7 @@ export default async function Header() {
         <div className="px-4 py-3 md:hidden">
           <div className="flex items-center gap-3">
             <Link
-              href="/horok-tech"
+              href="/horok-log"
               aria-label="홈으로 이동"
               className="flex shrink-0 items-center gap-1.5 font-bold"
             >
@@ -26,7 +26,7 @@ export default async function Header() {
               />
               <span className="flex flex-col items-center text-[11px] leading-none">
                 <span>horok</span>
-                <span>tech</span>
+                <span>log</span>
               </span>
             </Link>
 
@@ -52,7 +52,7 @@ export default async function Header() {
         <div className="hidden h-14 w-full items-center gap-5 px-4 md:flex">
           <div className="flex shrink-0 items-center gap-6">
             <Link
-              href="/horok-tech"
+              href="/horok-log"
               aria-label="홈으로 이동"
               className="flex items-center gap-1.5 font-bold"
             >
@@ -65,7 +65,7 @@ export default async function Header() {
               />
               <span className="flex flex-col items-center text-sm leading-none">
                 <span>horok</span>
-                <span>tech</span>
+                <span>log</span>
               </span>
             </Link>
 

@@ -7,28 +7,28 @@ import { usePathname } from "next/navigation";
 
 const navItems = [
   {
-    href: "/horok-tech/feeds",
+    href: "/horok-log/feeds",
     label: "소식",
     match: (p: string) =>
-      p === "/horok-tech/feeds" || p.startsWith("/horok-tech/feeds/"),
+      p === "/horok-log/feeds" || p.startsWith("/horok-log/feeds/"),
   },
   {
-    href: "/horok-tech/likes",
+    href: "/horok-log/likes",
     label: "북마크",
-    match: (p: string) => p.startsWith("/horok-tech/likes"),
+    match: (p: string) => p.startsWith("/horok-log/likes"),
   },
   {
-    href: "/horok-cote",
+    href: "/horok-coding",
     label: "코딩테스트",
     icon: ExternalLink,
     openInNewTab: true,
-    match: (p: string) => p === "/horok-cote" || p.startsWith("/horok-cote/"),
+    match: (p: string) => p === "/horok-coding" || p.startsWith("/horok-coding/"),
   },
   {
-    href: "/horok-tech/notices",
+    href: "/horok-log/notices",
     label: "공지사항",
     match: (p: string) =>
-      p === "/horok-tech/notices" || p.startsWith("/horok-tech/notices/"),
+      p === "/horok-log/notices" || p.startsWith("/horok-log/notices/"),
   },
 ];
 

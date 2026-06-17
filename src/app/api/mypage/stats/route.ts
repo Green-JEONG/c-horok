@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
-import { coteAuth } from "@/app/api/cote-auth/[...nextauth]/route";
+import { codingAuth } from "@/app/api/coding-auth/[...nextauth]/route";
 import { getUserIdByEmail } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
 import { countMyQnaPosts, countUserPosts } from "@/lib/queries";
@@ -8,8 +8,8 @@ import { countMyQnaPosts, countUserPosts } from "@/lib/queries";
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const platform = searchParams.get("platform") === "cote" ? "cote" : "tech";
-    const session = await (platform === "cote" ? coteAuth() : auth());
+    const platform = searchParams.get("platform") === "coding" ? "coding" : "log";
+    const session = await (platform === "coding" ? codingAuth() : auth());
 
     if (!session?.user?.email) {
       return NextResponse.json({
@@ -40,17 +40,17 @@ export async function GET(req: Request) {
       });
     }
 
-    if (platform === "cote") {
+    if (platform === "coding") {
       const [solvedProgress, submissions, savedCodes] = await Promise.all([
-        prisma.coteProblemProgress.findMany({
+        prisma.codingProblemProgress.findMany({
           where: { userId: BigInt(userId), status: "solved" },
           select: { problemSlug: true },
         }),
-        prisma.coteSubmission.findMany({
+        prisma.codingSubmission.findMany({
           where: { userId: BigInt(userId) },
           select: { problemSlug: true, status: true },
         }),
-        prisma.coteSavedCode.findMany({
+        prisma.codingSavedCode.findMany({
           where: { userId: BigInt(userId), language: "bookmark" },
           select: { problemSlug: true },
         }),

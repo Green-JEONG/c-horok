@@ -28,7 +28,7 @@ async function ensureCommentReactionTable() {
   }
 
   await prisma.$executeRaw`
-    CREATE TABLE IF NOT EXISTS horok_tech.comment_emoji_reactions (
+    CREATE TABLE IF NOT EXISTS horok_log.comment_emoji_reactions (
       comment_id BIGINT NOT NULL,
       user_id BIGINT NOT NULL,
       emoji VARCHAR(16) NOT NULL,
@@ -38,11 +38,11 @@ async function ensureCommentReactionTable() {
   `;
   await prisma.$executeRaw`
     CREATE INDEX IF NOT EXISTS idx_comment_emoji_reactions_comment
-    ON horok_tech.comment_emoji_reactions (comment_id)
+    ON horok_log.comment_emoji_reactions (comment_id)
   `;
   await prisma.$executeRaw`
     CREATE INDEX IF NOT EXISTS idx_comment_emoji_reactions_user
-    ON horok_tech.comment_emoji_reactions (user_id)
+    ON horok_log.comment_emoji_reactions (user_id)
   `;
 
   hasEnsuredCommentReactionTable = true;
@@ -108,7 +108,7 @@ export async function getCommentReactionSummariesByCommentId(
         emoji,
         COUNT(*)::bigint AS count,
         MIN(created_at) AS "firstCreatedAt"
-      FROM horok_tech.comment_emoji_reactions
+      FROM horok_log.comment_emoji_reactions
       WHERE comment_id IN (${Prisma.join(normalizedCommentIds)})
       GROUP BY comment_id, emoji
       ORDER BY MIN(created_at) ASC
@@ -116,7 +116,7 @@ export async function getCommentReactionSummariesByCommentId(
     userId
       ? prisma.$queryRaw<UserReactionRow[]>`
           SELECT comment_id AS "commentId", emoji
-          FROM horok_tech.comment_emoji_reactions
+          FROM horok_log.comment_emoji_reactions
           WHERE comment_id IN (${Prisma.join(normalizedCommentIds)})
             AND user_id = ${BigInt(userId)}
         `
@@ -136,7 +136,7 @@ export async function toggleCommentReaction(params: {
   const { commentId, userId, emoji } = params;
   const existingRows = await prisma.$queryRaw<Array<{ emoji: string }>>`
     SELECT emoji
-    FROM horok_tech.comment_emoji_reactions
+    FROM horok_log.comment_emoji_reactions
     WHERE comment_id = ${BigInt(commentId)}
       AND user_id = ${BigInt(userId)}
       AND emoji = ${emoji}
@@ -145,7 +145,7 @@ export async function toggleCommentReaction(params: {
 
   if (existingRows.length > 0) {
     await prisma.$executeRaw`
-      DELETE FROM horok_tech.comment_emoji_reactions
+      DELETE FROM horok_log.comment_emoji_reactions
       WHERE comment_id = ${BigInt(commentId)}
         AND user_id = ${BigInt(userId)}
         AND emoji = ${emoji}
@@ -155,7 +155,7 @@ export async function toggleCommentReaction(params: {
   }
 
   await prisma.$executeRaw`
-    INSERT INTO horok_tech.comment_emoji_reactions (comment_id, user_id, emoji)
+    INSERT INTO horok_log.comment_emoji_reactions (comment_id, user_id, emoji)
     VALUES (${BigInt(commentId)}, ${BigInt(userId)}, ${emoji})
     ON CONFLICT (comment_id, user_id, emoji) DO NOTHING
   `;

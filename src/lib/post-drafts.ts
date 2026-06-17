@@ -21,9 +21,9 @@ export function getPostDraftStorageKey(params: {
   return `post-editor-draft:${successPathPrefix}:${fixedTagOptions.join(",")}:${categoryLocked ? "locked" : "free"}`;
 }
 
-export function getTechPostDraftStorageKey() {
+export function getLogPostDraftStorageKey() {
   return getPostDraftStorageKey({
-    successPathPrefix: "/horok-tech/feeds/posts",
+    successPathPrefix: "/horok-log/feeds/posts",
     fixedTagOptions: [],
     categoryLocked: false,
   });

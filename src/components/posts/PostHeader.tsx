@@ -85,7 +85,7 @@ export default function PostHeader({
         <div className="flex min-h-7 flex-wrap items-center gap-3 text-base leading-7 text-foreground">
           {post.user_id ? (
             <Link
-              href={isOwner ? "/horok-tech" : `/users/${post.user_id}`}
+              href={isOwner ? "/horok-log" : `/users/${post.user_id}`}
               className="inline-flex h-7 items-center gap-2 transition hover:text-foreground"
             >
               {authorProfile}

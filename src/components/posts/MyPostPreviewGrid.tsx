@@ -6,7 +6,7 @@ import {
   getPostDraftStorageKey,
   loadSyncedPostDrafts,
 } from "@/lib/post-drafts";
-import { getTechFeedNewPostPath } from "@/lib/routes";
+import { getLogFeedNewPostPath } from "@/lib/routes";
 import PostCard from "./PostCard";
 
 type PreviewPost = {
@@ -64,7 +64,7 @@ export default function MyPostPreviewGrid({
 
   useEffect(() => {
     const draftStorageKey = getPostDraftStorageKey({
-      successPathPrefix: "/horok-tech/feeds/posts",
+      successPathPrefix: "/horok-log/feeds/posts",
       fixedTagOptions: [],
       categoryLocked: false,
     });
@@ -87,7 +87,7 @@ export default function MyPostPreviewGrid({
           comments_count: 0,
           is_hidden: false,
           is_draft: true,
-          href_override: `${getTechFeedNewPostPath()}?draftId=${encodeURIComponent(
+          href_override: `${getLogFeedNewPostPath()}?draftId=${encodeURIComponent(
             draft.id ?? "",
           )}`,
         }),

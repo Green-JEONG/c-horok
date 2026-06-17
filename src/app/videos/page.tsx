@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function LegacyHorokTvPage() {
-  redirect("/horok-tv");
+export default function LegacyHorokEduPage() {
+  redirect("/horok-edu");
 }

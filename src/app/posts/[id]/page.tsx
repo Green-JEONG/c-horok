@@ -6,5 +6,5 @@ type Props = {
 
 export default async function LegacyPostPage({ params }: Props) {
   const { id } = await params;
-  redirect(`/horok-tech/feeds/posts/${id}`);
+  redirect(`/horok-log/feeds/posts/${id}`);
 }

@@ -9,8 +9,8 @@ type Props = {
   href?: string;
 };
 
-const RECENT_POSTS_STORAGE_KEY = "horok-tech-recent-posts";
-const RECENT_POSTS_UPDATED_EVENT = "horok-tech-recent-posts-updated";
+const RECENT_POSTS_STORAGE_KEY = "horok-log-recent-posts";
+const RECENT_POSTS_UPDATED_EVENT = "horok-log-recent-posts-updated";
 const MAX_RECENT_POSTS = 10;
 
 export type RecentPost = {

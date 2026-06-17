@@ -26,26 +26,26 @@ export async function ensurePostCategoryTable() {
   }
 
   await prisma.$executeRaw`
-    CREATE TABLE IF NOT EXISTS horok_tech.post_categories (
-      post_id BIGINT NOT NULL REFERENCES horok_tech.posts(id) ON DELETE CASCADE,
-      category_id BIGINT NOT NULL REFERENCES horok_tech.categories(id) ON DELETE RESTRICT,
+    CREATE TABLE IF NOT EXISTS horok_log.post_categories (
+      post_id BIGINT NOT NULL REFERENCES horok_log.posts(id) ON DELETE CASCADE,
+      category_id BIGINT NOT NULL REFERENCES horok_log.categories(id) ON DELETE RESTRICT,
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (post_id, category_id)
     )
   `;
   await prisma.$executeRaw`
-    ALTER TABLE horok_tech.post_categories
+    ALTER TABLE horok_log.post_categories
     ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0
   `;
   await prisma.$executeRaw`
     CREATE INDEX IF NOT EXISTS idx_post_categories_category_id
-    ON horok_tech.post_categories (category_id)
+    ON horok_log.post_categories (category_id)
   `;
   await prisma.$executeRaw`
-    INSERT INTO horok_tech.post_categories (post_id, category_id)
+    INSERT INTO horok_log.post_categories (post_id, category_id)
     SELECT id, category_id
-    FROM horok_tech.posts
+    FROM horok_log.posts
     WHERE category_id IS NOT NULL
     ON CONFLICT (post_id, category_id) DO NOTHING
   `;
@@ -70,7 +70,7 @@ export async function syncPostCategories(
   });
 
   await prisma.$executeRaw`
-    DELETE FROM horok_tech.post_categories
+    DELETE FROM horok_log.post_categories
     WHERE post_id = ${postId}
   `;
 
@@ -84,7 +84,7 @@ export async function syncPostCategories(
   );
 
   await prisma.$executeRaw`
-    INSERT INTO horok_tech.post_categories (post_id, category_id, sort_order)
+    INSERT INTO horok_log.post_categories (post_id, category_id, sort_order)
     VALUES ${Prisma.join(values)}
     ON CONFLICT (post_id, category_id) DO UPDATE SET
       sort_order = EXCLUDED.sort_order
@@ -104,8 +104,8 @@ export async function getPostCategoryNameMap(postIds: bigint[]) {
     SELECT
       post_category.post_id AS "postId",
       category.name AS "categoryName"
-    FROM horok_tech.post_categories AS post_category
-    INNER JOIN horok_tech.categories AS category
+    FROM horok_log.post_categories AS post_category
+    INNER JOIN horok_log.categories AS category
       ON category.id = post_category.category_id
     WHERE post_category.post_id IN (${Prisma.join(postIds)})
     ORDER BY post_category.post_id ASC, post_category.sort_order ASC, post_category.category_id ASC

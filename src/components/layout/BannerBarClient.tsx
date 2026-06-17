@@ -17,7 +17,7 @@ type BannerBarClientProps = {
 const FALLBACK_NOTICE: BannerNotice = {
   id: 0,
   title: "등록된 공지사항이 없습니다.",
-  href: "/horok-tech/notices",
+  href: "/horok-log/notices",
 };
 
 export default function BannerBarClient({ notices }: BannerBarClientProps) {

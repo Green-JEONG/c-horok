@@ -29,7 +29,7 @@ export async function POST(
   const [updated] = await prisma.$queryRaw<
     Array<{ markdownCount: number; pdfCount: number }>
   >`
-    INSERT INTO horok_tech.post_download_counts (
+    INSERT INTO horok_log.post_download_counts (
       post_id,
       markdown_count,
       pdf_count
@@ -40,10 +40,10 @@ export async function POST(
       ${downloadType === "pdf" ? 1 : 0}
     )
     ON CONFLICT (post_id) DO UPDATE SET
-      markdown_count = horok_tech.post_download_counts.markdown_count + ${
+      markdown_count = horok_log.post_download_counts.markdown_count + ${
         downloadType === "markdown" ? 1 : 0
       },
-      pdf_count = horok_tech.post_download_counts.pdf_count + ${
+      pdf_count = horok_log.post_download_counts.pdf_count + ${
         downloadType === "pdf" ? 1 : 0
       },
       updated_at = now()

@@ -32,10 +32,10 @@ export default function AppShell({
     "coding-tests",
     "feed",
     "feeds",
-    "horok-cote",
-    "horok-shop",
-    "horok-tech",
-    "horok-tv",
+    "horok-edu",
+    "horok-item",
+    "horok-log",
+    "horok-coding",
     "likes",
     "mypage",
     "notices",
@@ -45,8 +45,8 @@ export default function AppShell({
     "videos",
   ]);
   const isPortalPage = pathname === "/";
-  const isHorokTechLikePage = pathname.startsWith("/horok-tech");
-  const isLegacyHorokTechPage =
+  const isHorokLogLikePage = pathname.startsWith("/horok-log");
+  const isLegacyHorokLogPage =
     pathname === "/likes" ||
     pathname.startsWith("/likes/") ||
     pathname === "/notices" ||
@@ -57,44 +57,44 @@ export default function AppShell({
   const isSearchPage = pathname === "/search";
   const isUserProfilePage =
     pathname === "/users" || pathname.startsWith("/users/");
-  const isHorokCotePage =
-    pathname === "/horok-cote" || pathname.startsWith("/horok-cote/");
+  const isHorokCodingPage =
+    pathname === "/horok-coding" || pathname.startsWith("/horok-coding/");
   const isStandaloneServicePage =
-    isHorokCotePage ||
-    pathname === "/horok-tv" ||
-    pathname.startsWith("/horok-tv/") ||
-    pathname === "/horok-shop" ||
-    pathname.startsWith("/horok-shop/");
+    isHorokCodingPage ||
+    pathname === "/horok-edu" ||
+    pathname.startsWith("/horok-edu/") ||
+    pathname === "/horok-item" ||
+    pathname.startsWith("/horok-item/");
   const isUnknownTopLevelPath =
     pathname !== "/" && !knownTopLevelSegments.has(topLevelSegment);
   const isWideNotFoundCandidatePage =
     !isPortalPage &&
     !isStandaloneServicePage &&
     !pathname.startsWith("/api") &&
-    (isHorokTechLikePage ||
+    (isHorokLogLikePage ||
       isMyPage ||
       isSearchPage ||
       isUserProfilePage ||
       isUnknownTopLevelPath ||
-      pathname.startsWith("/horok-tech") ||
+      pathname.startsWith("/horok-log") ||
       pathname.startsWith("/mypage") ||
       pathname.startsWith("/search") ||
       pathname.startsWith("/users/"));
   const isWideSidebarLayoutPage =
-    isHorokTechLikePage ||
+    isHorokLogLikePage ||
     isMyPage ||
     isSearchPage ||
     isUserProfilePage ||
     isWideNotFoundCandidatePage;
   const isChatEnabledPage =
-    isHorokTechLikePage ||
-    isLegacyHorokTechPage ||
+    isHorokLogLikePage ||
+    isLegacyHorokLogPage ||
     isSearchPage ||
     isMyPage ||
     isUserProfilePage;
   const isPostDetailPage =
-    /^\/horok-tech\/(?:feeds|likes)\/posts\/[^/]+$/.test(pathname) ||
-    /^\/horok-tech\/notices\/[^/]+$/.test(pathname);
+    /^\/horok-log\/(?:feeds|likes)\/posts\/[^/]+$/.test(pathname) ||
+    /^\/horok-log\/notices\/[^/]+$/.test(pathname);
 
   useEffect(() => {
     return () => {

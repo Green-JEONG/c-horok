@@ -11,7 +11,7 @@ import LoginModal from "@/components/auth/LoginModal";
 import { Button } from "@/components/ui/button";
 import {
   countSyncedPostDrafts,
-  getTechPostDraftStorageKey,
+  getLogPostDraftStorageKey,
 } from "@/lib/post-drafts";
 
 type ProfileCard = {
@@ -103,7 +103,7 @@ export default function UserProfiles() {
   }, [loadProfile]);
 
   useEffect(() => {
-    void countSyncedPostDrafts(getTechPostDraftStorageKey()).then(
+    void countSyncedPostDrafts(getLogPostDraftStorageKey()).then(
       setDraftPostCount,
     );
   }, []);
@@ -162,7 +162,7 @@ export default function UserProfiles() {
       ? `/users/${profile.id}?tab=posts`
       : "#";
   const isPostDetailPage =
-    /^\/horok-tech\/(?:feeds|likes)\/posts\/\d+$/.test(pathname) ||
+    /^\/horok-log\/(?:feeds|likes)\/posts\/\d+$/.test(pathname) ||
     /^\/posts\/\d+$/.test(pathname);
 
   return (
@@ -207,7 +207,7 @@ export default function UserProfiles() {
               </button>
               <div className="min-w-0 flex-1">
                 <Link
-                  href={profile.isSelf ? "/horok-tech" : `/users/${profile.id}`}
+                  href={profile.isSelf ? "/horok-log" : `/users/${profile.id}`}
                   className="block truncate text-base font-semibold transition hover:text-foreground/80"
                 >
                   {profile.name ?? "이름 없는 사용자"}

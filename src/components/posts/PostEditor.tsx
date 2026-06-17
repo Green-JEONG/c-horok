@@ -22,7 +22,7 @@ import {
   getStorageObjectPathFromPublicUrl,
   POST_THUMBNAIL_BUCKET,
 } from "@/lib/post-thumbnails";
-import { getTechFeedNewPostPath } from "@/lib/routes";
+import { getLogFeedNewPostPath } from "@/lib/routes";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
@@ -159,7 +159,7 @@ export default function PostEditor({
   submitLabel = mode === "edit" ? "수정 저장" : "게시하기",
   submittingLabel = mode === "edit" ? "저장 중..." : "게시 중...",
   categoryLocked = false,
-  successPathPrefix = "/horok-tech/feeds/posts",
+  successPathPrefix = "/horok-log/feeds/posts",
   fixedTagOptions = [],
   inquiryTagOptions = [],
   showCategoryField = true,
@@ -859,7 +859,7 @@ export default function PostEditor({
         return;
       }
 
-      router.push(getTechFeedNewPostPath());
+      router.push(getLogFeedNewPostPath());
       router.refresh();
     } catch {
       setError("게시글 저장 중 오류가 발생했습니다.");

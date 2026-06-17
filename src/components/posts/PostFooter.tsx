@@ -19,7 +19,7 @@ type Props = {
 
 export default async function PostFooter({
   postId,
-  backHref = "/horok-tech/feeds",
+  backHref = "/horok-log/feeds",
   showLikeButton = true,
   likeActionSlot,
   markCheckingOnAdminReaction = false,

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { DbPostSeriesItem } from "@/lib/db";
-import { getTechFeedPostPath } from "@/lib/routes";
+import { getLogFeedPostPath } from "@/lib/routes";
 import { cn, formatSeoulDate } from "@/lib/utils";
 
 type Props = {
@@ -102,7 +102,7 @@ export default function PostSeriesTable({ currentPostId, items }: Props) {
                   </td>
                   <td className="min-w-0 px-2 py-2">
                     <Link
-                      href={getTechFeedPostPath(item.id)}
+                      href={getLogFeedPostPath(item.id)}
                       aria-current={isCurrent ? "page" : undefined}
                       className="block truncate font-medium text-foreground transition hover:text-primary hover:underline"
                     >

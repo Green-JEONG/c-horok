@@ -15,7 +15,7 @@ import {
   createPostReactionNotificationMessage,
 } from "@/lib/notification-messages";
 import { prisma } from "@/lib/prisma";
-import { getTechFeedPostPath } from "@/lib/routes";
+import { getLogFeedPostPath } from "@/lib/routes";
 
 function normalizeNotificationType(type: string | null) {
   if (type === "NEW_COMMENT") return "POST_COMMENT";
@@ -194,8 +194,8 @@ export async function GET() {
           : null,
         post_path: row.postId
           ? isNoticeCategoryName(row.post?.category?.name)
-            ? `/horok-tech/notices/${Number(row.postId)}`
-            : getTechFeedPostPath(Number(row.postId))
+            ? `/horok-log/notices/${Number(row.postId)}`
+            : getLogFeedPostPath(Number(row.postId))
           : null,
         is_post_deleted: row.post?.isDeleted ?? false,
         is_notice_post: isNoticeCategoryName(row.post?.category?.name),

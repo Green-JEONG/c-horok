@@ -51,7 +51,7 @@ export default function PostActions({
   isOwner,
   headerPost,
   headerTitleAddon,
-  redirectPath = "/horok-tech/feeds",
+  redirectPath = "/horok-log/feeds",
   categoryLocked = false,
   fixedTagOptions,
   inquiryTagOptions,

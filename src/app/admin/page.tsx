@@ -246,7 +246,7 @@ export default async function AdminPage() {
 
     await seedLegacyBannerNotices(Number(user.id));
     revalidatePath("/");
-    revalidatePath("/horok-tech/notices");
+    revalidatePath("/horok-log/notices");
   }
 
   return (
@@ -350,7 +350,7 @@ export default async function AdminPage() {
 
                   <a
                     className="text-xs text-muted-foreground underline hover:text-foreground"
-                    href={`/horok-tech/feeds/posts/${p.id}`}
+                    href={`/horok-log/feeds/posts/${p.id}`}
                     target="_blank"
                     rel="noreferrer"
                   >
@@ -438,7 +438,7 @@ export default async function AdminPage() {
 
                   <a
                     className="mt-1 inline-block text-xs text-muted-foreground underline hover:text-foreground"
-                    href={`/horok-tech/feeds/posts/${c.post_id}`}
+                    href={`/horok-log/feeds/posts/${c.post_id}`}
                     target="_blank"
                     rel="noreferrer"
                   >

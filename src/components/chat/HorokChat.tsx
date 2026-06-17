@@ -34,11 +34,11 @@ import {
 import { createPortal } from "react-dom";
 
 import MarkdownRenderer from "@/components/posts/MarkdownRenderer";
-import type { HorokCoteProblem } from "@/lib/horok-cote-shared";
+import type { HorokCodingProblem } from "@/lib/horok-coding-shared";
 import {
-  getHorokCoteChatIntroMessage,
-  getHorokCoteChatThreadTitle,
-} from "@/lib/horok-cote-shared";
+  getHorokCodingChatIntroMessage,
+  getHorokCodingChatThreadTitle,
+} from "@/lib/horok-coding-shared";
 import { POST_THUMBNAIL_BUCKET } from "@/lib/post-thumbnails";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -72,7 +72,7 @@ type ChatHandoffMeta = {
 
 type HorokChatProps = {
   variant?: "floating" | "embedded";
-  problem?: HorokCoteProblem;
+  problem?: HorokCodingProblem;
 };
 
 type ChatUIMessage = UIMessage & {
@@ -85,7 +85,7 @@ type ChatUIMessage = UIMessage & {
   } | null;
 };
 
-type ThreadCategory = "all" | "tech" | "cote" | "handoff";
+type ThreadCategory = "all" | "log" | "coding" | "handoff";
 
 type FloatingPosition = {
   x: number;
@@ -116,7 +116,7 @@ type ResizeDirection =
   | "bottom-right";
 
 const THREAD_PLATFORM_STORAGE_KEY = "horok-chat-thread-platforms";
-const COTE_PROBLEM_THREAD_STORAGE_KEY = "horok-chat-cote-problem-threads";
+const CODING_PROBLEM_THREAD_STORAGE_KEY = "horok-chat-coding-problem-threads";
 const OPEN_CHAT_THREAD_EVENT = "horok-open-chat-thread";
 const FLOATING_BUTTON_SIZE = 64;
 const FLOATING_PANEL_GAP = 12;
@@ -133,7 +133,7 @@ const FLOATING_MIN_SIZE: FloatingSize = {
 const CHAT_INPUT_MIN_HEIGHT = 40;
 const CHAT_INPUT_MAX_HEIGHT = 240;
 const CHAT_BOTTOM_STICK_THRESHOLD = 80;
-const INITIAL_TECH_SUGGESTED_QUESTIONS = [
+const INITIAL_LOG_SUGGESTED_QUESTIONS = [
   "넌 누구야?",
   "호록 컴퍼니는 어떤 곳이야?",
   "코딩테스트 공부는 어떻게 시작해?",
@@ -157,19 +157,19 @@ const INITIAL_MESSAGES: ChatUIMessage[] = [
   },
 ];
 
-function buildInitialMessages(problem?: HorokCoteProblem): ChatUIMessage[] {
+function buildInitialMessages(problem?: HorokCodingProblem): ChatUIMessage[] {
   if (!problem) {
     return INITIAL_MESSAGES;
   }
 
   return [
     {
-      id: `horok-cote-${problem.slug}`,
+      id: `horok-coding-${problem.slug}`,
       role: "assistant",
       parts: [
         {
           type: "text",
-          text: getHorokCoteChatIntroMessage(problem),
+          text: getHorokCodingChatIntroMessage(problem),
         },
       ],
     },
@@ -210,7 +210,7 @@ function buildContextualSuggestedQuestions(
   );
 
   if (!hasUserMessage) {
-    return INITIAL_TECH_SUGGESTED_QUESTIONS;
+    return INITIAL_LOG_SUGGESTED_QUESTIONS;
   }
 
   const reversedMessages = [...conversationMessages].reverse();
@@ -484,14 +484,14 @@ function sortThreadsByRecentActivity(threads: ChatThreadSummary[]) {
 }
 
 function getThreadIdentity(thread: ChatThreadSummary) {
-  if (thread.platform === "cote" && /^\d+번\s+/.test(thread.title)) {
-    return `cote-problem:${thread.title}`;
+  if (thread.platform === "coding" && /^\d+번\s+/.test(thread.title)) {
+    return `coding-problem:${thread.title}`;
   }
 
   return `thread:${thread.id}`;
 }
 
-function isCoteProblemThread(thread: Pick<ChatThreadSummary, "title">) {
+function isCodingProblemThread(thread: Pick<ChatThreadSummary, "title">) {
   return /^\d+번\s+\S/.test(thread.title);
 }
 
@@ -504,8 +504,8 @@ function resolveThreadPlatform(
     return "handoff";
   }
 
-  if (isCoteProblemThread(thread)) {
-    return "cote";
+  if (isCodingProblemThread(thread)) {
+    return "coding";
   }
 
   return threadPlatformMap[thread.id] ?? fallbackPlatform;
@@ -557,13 +557,13 @@ function writeThreadPlatformMap(
   );
 }
 
-function readCoteProblemThreadMap() {
+function readCodingProblemThreadMap() {
   if (typeof window === "undefined") {
     return {} as Record<string, string>;
   }
 
   try {
-    const stored = window.localStorage.getItem(COTE_PROBLEM_THREAD_STORAGE_KEY);
+    const stored = window.localStorage.getItem(CODING_PROBLEM_THREAD_STORAGE_KEY);
     if (!stored) {
       return {};
     }
@@ -574,13 +574,13 @@ function readCoteProblemThreadMap() {
   }
 }
 
-function writeCoteProblemThreadMap(nextMap: Record<string, string>) {
+function writeCodingProblemThreadMap(nextMap: Record<string, string>) {
   if (typeof window === "undefined") {
     return;
   }
 
   window.localStorage.setItem(
-    COTE_PROBLEM_THREAD_STORAGE_KEY,
+    CODING_PROBLEM_THREAD_STORAGE_KEY,
     JSON.stringify(nextMap),
   );
 }
@@ -670,7 +670,7 @@ export default function HorokChat({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: session, status: sessionStatus } = useSession();
-  const platform = pathname?.startsWith("/horok-cote") ? "cote" : "tech";
+  const platform = pathname?.startsWith("/horok-coding") ? "coding" : "log";
   const initialMessages = useMemo(
     () => buildInitialMessages(problem),
     [problem],
@@ -816,8 +816,8 @@ export default function HorokChat({
   const threadCategories = useMemo(
     () =>
       (session?.user.role === "ADMIN"
-        ? ["all", "tech", "cote", "handoff"]
-        : ["all", "tech", "cote"]) as ThreadCategory[],
+        ? ["all", "log", "coding", "handoff"]
+        : ["all", "log", "coding"]) as ThreadCategory[],
     [session?.user.role],
   );
   const searchableMessages = useMemo(
@@ -1339,7 +1339,7 @@ export default function HorokChat({
       return;
     }
 
-    if (platform === "cote" && problem) {
+    if (platform === "coding" && problem) {
       return;
     }
 
@@ -1357,7 +1357,7 @@ export default function HorokChat({
   useEffect(() => {
     if (
       sessionStatus !== "authenticated" ||
-      platform !== "cote" ||
+      platform !== "coding" ||
       !problem ||
       isCreatingThread
     ) {
@@ -1376,8 +1376,8 @@ export default function HorokChat({
       problemThreadRequestRef.current = currentProblem.slug;
 
       try {
-        const threadTitle = getHorokCoteChatThreadTitle(currentProblem);
-        const threadMap = readCoteProblemThreadMap();
+        const threadTitle = getHorokCodingChatThreadTitle(currentProblem);
+        const threadMap = readCodingProblemThreadMap();
         const mappedThreadId = threadMap[currentProblem.slug];
         const currentState = await loadChatState();
 
@@ -1393,7 +1393,7 @@ export default function HorokChat({
 
         if (matchedThread) {
           threadMap[currentProblem.slug] = matchedThread.id;
-          writeCoteProblemThreadMap(threadMap);
+          writeCodingProblemThreadMap(threadMap);
 
           if (currentState?.activeThreadId !== matchedThread.id) {
             await loadChatState(matchedThread.id);
@@ -1415,7 +1415,7 @@ export default function HorokChat({
               platform,
               title: threadTitle,
               initialAssistantMessage:
-                getHorokCoteChatIntroMessage(currentProblem),
+                getHorokCodingChatIntroMessage(currentProblem),
             }),
             signal: abortController.signal,
           });
@@ -1433,7 +1433,7 @@ export default function HorokChat({
           writeThreadPlatformMap(threadPlatformMap);
 
           threadMap[currentProblem.slug] = data.threadId;
-          writeCoteProblemThreadMap(threadMap);
+          writeCodingProblemThreadMap(threadMap);
           await loadChatState(data.threadId);
           setView("chat");
         } catch (createError) {
@@ -2140,7 +2140,7 @@ export default function HorokChat({
         <mark
           key={key}
           className={
-            platform === "cote"
+            platform === "coding"
               ? isActiveMatch
                 ? "rounded-sm bg-[#06923E]/30 px-0.5 font-semibold text-[#047a33] dark:bg-[#06923E]/40 dark:text-[#b5f5c8]"
                 : "rounded-sm bg-[#06923E]/18 px-0.5 text-[#047a33] dark:bg-[#06923E]/25 dark:text-[#8df0ae]"
@@ -2280,7 +2280,7 @@ export default function HorokChat({
                   "pointer-events-auto absolute bottom-[calc(100%+0.75rem)] flex flex-col overflow-hidden rounded-[24px] border bg-white transition-all duration-300 dark:bg-zinc-950 sm:rounded-[28px]",
                   "right-0",
                 ),
-            platform === "cote"
+            platform === "coding"
               ? "border-[#06923E]/20 dark:border-[#06923E]/30"
               : "border-orange-100 dark:border-orange-400/20",
             !isEmbedded &&
@@ -2300,7 +2300,7 @@ export default function HorokChat({
           <div
             className={cn(
               "relative px-3 pt-3 pb-2 text-primary-foreground",
-              platform === "cote" ? "bg-[#06923E]" : "bg-primary",
+              platform === "coding" ? "bg-[#06923E]" : "bg-primary",
             )}
           >
             {!isEmbedded ? (
@@ -2459,7 +2459,7 @@ export default function HorokChat({
               isEmbedded
                 ? "flex min-h-0 flex-1 flex-col"
                 : "flex min-h-0 flex-1 flex-col",
-              platform === "cote"
+              platform === "coding"
                 ? "bg-white dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]"
                 : "bg-white dark:bg-zinc-950",
             )}
@@ -2467,7 +2467,7 @@ export default function HorokChat({
             {isThreadMode ? (
               <div
                 className={cn(
-                  platform === "cote" ? "scrollbar-green" : "scrollbar-orange",
+                  platform === "coding" ? "scrollbar-green" : "scrollbar-orange",
                   "flex-1 overflow-y-auto",
                 )}
               >
@@ -2484,7 +2484,7 @@ export default function HorokChat({
                           className={cn(
                             "rounded-full px-3 py-1.5 text-xs font-semibold transition",
                             isActive
-                              ? platform === "cote"
+                              ? platform === "coding"
                                 ? "bg-[#06923E] text-white"
                                 : "bg-primary text-primary-foreground"
                               : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
@@ -2584,10 +2584,10 @@ export default function HorokChat({
                             className={cn(
                               "relative w-full rounded-2xl border px-3 py-3 text-left transition will-change-transform",
                               isActive
-                                ? platform === "cote"
+                                ? platform === "coding"
                                   ? "border-[#06923E]/45 bg-white shadow-sm dark:border-[#06923E]/45 dark:bg-zinc-900"
                                   : "border-orange-300 bg-white shadow-sm dark:border-orange-400/40 dark:bg-zinc-900"
-                                : platform === "cote"
+                                : platform === "coding"
                                   ? "border-slate-200 bg-white/70 hover:border-[#06923E]/25 hover:bg-white dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:border-[#06923E]/25"
                                   : "border-slate-200 bg-white/70 hover:border-orange-200 hover:bg-white dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:border-orange-400/20",
                             )}
@@ -2625,7 +2625,7 @@ export default function HorokChat({
                   ref={messagesViewportRef}
                   onScroll={handleMessagesScroll}
                   className={cn(
-                    platform === "cote"
+                    platform === "coding"
                       ? "scrollbar-green"
                       : "scrollbar-orange",
                     "h-full overflow-y-auto",
@@ -2696,7 +2696,7 @@ export default function HorokChat({
                                   <div
                                     className={cn(
                                       "rounded-full px-3 py-1 text-xs",
-                                      platform === "cote"
+                                      platform === "coding"
                                         ? "border border-[#06923E]/10 bg-white text-slate-500 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-zinc-400"
                                         : "bg-slate-100 text-slate-500 dark:bg-zinc-900 dark:text-zinc-400",
                                     )}
@@ -2738,7 +2738,7 @@ export default function HorokChat({
                                           (isAdminAuthoredMessage &&
                                             !message.sender?.image)) &&
                                           "grayscale",
-                                        platform === "cote"
+                                        platform === "coding"
                                           ? "border-[#06923E]/25 bg-white"
                                           : "border-orange-200 bg-white dark:border-orange-400/30",
                                       )}
@@ -2764,10 +2764,10 @@ export default function HorokChat({
                                     className={cn(
                                       "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl px-3 py-2 text-sm leading-5 shadow-sm",
                                       isOutgoingMessage
-                                        ? platform === "cote"
+                                        ? platform === "coding"
                                           ? "rounded-br-lg bg-[#06923E] text-white dark:bg-[#06923E] dark:text-white"
                                           : "rounded-br-lg bg-orange-500 text-white dark:bg-orange-500 dark:text-white"
-                                        : platform === "cote"
+                                        : platform === "coding"
                                           ? "border border-[#06923E]/10 bg-white text-slate-800 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-slate-100"
                                           : "border border-orange-100 bg-white text-slate-800 dark:border-orange-400/20 dark:bg-zinc-900 dark:text-zinc-100",
                                     )}
@@ -2850,7 +2850,7 @@ export default function HorokChat({
                             height={32}
                             className={cn(
                               "size-full rounded-full border object-cover",
-                              platform === "cote"
+                              platform === "coding"
                                 ? "border-[#06923E]/25 bg-white"
                                 : "border-orange-200 bg-white dark:border-orange-400/30",
                             )}
@@ -2860,7 +2860,7 @@ export default function HorokChat({
                           <div
                             className={cn(
                               "min-w-0 max-w-[calc(100%-2.625rem)] overflow-hidden break-words rounded-3xl rounded-bl-lg border bg-white px-3 py-2 text-sm text-slate-500 shadow-sm dark:text-zinc-300",
-                              platform === "cote"
+                              platform === "coding"
                                 ? "border-[#06923E]/10 dark:border-[#06923E]/20 dark:bg-slate-950 dark:text-slate-300"
                                 : "border-orange-100 dark:border-orange-400/20 dark:bg-zinc-900 dark:text-zinc-300",
                             )}
@@ -2898,7 +2898,7 @@ export default function HorokChat({
                       onClick={() => setShowSuggestions(!showSuggestions)}
                       className={cn(
                         "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border bg-white transition hover:bg-slate-50 dark:bg-zinc-950 dark:hover:bg-zinc-900",
-                        platform === "cote"
+                        platform === "coding"
                           ? "border-[#06923E]/30 text-[#06923E] hover:border-[#06923E]/50"
                           : "border-orange-200 text-orange-500 hover:border-orange-300 hover:text-orange-600 dark:border-orange-400/25 dark:text-orange-400 dark:hover:border-orange-400/35 dark:hover:text-orange-300",
                       )}
@@ -2922,7 +2922,7 @@ export default function HorokChat({
                             disabled={isRequestingHandoff || isLoading}
                             className={cn(
                               "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border bg-white px-3 text-xs font-semibold transition disabled:cursor-default disabled:opacity-45 dark:bg-zinc-950",
-                              platform === "cote"
+                              platform === "coding"
                                 ? "border-[#06923E]/30 text-[#06923E] hover:border-[#06923E]/50 hover:bg-[#eef7f1] dark:border-[#46c86f]/30 dark:text-[#46c86f] dark:hover:bg-[#06923E]/10"
                                 : "border-orange-300 text-orange-600 hover:border-orange-400 hover:bg-orange-50 dark:border-orange-400/35 dark:text-orange-300 dark:hover:bg-orange-950/30",
                             )}
@@ -2951,7 +2951,7 @@ export default function HorokChat({
                             disabled={isLoading || isHandoffDraftMode}
                             className={cn(
                               "inline-flex h-7 shrink-0 items-center justify-center rounded-full border px-3 text-xs font-semibold text-white transition disabled:cursor-default disabled:opacity-45",
-                              platform === "cote"
+                              platform === "coding"
                                 ? "border-[#06923E] bg-[#06923E] hover:border-[#047a33] hover:bg-[#047a33]"
                                 : "border-orange-500 bg-orange-500 hover:border-orange-600 hover:bg-orange-600",
                             )}
@@ -2967,7 +2967,7 @@ export default function HorokChat({
                     <div
                       className={cn(
                         "relative overflow-hidden rounded-3xl border bg-white shadow-md transition-shadow focus-within:shadow-lg",
-                        platform === "cote"
+                        platform === "coding"
                           ? "border-[#06923E]/25 dark:border-[#06923E]/30 dark:bg-slate-950"
                           : "border-orange-200 dark:border-orange-400/25 dark:bg-zinc-900",
                       )}
@@ -3040,7 +3040,7 @@ export default function HorokChat({
                         type="submit"
                         className={cn(
                           "absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-transparent transition disabled:cursor-default",
-                          platform === "cote"
+                          platform === "coding"
                             ? "text-[#06923E] hover:text-[#047a33] disabled:text-[#06923E]/35"
                             : "text-orange-500 hover:text-orange-600 disabled:text-orange-200 dark:text-orange-400 dark:hover:text-orange-300 dark:disabled:text-orange-900",
                         )}
@@ -3128,7 +3128,7 @@ export default function HorokChat({
           ) : null}
         </div>
 
-        {!isEmbedded && platform === "cote" ? (
+        {!isEmbedded && platform === "coding" ? (
           <div
             className={cn(
               "pointer-events-none absolute bottom-[calc(100%+1rem)] transition-all duration-300",
@@ -3178,7 +3178,7 @@ export default function HorokChat({
               height={64}
               className={cn(
                 "size-full object-contain transition",
-                platform === "cote"
+                platform === "coding"
                   ? "drop-shadow-[0_0_18px_rgba(6,146,62,0.72)] group-hover:drop-shadow-[0_0_28px_rgba(6,146,62,0.88)]"
                   : "drop-shadow-[0_0_18px_rgba(255,154,0,0.82)] group-hover:drop-shadow-[0_0_28px_rgba(255,154,0,0.92)]",
               )}

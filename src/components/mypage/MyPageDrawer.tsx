@@ -14,7 +14,7 @@ import {
 } from "@/components/mypage/usePlatformProfile";
 import {
   countSyncedPostDrafts,
-  getTechPostDraftStorageKey,
+  getLogPostDraftStorageKey,
 } from "@/lib/post-drafts";
 import { cn } from "@/lib/utils";
 
@@ -169,7 +169,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
   const isLoggedIn = Boolean(session?.user?.email);
   const pathname = usePathname();
   const platform = getPlatformFromPathname(pathname);
-  const isCote = platform === "cote";
+  const isCoding = platform === "coding";
   const { profile, refresh } = usePlatformProfile(open);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
@@ -188,10 +188,10 @@ export default function MyPageDrawer({ open, onClose }: Props) {
     third: 0,
   });
   const [draftPostCount, setDraftPostCount] = useState(0);
-  const coteStatLinks = [
-    "/horok-cote?tab=solved#cote-problem-tabs",
-    "/horok-cote?tab=failed#cote-problem-tabs",
-    "/horok-cote?tab=bookmarked#cote-problem-tabs",
+  const codingStatLinks = [
+    "/horok-coding?tab=solved#coding-problem-tabs",
+    "/horok-coding?tab=failed#coding-problem-tabs",
+    "/horok-coding?tab=bookmarked#coding-problem-tabs",
   ] as const;
   const getCallbackUrl = useCallback(() => {
     if (typeof window === "undefined") {
@@ -238,11 +238,11 @@ export default function MyPageDrawer({ open, onClose }: Props) {
 
   // ESC 닫기
   useEffect(() => {
-    if (!open || isCote) return;
+    if (!open || isCoding) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isCote, onClose, open]);
+  }, [isCoding, onClose, open]);
 
   // 드로어가 닫히면 설정 모달도 닫기(자연스럽게)
   useEffect(() => {
@@ -269,7 +269,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
   useEffect(() => {
     if (!open) return;
 
-    if (isCote) {
+    if (isCoding) {
       setNotifications([]);
       return;
     }
@@ -304,15 +304,15 @@ export default function MyPageDrawer({ open, onClose }: Props) {
     };
 
     loadNotifications();
-  }, [isCote, open]);
+  }, [isCoding, open]);
 
   useEffect(() => {
     if (!open) return;
 
-    if (isCote || !isLoggedIn) {
+    if (isCoding || !isLoggedIn) {
       setDraftPostCount(0);
     } else {
-      void countSyncedPostDrafts(getTechPostDraftStorageKey()).then(
+      void countSyncedPostDrafts(getLogPostDraftStorageKey()).then(
         setDraftPostCount,
       );
     }
@@ -330,7 +330,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
     };
 
     loadStats();
-  }, [isCote, isLoggedIn, open, platform]);
+  }, [isCoding, isLoggedIn, open, platform]);
 
   if (!isVisible || !portalReady) return null;
 
@@ -355,7 +355,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
       <aside
         className={cn(
           "absolute left-0 top-0 flex h-full w-87.5 flex-col shadow-xl transition-transform duration-300 ease-out",
-          isCote
+          isCoding
             ? "bg-white text-slate-900 dark:bg-[#111727] dark:text-white"
             : "bg-background text-foreground",
           open ? "translate-x-0" : "-translate-x-full",
@@ -382,7 +382,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
             onClick={() => setSettingsOpen(true)}
             className={cn(
               "rounded-md p-2",
-              isCote
+              isCoding
                 ? "hover:bg-slate-900/6 dark:hover:bg-white/10"
                 : "hover:bg-muted",
             )}
@@ -414,7 +414,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
             <p
               className={cn(
                 "text-2xl font-semibold",
-                isCote ? "text-slate-900 dark:text-white" : "text-foreground",
+                isCoding ? "text-slate-900 dark:text-white" : "text-foreground",
               )}
             >
               {profile?.name ?? session?.user?.name ?? "사용자"}
@@ -422,7 +422,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
             <p
               className={cn(
                 "text-xs",
-                isCote
+                isCoding
                   ? "text-slate-500 dark:text-white/75"
                   : "text-muted-foreground",
               )}
@@ -435,24 +435,24 @@ export default function MyPageDrawer({ open, onClose }: Props) {
         {/* platform stats */}
         <div className="flex justify-around mx-4 gap-2 items-center">
           {[
-            isCote ? "맞은 문제" : "글",
-            isCote ? "틀린 문제" : "댓글",
-            isCote ? "찜한 문제" : "팔로워",
+            isCoding ? "맞은 문제" : "글",
+            isCoding ? "틀린 문제" : "댓글",
+            isCoding ? "찜한 문제" : "팔로워",
           ].map((label, index) => {
             const value =
               index === 0
-                ? stats.first + (!isCote && isLoggedIn ? draftPostCount : 0)
+                ? stats.first + (!isCoding && isLoggedIn ? draftPostCount : 0)
                 : index === 1
                   ? stats.second
                   : stats.third;
             const sharedClass = cn(
               "shadow-sm rounded-lg w-full py-2 my-6",
-              isCote
+              isCoding
                 ? "border border-[#06923E] bg-[#06923E] text-white"
                 : "bg-primary text-primary-foreground border border-border",
             );
 
-            if (isCote) {
+            if (isCoding) {
               return (
                 <button
                   key={label}
@@ -463,7 +463,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                   )}
                   onClick={() => {
                     onClose();
-                    router.push(coteStatLinks[index]);
+                    router.push(codingStatLinks[index]);
                   }}
                 >
                   <p className="font-light text-white">{label}</p>
@@ -498,7 +498,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
         <div
           className={cn(
             "mx-4 flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden rounded-3xl border px-4 py-3 shadow-md",
-            isCote
+            isCoding
               ? "border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50"
               : "border-border bg-muted text-foreground",
           )}
@@ -559,7 +559,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
           <div
             className={cn(
               "min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pr-2 text-sm",
-              isCote ? "scrollbar-green" : "scrollbar-orange",
+              isCoding ? "scrollbar-green" : "scrollbar-orange",
             )}
           >
             {notifications.length === 0 && (
@@ -673,7 +673,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                           const postPath = n.post_path;
                           const shouldOpenNoticeDetail =
                             typeof postPath === "string" &&
-                            postPath.startsWith("/horok-tech/notices/");
+                            postPath.startsWith("/horok-log/notices/");
 
                           const shouldOpenQnaList =
                             shouldOpenNoticeDetail &&
@@ -683,7 +683,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
 
                           if (shouldOpenQnaList) {
                             router.push(
-                              `/horok-tech/notices?category=QnA&target=${n.post_id}`,
+                              `/horok-log/notices?category=QnA&target=${n.post_id}`,
                             );
                             return;
                           }
@@ -788,7 +788,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
         <p
           className={cn(
             "text-center text-xs font-light my-4",
-            isCote
+            isCoding
               ? "text-slate-500 dark:text-white/70"
               : "text-muted-foreground",
           )}
@@ -800,7 +800,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
             rel="noopener noreferrer"
             className={cn(
               "underline",
-              isCote
+              isCoding
                 ? "hover:text-slate-900 dark:hover:text-white"
                 : "hover:text-foreground",
             )}
@@ -813,14 +813,14 @@ export default function MyPageDrawer({ open, onClose }: Props) {
         <div
           className={cn(
             "flex border-t py-6 mx-4",
-            isCote ? "border-slate-200 dark:border-white/10" : "border-border",
+            isCoding ? "border-slate-200 dark:border-white/10" : "border-border",
           )}
         >
           <button
             type="button"
             className={cn(
               "w-full border-r text-sm hover:underline",
-              isCote
+              isCoding
                 ? "border-slate-200 text-red-400 dark:border-white/10"
                 : "text-red-400",
             )}
@@ -847,7 +847,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
             type="button"
             className={cn(
               "w-full rounded-md text-sm",
-              isCote ? "text-muted-foreground" : "text-muted-foreground",
+              isCoding ? "text-muted-foreground" : "text-muted-foreground",
             )}
             onClick={() => signOut({ callbackUrl: getCallbackUrl() })}
           >

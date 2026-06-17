@@ -3,7 +3,7 @@
 import { PenSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { getTechFeedNewPostPath } from "@/lib/routes";
+import { getLogFeedNewPostPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type HomeWriteButtonProps = {
@@ -14,7 +14,7 @@ type HomeWriteButtonProps = {
 };
 
 export default function HomeWriteButton({
-  href = getTechFeedNewPostPath(),
+  href = getLogFeedNewPostPath(),
   label = "글 작성",
   className,
   buttonClassName,
