@@ -160,6 +160,7 @@ export async function createPost(params: {
   thumbnailUrl?: string | null;
   isBanner?: boolean;
   isSecret?: boolean;
+  copiedFromPostId?: number | null;
 }) {
   const {
     userId,
@@ -170,6 +171,7 @@ export async function createPost(params: {
     thumbnailUrl = null,
     isBanner = false,
     isSecret = false,
+    copiedFromPostId = null,
   } = params;
   const normalizedCategoryNames = normalizeCategoryNames(
     categoryNames ?? (categoryName ? [categoryName] : []),
@@ -196,6 +198,13 @@ export async function createPost(params: {
       thumbnail: thumbnailUrl,
       isBanner,
       isSecret,
+      ...(copiedFromPostId
+        ? {
+            quotedPost: {
+              connect: { id: BigInt(copiedFromPostId) },
+            },
+          }
+        : {}),
     },
   });
 

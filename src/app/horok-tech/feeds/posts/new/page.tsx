@@ -1,14 +1,45 @@
 import { PenSquare } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { auth } from "@/app/api/auth/[...nextauth]/route";
 import PostEditor from "@/components/posts/PostEditor";
+import { getDbUserIdFromSession } from "@/lib/auth-db";
+import { findPostById } from "@/lib/db";
 
 export const metadata: Metadata = {
   title: "New Post | c.horok",
   description: "글 작성 페이지",
 };
 
-export default function HorokTechWritePostPage() {
+type Props = {
+  searchParams: Promise<{ copyPostId?: string }>;
+};
+
+export default async function HorokTechWritePostPage({ searchParams }: Props) {
+  const { copyPostId } = await searchParams;
+  const parsedCopyPostId = Number(copyPostId ?? "");
+  const dbUserId = await getDbUserIdFromSession();
+  const session = await auth();
+  const copiedPost =
+    Number.isInteger(parsedCopyPostId) && parsedCopyPostId > 0
+      ? await findPostById(parsedCopyPostId, {
+          includeHiddenForUserId: dbUserId,
+          includeHiddenForAdmin: session?.user?.role === "ADMIN",
+        })
+      : null;
+  const canCopyPost = copiedPost?.can_view_secret;
+  const copiedFromPost = canCopyPost
+    ? {
+        id: copiedPost.id,
+        title: copiedPost.title,
+        content: copiedPost.content,
+        thumbnail: copiedPost.thumbnail,
+        author_name: copiedPost.author_name,
+        author_image: copiedPost.author_image,
+        created_at: copiedPost.created_at,
+      }
+    : null;
+
   return (
     <main className="w-full">
       <div className="mb-6 flex items-center gap-2">
@@ -20,7 +51,16 @@ export default function HorokTechWritePostPage() {
           <div className="text-sm text-muted-foreground">에디터 로딩 중...</div>
         }
       >
-        <PostEditor />
+        <PostEditor
+          initialTitle={canCopyPost ? copiedPost.title : ""}
+          initialContent={canCopyPost ? copiedPost.content : ""}
+          initialCategoryName={canCopyPost ? copiedPost.category_name : ""}
+          initialCategoryNames={canCopyPost ? copiedPost.category_names : []}
+          initialThumbnail={canCopyPost ? copiedPost.thumbnail : null}
+          initialIsSecret={canCopyPost ? copiedPost.is_secret : false}
+          copiedFromPostId={canCopyPost ? copiedPost.id : null}
+          copiedFromPost={copiedFromPost}
+        />
       </Suspense>
     </main>
   );

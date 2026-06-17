@@ -2,17 +2,18 @@
 
 import { ChevronDown, Download, FileText } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import {
-  downloadPostMarkdownFile,
-} from "@/lib/post-download";
+import { downloadPostMarkdownFile } from "@/lib/post-download";
 import { downloadPostPdfFile } from "@/lib/post-download-pdf";
 import { cn, formatSeoulDateTime } from "@/lib/utils";
 
 type Props = {
+  postId: number;
   title: string;
   content: string;
   authorName: string;
   createdAt: Date;
+  initialMarkdownCount?: number;
+  initialPdfCount?: number;
   className?: string;
 };
 
@@ -25,16 +26,46 @@ function getPostUrl() {
 }
 
 export default function PostDownloadMenu({
+  postId,
   title,
   content,
   authorName,
   createdAt,
+  initialMarkdownCount = 0,
+  initialPdfCount = 0,
   className,
 }: Props) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [markdownCount, setMarkdownCount] = useState(initialMarkdownCount);
+  const [pdfCount, setPdfCount] = useState(initialPdfCount);
+
+  async function trackDownload(type: "markdown" | "pdf") {
+    try {
+      const response = await fetch(`/api/posts/${postId}/downloads`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ type }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (response.ok) {
+        if (typeof payload?.markdownCount === "number") {
+          setMarkdownCount(payload.markdownCount);
+        }
+
+        if (typeof payload?.pdfCount === "number") {
+          setPdfCount(payload.pdfCount);
+        }
+      }
+    } catch {
+      // Download should still succeed even if tracking is unavailable.
+    }
+  }
 
   useEffect(() => {
     if (!isOpen) {
@@ -70,6 +101,7 @@ export default function PostDownloadMenu({
         createdAtText: formatSeoulDateTime(createdAt),
         postUrl: getPostUrl(),
       });
+      void trackDownload("pdf");
       setIsOpen(false);
     } catch {
       setDownloadError("PDF 다운로드 중 오류가 발생했습니다.");
@@ -86,6 +118,7 @@ export default function PostDownloadMenu({
       createdAt,
       postUrl: getPostUrl(),
     });
+    void trackDownload("markdown");
     setIsOpen(false);
     setDownloadError(null);
   }
@@ -124,7 +157,10 @@ export default function PostDownloadMenu({
           className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-muted/60"
         >
           <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span>Markdown (.md)</span>
+          <span className="min-w-0 flex-1">Markdown (.md)</span>
+          <span className="font-semibold tabular-nums text-muted-foreground">
+            {markdownCount}
+          </span>
         </button>
         <div className="h-px bg-border" />
         <button
@@ -134,7 +170,12 @@ export default function PostDownloadMenu({
           className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span>{isDownloadingPdf ? "PDF 생성 중..." : "PDF (.pdf)"}</span>
+          <span className="min-w-0 flex-1">
+            {isDownloadingPdf ? "PDF 생성 중..." : "PDF (.pdf)"}
+          </span>
+          <span className="font-semibold tabular-nums text-muted-foreground">
+            {pdfCount}
+          </span>
         </button>
       </div>
 

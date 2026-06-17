@@ -4,9 +4,11 @@ import { Check, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import CopiedPostCard from "@/components/posts/CopiedPostCard";
 import MarkdownRenderer from "@/components/posts/MarkdownRenderer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { DbCopiedPost } from "@/lib/db";
 import { isNoticeCategoryName } from "@/lib/notice-categories";
 import {
   clearSyncedPostDraft,
@@ -125,6 +127,8 @@ type PostEditorProps = {
   initialThumbnail?: string | null;
   initialIsBanner?: boolean;
   initialIsSecret?: boolean;
+  copiedFromPostId?: number | null;
+  copiedFromPost?: DbCopiedPost | null;
   cancelLabel?: string;
   submitLabel?: string;
   submittingLabel?: string;
@@ -149,6 +153,8 @@ export default function PostEditor({
   initialThumbnail = null,
   initialIsBanner = false,
   initialIsSecret = false,
+  copiedFromPostId = null,
+  copiedFromPost = null,
   cancelLabel = "취소",
   submitLabel = mode === "edit" ? "수정 저장" : "게시하기",
   submittingLabel = mode === "edit" ? "저장 중..." : "게시 중...",
@@ -196,9 +202,9 @@ export default function PostEditor({
   );
   const [isBanner, setIsBanner] = useState(initialIsBanner);
   const [isSecret, setIsSecret] = useState(initialIsSecret);
-  const [selectedThumbnailUrl, setSelectedThumbnailUrl] = useState<string | null>(
-    initialThumbnail ?? null,
-  );
+  const [selectedThumbnailUrl, setSelectedThumbnailUrl] = useState<
+    string | null
+  >(initialThumbnail ?? null);
   const [isUploadingContentImage, setIsUploadingContentImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -270,7 +276,7 @@ export default function PostEditor({
   }, []);
 
   useEffect(() => {
-    if (mode !== "create" || hasCheckedDraftRef.current) {
+    if (mode !== "create" || copiedFromPostId || hasCheckedDraftRef.current) {
       return;
     }
 
@@ -319,6 +325,7 @@ export default function PostEditor({
   }, [
     draftIdFromParams,
     draftStorageKey,
+    copiedFromPostId,
     fixedTagOptions,
     inquiryTagOptions,
     mode,
@@ -808,6 +815,9 @@ export default function PostEditor({
           isBanner,
           isSecret,
           thumbnailUrl: nextThumbnailUrl,
+          ...(mode === "create" && copiedFromPostId
+            ? { copiedFromPostId }
+            : {}),
         }),
       });
 
@@ -1041,6 +1051,12 @@ export default function PostEditor({
       />
 
       <div className="space-y-3">
+        {copiedFromPost ? (
+          <div className="pt-1">
+            <CopiedPostCard copiedPost={copiedFromPost} />
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center border-b border-border/70">
             <button
@@ -1133,7 +1149,7 @@ export default function PostEditor({
 
               return (
                 <button
-                  key={`${imageUrl}-${index}`}
+                  key={imageUrl}
                   type="button"
                   onClick={() => setSelectedThumbnailUrl(imageUrl)}
                   className={cn(

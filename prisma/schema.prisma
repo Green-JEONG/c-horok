@@ -147,6 +147,7 @@ model Post {
   updatedAt     DateTime        @default(now()) @updatedAt @map("updated_at")
   isHidden      Boolean         @default(false) @map("is_hidden")
   isSecret      Boolean         @default(false) @map("is_secret")
+  quotedPostId  BigInt?         @map("quoted_post_id")
   hiddenAt      DateTime?       @map("hidden_at")
   isDeleted     Boolean         @default(false) @map("is_deleted")
   deletedAt     DateTime?       @map("deleted_at")
@@ -156,12 +157,29 @@ model Post {
   comments      Comment[]
   likes         PostLike[]
   postCategories PostCategory[]
+  quotedPost    Post?           @relation("PostQuotes", fields: [quotedPostId], references: [id], onDelete: SetNull)
+  quotingPosts  Post[]          @relation("PostQuotes")
+  downloadCounts PostDownloadCount?
   views         PostView?
   notifications Notification[]
   user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([createdAt], map: "idx_posts_created_at")
+  @@index([quotedPostId], map: "idx_posts_quoted_post_id")
   @@map("posts")
+  @@schema("horok_tech")
+}
+
+model PostDownloadCount {
+  postId        BigInt   @id @map("post_id")
+  markdownCount Int      @default(0) @map("markdown_count")
+  pdfCount      Int      @default(0) @map("pdf_count")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("post_download_counts")
   @@schema("horok_tech")
 }
 

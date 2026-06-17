@@ -252,6 +252,65 @@
     background-color: oklch(0.68 0.19 55);
   }
 
+  .scrollbar-orange-auto {
+    --scrollbar-orange-auto-thumb: transparent;
+    --scrollbar-orange-auto-shadow: transparent;
+    --scrollbar-orange-auto-transition-duration: 900ms;
+
+    scrollbar-color: transparent transparent;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-orange-auto.is-scrolling {
+    --scrollbar-orange-auto-thumb: var(--primary);
+    --scrollbar-orange-auto-shadow: color-mix(
+      in oklch,
+      var(--primary) 45%,
+      transparent
+    );
+    --scrollbar-orange-auto-transition-duration: 180ms;
+
+    scrollbar-color: var(--primary) transparent;
+  }
+
+  .scrollbar-orange-auto.scrollbar-orange-hover:hover,
+  .scrollbar-orange-auto.scrollbar-orange-hover:focus-within {
+    --scrollbar-orange-auto-thumb: var(--primary);
+    --scrollbar-orange-auto-shadow: color-mix(
+      in oklch,
+      var(--primary) 45%,
+      transparent
+    );
+    --scrollbar-orange-auto-transition-duration: 180ms;
+
+    scrollbar-color: var(--primary) transparent;
+  }
+
+  .scrollbar-orange-auto::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-orange-auto::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-orange-auto::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-orange-auto-thumb);
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+    box-shadow: 0 0 10px var(--scrollbar-orange-auto-shadow);
+    transition:
+      background-color var(--scrollbar-orange-auto-transition-duration) ease,
+      box-shadow var(--scrollbar-orange-auto-transition-duration) ease;
+  }
+
+  .scrollbar-orange-auto::-webkit-scrollbar-thumb:hover {
+    background-color: oklch(0.68 0.19 55);
+  }
+
   .scrollbar-green {
     scrollbar-color: #06923e transparent;
     scrollbar-gutter: stable;
