@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { horokItemTitle } from "@/lib/page-titles";
 
 export const metadata: Metadata = {
-  title: "Horok Item | c.horok",
+  title: horokItemTitle("호록 굿즈"),
   description: "호록 컴퍼니의 브랜드와 굿즈를 소개하는 아이템 페이지",
   alternates: {
     canonical: "/horok-item",

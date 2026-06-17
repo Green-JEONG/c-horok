@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
 import ErrorState from "@/components/common/ErrorState";
@@ -13,10 +14,44 @@ import {
   findPostById,
   findPostSeriesByTitle,
 } from "@/lib/db";
+import { horokLogTitle } from "@/lib/page-titles";
 
 type Props = {
   params: Promise<{ id: string }>;
 };
+
+function getPostDescription(content: string) {
+  return content.replace(/\s+/g, " ").trim().slice(0, 160);
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  const postId = Number(id);
+
+  if (Number.isNaN(postId)) {
+    return {
+      title: horokLogTitle("글"),
+    };
+  }
+
+  const dbUserId = await getDbUserIdFromSession();
+  const session = await auth();
+  const post = await findPostById(postId, {
+    includeHiddenForUserId: dbUserId,
+    includeHiddenForAdmin: session?.user?.role === "ADMIN",
+  });
+
+  if (!post || (post.is_secret && !post.can_view_secret)) {
+    return {
+      title: horokLogTitle("글"),
+    };
+  }
+
+  return {
+    title: horokLogTitle(post.title),
+    description: getPostDescription(post.content),
+  };
+}
 
 export default async function HorokLogPostPage({ params }: Props) {
   const { id } = await params;

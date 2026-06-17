@@ -1,21 +1,21 @@
 import { ChevronRight } from "lucide-react";
 import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Mypage | c.horok",
-  description: "마이 페이지",
-  robots: {
-    index: false,
-    follow: false,
-  },
-};
-
 import { Suspense } from "react";
 import MyPageHeading, {
   MYPAGE_HEADING_ACTIONS_SLOT_ID,
 } from "@/components/mypage/MyPageHeading";
 import MyPageSection from "@/components/mypage/MyPageSection";
 import { getCategoryBySlug } from "@/lib/categories";
+import { horokLogTitle } from "@/lib/page-titles";
+
+export const metadata: Metadata = {
+  title: horokLogTitle("마이페이지"),
+  description: "마이 페이지",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 type Props = {
   searchParams: Promise<{ category?: string }>;

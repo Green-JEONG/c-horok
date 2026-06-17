@@ -12,6 +12,7 @@ import PostListHeader from "@/components/posts/PostListHeader";
 import UserFollowersSection from "@/components/users/UserFollowersSection";
 import { getCategoryBySlug } from "@/lib/categories";
 import { findUserById } from "@/lib/db";
+import { horokLogTitle } from "@/lib/page-titles";
 import { prisma } from "@/lib/prisma";
 import { countUserPosts } from "@/lib/queries";
 
@@ -57,14 +58,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!/^\d+$/.test(id)) {
     return {
-      title: "유저 페이지 | c.horok",
+      title: horokLogTitle("유저"),
     };
   }
 
   const user = await findUserById(id);
 
   return {
-    title: `${user?.name ?? "유저"} | c.horok`,
+    title: horokLogTitle(user?.name ?? "유저"),
     description: `${user?.name ?? "유저"}의 잔디와 작성한 글`,
   };
 }

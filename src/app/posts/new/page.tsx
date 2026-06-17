@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { horokLogTitle } from "@/lib/page-titles";
 
 export const metadata: Metadata = {
-  title: "New Post | c.horok",
+  title: horokLogTitle("글 작성"),
   description: "글 작성 페이지",
 };
 

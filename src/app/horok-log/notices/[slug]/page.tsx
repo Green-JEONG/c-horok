@@ -15,6 +15,7 @@ import {
   NOTICE_TAG_OPTIONS,
 } from "@/lib/notice-categories";
 import { findNoticeAccessMetaById, findNoticeById } from "@/lib/notices";
+import { horokLogTitle } from "@/lib/page-titles";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -27,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (Number.isNaN(noticeId)) {
     return {
-      title: "공지사항 | c.horok",
+      title: horokLogTitle("공지사항"),
     };
   }
 
@@ -44,12 +45,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!notice) {
     return {
-      title: "공지사항 | c.horok",
+      title: horokLogTitle("공지사항"),
     };
   }
 
   return {
-    title: `${notice.title} | 공지사항 | c.horok`,
+    title: horokLogTitle(notice.title),
     description: notice.summary,
   };
 }
@@ -59,8 +60,7 @@ function getSafeNoticeBackHref(from?: string) {
     return "/horok-log/notices";
   }
 
-  return from === "/horok-log/notices" ||
-    from.startsWith("/horok-log/notices?")
+  return from === "/horok-log/notices" || from.startsWith("/horok-log/notices?")
     ? from
     : "/horok-log/notices";
 }
