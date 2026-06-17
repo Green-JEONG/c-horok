@@ -5,9 +5,14 @@ import CommentList from "@/components/posts/CommentList";
 import PostActions from "@/components/posts/PostActions";
 import PostContent from "@/components/posts/PostContent";
 import PostFooter from "@/components/posts/PostFooter";
+import PostScrollTopButton from "@/components/posts/PostScrollTopButton";
 import PostViewTracker from "@/components/posts/PostViewTracker";
 import { getDbUserIdFromSession } from "@/lib/auth-db";
-import { findPostAccessMetaById, findPostById } from "@/lib/db";
+import {
+  findPostAccessMetaById,
+  findPostById,
+  findPostSeriesByTitle,
+} from "@/lib/db";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -46,9 +51,14 @@ export default async function HorokTechPostPage({ params }: Props) {
   const isOwner =
     typeof session?.user?.id === "string" &&
     Number(session.user.id) === post.user_id;
+  const seriesItems = await findPostSeriesByTitle(post.title, {
+    authorUserId: post.user_id,
+    includeHiddenForUserId: dbUserId,
+    includeHiddenForAdmin: session?.user?.role === "ADMIN",
+  });
 
   return (
-    <article className="w-full">
+    <article className="w-full min-w-0">
       <PostViewTracker postId={postId} title={post.title} />
       <PostActions
         postId={postId}
@@ -59,6 +69,8 @@ export default async function HorokTechPostPage({ params }: Props) {
         initialThumbnail={post.thumbnail}
         initialIsHidden={post.is_hidden}
         initialIsSecret={post.is_secret}
+        initialCopiedFromPost={post.copied_from_post}
+        seriesItems={seriesItems}
         isOwner={isOwner}
         headerPost={post}
       >
@@ -72,6 +84,7 @@ export default async function HorokTechPostPage({ params }: Props) {
         </p>
       ) : null}
       {post.can_view_secret ? <CommentList postId={postId} /> : null}
+      <PostScrollTopButton />
     </article>
   );
 }

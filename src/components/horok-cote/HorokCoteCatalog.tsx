@@ -59,7 +59,7 @@ export default function HorokCoteCatalog({
     setActiveTab(tab || "all");
     setSelectedLevel(
       HOROK_COTE_LEVELS.find((candidateLevel) => candidateLevel === level) ??
-      ALL_LEVEL,
+        ALL_LEVEL,
     );
   }, [searchParams]);
 

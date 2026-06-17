@@ -2,6 +2,7 @@ import type { ComponentProps, CSSProperties } from "react";
 import { Fragment } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
+import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import CodeBlock from "@/components/posts/CodeBlock";
@@ -99,7 +100,11 @@ function renderMarkdownBody(
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeHighlight, [rehypeSanitize, sanitizeSchema]]}
+      rehypePlugins={[
+        rehypeRaw,
+        rehypeHighlight,
+        [rehypeSanitize, sanitizeSchema],
+      ]}
       components={{
         p({ children }) {
           if (layout === "inline-row") {
@@ -169,6 +174,12 @@ function renderMarkdownBody(
               style={imageStyle}
             />
           );
+        },
+        sup({ children }) {
+          return <sup className="align-super text-[0.75em]">{children}</sup>;
+        },
+        sub({ children }) {
+          return <sub className="align-sub text-[0.75em]">{children}</sub>;
         },
         code(props) {
           const { children, className: codeClassName, ...rest } = props;
@@ -455,7 +466,13 @@ function collapseLayoutBlockImages(content: string): string {
 function convertMarkdownImageAttributes(content: string): string {
   return content.replace(
     /!\[([^\]]*)]\(([^)\s]+)(?:\s+["']([^"']*)["'])?\)\s*\{([^}]+)\}/g,
-    (_, alt: string, src: string, existingTitle: string | undefined, attrBlock: string) => {
+    (
+      _,
+      alt: string,
+      src: string,
+      existingTitle: string | undefined,
+      attrBlock: string,
+    ) => {
       const dimensions = parseImageDimensions({
         title: existingTitle,
         ...parseImageAttributeBlock(attrBlock),
@@ -466,10 +483,10 @@ function convertMarkdownImageAttributes(content: string): string {
   );
 }
 
-function normalizeHtmlLikeMarkdown(content: string): string {
+export function normalizeHtmlLikeMarkdown(content: string): string {
   const normalized = convertHtmlAlignedParagraphs(
     convertHtmlFlexDivs(
-      content.replace(/<br\s*\/?>/gi, "\n"),
+      normalizeSupSubTags(content.replace(/<br\s*\/?>/gi, "\n")),
     ),
   )
     .replace(
@@ -515,6 +532,18 @@ function normalizeHtmlLikeMarkdown(content: string): string {
   return collapseLayoutBlockImages(
     convertMarkdownImageAttributes(convertHtmlImgToMarkdown(normalized)),
   );
+}
+
+function normalizeSupSubTags(content: string): string {
+  return content
+    .replace(
+      /<sup\b[^>]*>([\s\S]*?)<\/sup>/gi,
+      (_, text: string) => `<sup>${text}</sup>`,
+    )
+    .replace(
+      /<sub\b[^>]*>([\s\S]*?)<\/sub>/gi,
+      (_, text: string) => `<sub>${text}</sub>`,
+    );
 }
 
 function getCodeText(children: ComponentProps<"code">["children"]): string {

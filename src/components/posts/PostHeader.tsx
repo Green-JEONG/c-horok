@@ -3,7 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import PostDownloadMenu from "@/components/posts/PostDownloadMenu";
-import type { DbPost } from "@/lib/db";
+import PostSeriesTable from "@/components/posts/PostSeriesTable";
+import type { DbPost, DbPostSeriesItem } from "@/lib/db";
 import { isNoticeCategoryName } from "@/lib/notice-categories";
 import { formatSeoulDateTime } from "@/lib/utils";
 
@@ -11,11 +12,13 @@ export default function PostHeader({
   post,
   actionSlot,
   titleAddon,
+  seriesItems = [],
   isOwner = false,
 }: {
   post: DbPost;
   actionSlot?: ReactNode;
   titleAddon?: ReactNode;
+  seriesItems?: DbPostSeriesItem[];
   isOwner?: boolean;
 }) {
   const createdDateTime = formatSeoulDateTime(post.created_at);
@@ -48,6 +51,8 @@ export default function PostHeader({
 
   return (
     <header className="mb-3">
+      <PostSeriesTable currentPostId={post.id} items={seriesItems} />
+
       <h1 className="flex items-center gap-2 text-3xl font-bold leading-tight">
         <span className="min-w-0 flex-1">{post.title}</span>
         {showHiddenIcon || showSecretLock ? (
@@ -61,13 +66,18 @@ export default function PostHeader({
           </span>
         ) : null}
         {titleAddon ? (
-          <span className="inline-flex shrink-0 items-center">{titleAddon}</span>
+          <span className="inline-flex shrink-0 items-center">
+            {titleAddon}
+          </span>
         ) : null}
         <PostDownloadMenu
+          postId={post.id}
           title={post.title}
           content={post.content}
           authorName={post.author_name}
           createdAt={post.created_at}
+          initialMarkdownCount={post.markdown_download_count ?? 0}
+          initialPdfCount={post.pdf_download_count ?? 0}
         />
       </h1>
 

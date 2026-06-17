@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
-import { findPostsPaged, getUserIdByEmail } from "@/lib/db";
+import { findPostById, findPostsPaged, getUserIdByEmail } from "@/lib/db";
 import {
   isNoticeCategoryName,
   isPublicNoticeCategory,
@@ -74,7 +74,8 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { title, content, thumbnailUrl, isBanner, isSecret } = body;
+  const { title, content, thumbnailUrl, isBanner, isSecret, copiedFromPostId } =
+    body;
   const categoryNames = getCategoryNames(body);
   const normalizedCategoryName = categoryNames[0] ?? "";
 
@@ -90,6 +91,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
+  const normalizedCopiedFromPostId =
+    typeof copiedFromPostId === "number" && Number.isInteger(copiedFromPostId)
+      ? copiedFromPostId
+      : typeof copiedFromPostId === "string" && /^\d+$/.test(copiedFromPostId)
+        ? Number(copiedFromPostId)
+        : null;
+
+  if (normalizedCopiedFromPostId) {
+    const copiedPost = await findPostById(normalizedCopiedFromPostId, {
+      includeHiddenForUserId: userId,
+      includeHiddenForAdmin: session.user.role === "ADMIN",
+    });
+
+    if (!copiedPost || !copiedPost.can_view_secret) {
+      return NextResponse.json(
+        { message: "복사할 게시글을 찾을 수 없습니다." },
+        { status: 400 },
+      );
+    }
+  }
+
   const post = await createPost({
     userId,
     categoryName: normalizedCategoryName || undefined,
@@ -102,6 +124,7 @@ export async function POST(req: Request) {
       typeof thumbnailUrl === "string" && thumbnailUrl.trim()
         ? thumbnailUrl.trim()
         : null,
+    copiedFromPostId: normalizedCopiedFromPostId,
   });
 
   if (normalizedCategoryName === "QnA" && session.user.role !== "ADMIN") {

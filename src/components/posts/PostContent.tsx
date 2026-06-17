@@ -1,4 +1,5 @@
 import Image from "next/image";
+import CopiedPostCard from "@/components/posts/CopiedPostCard";
 import MarkdownRenderer from "@/components/posts/MarkdownRenderer";
 import type { DbPost } from "@/lib/db";
 
@@ -18,11 +19,20 @@ export default function PostContent({ post }: { post: DbPost }) {
   }
 
   const thumbnail = post.thumbnail;
+  const isCopiedOriginalThumbnail =
+    Boolean(post.copied_from_post?.thumbnail) &&
+    thumbnail === post.copied_from_post?.thumbnail;
   const shouldShowThumbnail =
-    thumbnail && !contentIncludesImageUrl(post.content, thumbnail);
+    thumbnail &&
+    !isCopiedOriginalThumbnail &&
+    !contentIncludesImageUrl(post.content, thumbnail);
 
   return (
     <section className="">
+      {post.copied_from_post ? (
+        <CopiedPostCard copiedPost={post.copied_from_post} />
+      ) : null}
+
       {shouldShowThumbnail ? (
         <div className="relative mb-6 aspect-[16/9] overflow-hidden rounded-xl">
           <Image

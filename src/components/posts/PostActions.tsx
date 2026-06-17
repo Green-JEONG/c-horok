@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import PostEditor from "@/components/posts/PostEditor";
 import PostHeader from "@/components/posts/PostHeader";
-import type { DbPost } from "@/lib/db";
+import type { DbCopiedPost, DbPost, DbPostSeriesItem } from "@/lib/db";
 import {
   getStorageObjectPathFromPublicUrl,
   POST_THUMBNAIL_BUCKET,
@@ -22,6 +22,8 @@ type Props = {
   initialIsHidden: boolean;
   initialIsSecret?: boolean;
   initialIsBanner?: boolean;
+  initialCopiedFromPost?: DbCopiedPost | null;
+  seriesItems?: DbPostSeriesItem[];
   isOwner: boolean;
   headerPost?: DbPost;
   headerTitleAddon?: ReactNode;
@@ -44,6 +46,8 @@ export default function PostActions({
   initialIsHidden,
   initialIsSecret = false,
   initialIsBanner = false,
+  initialCopiedFromPost = null,
+  seriesItems = [],
   isOwner,
   headerPost,
   headerTitleAddon,
@@ -182,6 +186,7 @@ export default function PostActions({
           post={headerPost}
           actionSlot={actionSlot}
           titleAddon={headerTitleAddon}
+          seriesItems={seriesItems}
           isOwner={isOwner}
         />
       ) : null}
@@ -198,6 +203,7 @@ export default function PostActions({
             initialThumbnail={initialThumbnail}
             initialIsBanner={initialIsBanner}
             initialIsSecret={initialIsSecret}
+            copiedFromPost={initialCopiedFromPost}
             categoryLocked={categoryLocked}
             fixedTagOptions={fixedTagOptions}
             inquiryTagOptions={inquiryTagOptions}

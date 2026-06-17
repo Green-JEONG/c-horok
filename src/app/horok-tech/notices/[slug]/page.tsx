@@ -7,6 +7,7 @@ import InquiryStatusButton from "@/components/posts/InquiryStatusButton";
 import PostActions from "@/components/posts/PostActions";
 import PostContent from "@/components/posts/PostContent";
 import PostFooter from "@/components/posts/PostFooter";
+import PostScrollTopButton from "@/components/posts/PostScrollTopButton";
 import PostViewTracker from "@/components/posts/PostViewTracker";
 import {
   INQUIRY_TAG_OPTIONS,
@@ -158,7 +159,7 @@ export default async function HorokTechNoticeDetailPage({
       : "waiting";
 
   return (
-    <article className="w-full">
+    <article className="w-full min-w-0">
       <PostViewTracker
         postId={noticeId}
         title={notice.title}
@@ -232,6 +233,7 @@ export default async function HorokTechNoticeDetailPage({
           {notice.canViewSecret ? <CommentList postId={notice.id} /> : null}
         </>
       ) : null}
+      <PostScrollTopButton />
     </article>
   );
 }

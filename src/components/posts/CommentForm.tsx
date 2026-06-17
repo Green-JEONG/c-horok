@@ -723,7 +723,9 @@ export default function CommentForm({
           <div className="rounded-md border bg-background p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               {cardHeader ? (
-                <div className="flex min-w-0 flex-1 items-center">{cardHeader}</div>
+                <div className="flex min-w-0 flex-1 items-center">
+                  {cardHeader}
+                </div>
               ) : (
                 <div className="flex-1" />
               )}

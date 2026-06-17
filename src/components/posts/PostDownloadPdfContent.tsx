@@ -1,7 +1,9 @@
 import type { CSSProperties } from "react";
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
+import { normalizeHtmlLikeMarkdown } from "@/components/posts/MarkdownRenderer";
 
 type Props = {
   title: string;
@@ -64,17 +66,22 @@ export default function PostDownloadPdfContent({
 
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeSanitize]}
+        rehypePlugins={[rehypeRaw, rehypeSanitize]}
         components={{
           h1: ({ children }) => <h1 style={headingStyle(28)}>{children}</h1>,
           h2: ({ children }) => <h2 style={headingStyle(24)}>{children}</h2>,
           h3: ({ children }) => <h3 style={headingStyle(20)}>{children}</h3>,
           h4: ({ children }) => <h4 style={headingStyle(18)}>{children}</h4>,
           p: ({ children }) => (
-            <p style={{ margin: "16px 0", whiteSpace: "pre-wrap" }}>{children}</p>
+            <p style={{ margin: "16px 0", whiteSpace: "pre-wrap" }}>
+              {children}
+            </p>
           ),
           a: ({ href, children }) => (
-            <a href={href} style={{ color: "#2563eb", textDecoration: "underline" }}>
+            <a
+              href={href}
+              style={{ color: "#2563eb", textDecoration: "underline" }}
+            >
               {children}
             </a>
           ),
@@ -142,6 +149,28 @@ export default function PostDownloadPdfContent({
               }}
             />
           ),
+          sup: ({ children }) => (
+            <sup
+              style={{
+                verticalAlign: "super",
+                fontSize: "0.75em",
+                lineHeight: 0,
+              }}
+            >
+              {children}
+            </sup>
+          ),
+          sub: ({ children }) => (
+            <sub
+              style={{
+                verticalAlign: "sub",
+                fontSize: "0.75em",
+                lineHeight: 0,
+              }}
+            >
+              {children}
+            </sub>
+          ),
           hr: () => (
             <hr
               style={{
@@ -186,7 +215,7 @@ export default function PostDownloadPdfContent({
           ),
         }}
       >
-        {content}
+        {normalizeHtmlLikeMarkdown(content)}
       </ReactMarkdown>
     </div>
   );

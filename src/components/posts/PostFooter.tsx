@@ -5,6 +5,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { getUserIdByEmail } from "@/lib/db";
 import { getPostReactionSummary } from "@/lib/post-reactions";
 import { prisma } from "@/lib/prisma";
+import CopyPostButton from "./CopyPostButton";
 import LikeButton from "./LikeButton";
 import PostReactionButton from "./PostReactionButton";
 
@@ -23,9 +24,15 @@ export default async function PostFooter({
   likeActionSlot,
   markCheckingOnAdminReaction = false,
 }: Props) {
-  const [likeCount, session] = await Promise.all([
+  const [likeCount, copyCount, session] = await Promise.all([
     prisma.postLike.count({
       where: { postId: BigInt(postId) },
+    }),
+    prisma.post.count({
+      where: {
+        quotedPostId: BigInt(postId),
+        isDeleted: false,
+      },
     }),
     auth(),
   ]);
@@ -66,6 +73,11 @@ export default async function PostFooter({
             disabled={!session?.user?.email}
           />
           {likeActionSlot}
+          <CopyPostButton
+            postId={postId}
+            initialCount={copyCount}
+            disabled={!session?.user?.email}
+          />
           <PostReactionButton
             postId={postId}
             initialReactions={reactions}
