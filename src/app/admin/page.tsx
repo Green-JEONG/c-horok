@@ -5,9 +5,10 @@ import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { seedLegacyBannerNotices } from "@/lib/notices";
 import { createPost, deletePost, updatePost } from "@/lib/posts";
 import { prisma } from "@/lib/prisma";
+import { horokLogTitle } from "@/lib/page-titles";
 
 export const metadata: Metadata = {
-  title: "Admin | c.horok",
+  title: horokLogTitle("관리자"),
   description: "관리자 페이지",
   robots: {
     index: false,

@@ -7,6 +7,7 @@ import MyPostList from "@/components/posts/MyPostList";
 import PostCard from "@/components/posts/PostCard";
 import PostListHeader from "@/components/posts/PostListHeader";
 import { Button } from "@/components/ui/button";
+import { horokLogTitle } from "@/lib/page-titles";
 import { getRandomPosts } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ function getPreviewVisibilityClassName(index: number) {
 }
 
 export const metadata: Metadata = {
-  title: "호록 기술 블로그 | horok-log",
+  title: horokLogTitle("호록 블로그"),
   description: "호록 기술 블로그 메인 페이지",
   alternates: {
     canonical: "/horok-log",

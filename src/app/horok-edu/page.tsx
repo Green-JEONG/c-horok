@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { horokEduTitle } from "@/lib/page-titles";
 
 export const metadata: Metadata = {
-  title: "호록 교육 | horok-edu",
+  title: horokEduTitle("호록 교육"),
   description: "호록 교육 콘텐츠 페이지",
   alternates: {
     canonical: "/horok-edu",

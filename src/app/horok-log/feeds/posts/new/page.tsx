@@ -5,9 +5,10 @@ import { auth } from "@/app/api/auth/[...nextauth]/route";
 import PostEditor from "@/components/posts/PostEditor";
 import { getDbUserIdFromSession } from "@/lib/auth-db";
 import { findPostById } from "@/lib/db";
+import { horokLogTitle } from "@/lib/page-titles";
 
 export const metadata: Metadata = {
-  title: "New Post | c.horok",
+  title: horokLogTitle("글 작성"),
   description: "글 작성 페이지",
 };
 

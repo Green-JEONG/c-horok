@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 const navItems = [
   {
     href: "/horok-log/feeds",
-    label: "소식",
+    label: "피드",
     match: (p: string) =>
       p === "/horok-log/feeds" || p.startsWith("/horok-log/feeds/"),
   },

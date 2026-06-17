@@ -113,7 +113,7 @@ export default function PostListHeader({
       : isLikesPage
         ? "북마크"
         : isFeedPage
-          ? "소식"
+          ? "피드"
           : "내 글");
 
   const canShowWriteButton = showWriteButton ?? false;

@@ -14,10 +14,11 @@ import {
   parseNoticeSearchTarget,
 } from "@/lib/notice-categories";
 import { countNoticesByCategory, findNotices } from "@/lib/notices";
+import { horokLogTitle } from "@/lib/page-titles";
 
 export const metadata: Metadata = {
-  title: "공지사항 | c.horok",
-  description: "c.horok 공지사항과 운영 소식을 확인하세요.",
+  title: horokLogTitle("공지사항"),
+  description: "horok-log 공지사항과 운영 소식을 확인하세요.",
   alternates: {
     canonical: "/horok-log/notices",
   },

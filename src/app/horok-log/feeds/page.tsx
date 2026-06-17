@@ -4,11 +4,12 @@ import OrangeScrollArea from "@/components/common/OrangeScrollArea";
 import PostList from "@/components/posts/PostList";
 import PostListHeader from "@/components/posts/PostListHeader";
 import { countFeedPosts } from "@/lib/db";
+import { horokLogTitle } from "@/lib/page-titles";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Feeds | c.horok",
+  title: horokLogTitle("피드"),
   description: "피드 페이지",
   alternates: {
     canonical: "/horok-log/feeds",

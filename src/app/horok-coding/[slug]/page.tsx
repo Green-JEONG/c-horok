@@ -10,6 +10,7 @@ import {
   listHorokCodingProblemRouteParams,
   listHorokCodingProblems,
 } from "@/lib/horok-coding";
+import { horokCodingTitle } from "@/lib/page-titles";
 import { prisma } from "@/lib/prisma";
 
 type HorokCodingProblemPageProps = {
@@ -30,12 +31,12 @@ export async function generateMetadata({
 
   if (!problem) {
     return {
-      title: "문제를 찾을 수 없습니다 | c.horok",
+      title: horokCodingTitle("문제"),
     };
   }
 
   return {
-    title: `${problem.title} | horok coding`,
+    title: horokCodingTitle(problem.title),
     description: problem.summary,
     alternates: {
       canonical: `/horok-coding/${problem.number}`,

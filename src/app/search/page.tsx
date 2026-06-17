@@ -18,9 +18,10 @@ import {
   searchUsersByName,
 } from "@/lib/queries";
 import { parseUserSearchSort } from "@/lib/user-search-sort";
+import { horokLogTitle } from "@/lib/page-titles";
 
 export const metadata: Metadata = {
-  title: "검색 결과 | c.horok",
+  title: horokLogTitle("검색"),
   description: "게시글 검색 결과 페이지",
   robots: {
     index: false,

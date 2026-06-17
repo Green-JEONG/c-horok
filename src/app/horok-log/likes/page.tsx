@@ -7,9 +7,10 @@ import PostListHeader from "@/components/posts/PostListHeader";
 import { getUserIdByEmail } from "@/lib/db";
 import { parsePostSearchTarget } from "@/lib/post-search-target";
 import { countLikedPosts } from "@/lib/queries";
+import { horokLogTitle } from "@/lib/page-titles";
 
 export const metadata: Metadata = {
-  title: "Bookmark | c.horok",
+  title: horokLogTitle("북마크"),
   description: "북마크 페이지",
   robots: {
     index: false,

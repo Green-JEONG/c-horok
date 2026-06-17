@@ -4,10 +4,11 @@ import HorokCodingBackgroundPattern from "@/components/horok-coding/HorokCodingB
 import HorokCodingCatalog from "@/components/horok-coding/HorokCodingCatalog";
 import { getUserIdByEmail } from "@/lib/db";
 import { HOROK_CODING_LEVELS, listHorokCodingProblems } from "@/lib/horok-coding";
+import { horokCodingTitle } from "@/lib/page-titles";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
-  title: "호록 코딩테스트 | horok-coding",
+  title: horokCodingTitle("호록 코딩"),
   description:
     "호록 코딩의 문제 목록과 IDE형 풀이 화면을 제공하는 코딩테스트 메인 페이지",
   alternates: {

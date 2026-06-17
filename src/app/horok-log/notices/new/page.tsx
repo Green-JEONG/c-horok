@@ -7,9 +7,10 @@ import {
   INQUIRY_TAG_OPTIONS,
   NOTICE_TAG_OPTIONS,
 } from "@/lib/notice-categories";
+import { horokLogTitle } from "@/lib/page-titles";
 
 export const metadata: Metadata = {
-  title: "공지사항 작성 | c.horok",
+  title: horokLogTitle("공지 작성"),
   description: "공지사항 및 문의 작성 페이지",
   robots: {
     index: false,
