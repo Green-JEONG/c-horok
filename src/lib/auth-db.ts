@@ -1,15 +1,15 @@
 import { auth } from "@/app/api/auth/[...nextauth]/route";
-import { coteAuth } from "@/app/api/cote-auth/[...nextauth]/route";
+import { codingAuth } from "@/app/api/coding-auth/[...nextauth]/route";
 import { getUserIdByEmail } from "@/lib/db";
 
-type AuthPlatform = "tech" | "cote";
+type AuthPlatform = "log" | "coding";
 
 async function getSessionByPlatform(platform: AuthPlatform) {
-  return platform === "cote" ? coteAuth() : auth();
+  return platform === "coding" ? codingAuth() : auth();
 }
 
 export async function requireDbUserId(
-  platform: AuthPlatform = "tech",
+  platform: AuthPlatform = "log",
 ): Promise<number> {
   const session = await getSessionByPlatform(platform);
   if (!session?.user?.email) {
@@ -24,7 +24,7 @@ export async function requireDbUserId(
   return userId;
 }
 
-export async function getDbUserIdFromSession(platform: AuthPlatform = "tech") {
+export async function getDbUserIdFromSession(platform: AuthPlatform = "log") {
   const session = await getSessionByPlatform(platform);
   if (!session?.user?.email) return null;
 

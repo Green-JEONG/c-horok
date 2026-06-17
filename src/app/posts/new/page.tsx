@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function LegacyWritePostPage() {
-  redirect("/horok-tech/feeds/posts/new");
+  redirect("/horok-log/feeds/posts/new");
 }

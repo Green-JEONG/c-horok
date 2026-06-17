@@ -16,9 +16,9 @@ import {
 } from "react";
 import { isNoticeCategoryName } from "@/lib/notice-categories";
 import {
-  getTechFaqPath,
-  getTechFeedPostPath,
-  getTechNoticePath,
+  getLogFaqPath,
+  getLogFeedPostPath,
+  getLogNoticePath,
 } from "@/lib/routes";
 
 type SearchSuggestion = {
@@ -109,10 +109,10 @@ function useHeaderSearchState() {
 
 function getSuggestionHref(post: SearchSuggestion) {
   return post.category_name === "FAQ"
-    ? getTechFaqPath(post.id)
+    ? getLogFaqPath(post.id)
     : isNoticeCategoryName(post.category_name)
-      ? getTechNoticePath(post.id)
-      : getTechFeedPostPath(post.id);
+      ? getLogNoticePath(post.id)
+      : getLogFeedPostPath(post.id);
 }
 
 export default function HeaderSearch() {

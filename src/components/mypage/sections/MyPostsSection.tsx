@@ -10,11 +10,11 @@ import MyPageHeadingPortal from "@/components/mypage/MyPageHeadingPortal";
 import PostCard from "@/components/posts/PostCard";
 import {
   clearSyncedPostDraft,
-  getTechPostDraftStorageKey,
+  getLogPostDraftStorageKey,
   loadSyncedPostDrafts,
 } from "@/lib/post-drafts";
 import { comparePostMetrics, parseSortType } from "@/lib/post-sort";
-import { getTechFeedNewPostPath } from "@/lib/routes";
+import { getLogFeedNewPostPath } from "@/lib/routes";
 
 const GRID_PROBE_ITEMS = [
   "probe-1",
@@ -113,7 +113,7 @@ export default function MyPostsSection() {
     searchTarget ?? ""
   }`;
   const previousListKeyRef = useRef(listKey);
-  const draftStorageKey = getTechPostDraftStorageKey();
+  const draftStorageKey = getLogPostDraftStorageKey();
 
   useEffect(() => {
     const probe = gridProbeRef.current;
@@ -240,7 +240,7 @@ export default function MyPostsSection() {
                 is_secret: false,
                 is_draft: true,
                 draft_id: draft.id,
-                href_override: `${getTechFeedNewPostPath()}?draftId=${encodeURIComponent(
+                href_override: `${getLogFeedNewPostPath()}?draftId=${encodeURIComponent(
                   draft.id ?? "",
                 )}`,
               }))

@@ -100,11 +100,11 @@ export default function PostListHeader({
   const showSearchTarget = Boolean(searchTargetParam);
 
   const isFeedPage =
-    pathname === "/horok-tech/feeds" ||
-    pathname.startsWith("/horok-tech/feeds/");
+    pathname === "/horok-log/feeds" ||
+    pathname.startsWith("/horok-log/feeds/");
   const isLikesPage =
-    pathname === "/horok-tech/likes" ||
-    pathname.startsWith("/horok-tech/likes/");
+    pathname === "/horok-log/likes" ||
+    pathname.startsWith("/horok-log/likes/");
 
   const title =
     customTitle ??

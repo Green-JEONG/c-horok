@@ -30,12 +30,12 @@ export default function HeaderActions() {
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
 
   const isLoggedIn = status === "authenticated";
-  const isCote = platform === "cote";
+  const isCoding = platform === "coding";
   const { profile: platformProfile } = usePlatformProfile(isLoggedIn);
   const isAdmin = session?.user?.role === "ADMIN";
 
   useEffect(() => {
-    if (!isLoggedIn || isCote) {
+    if (!isLoggedIn || isCoding) {
       setHasUnreadNotifications(false);
       return;
     }
@@ -79,7 +79,7 @@ export default function HeaderActions() {
         loadNotifications,
       );
     };
-  }, [isCote, isLoggedIn]);
+  }, [isCoding, isLoggedIn]);
 
   if (!isLoggedIn) {
     return (
@@ -88,7 +88,7 @@ export default function HeaderActions() {
           size="sm"
           onClick={() => setOpen(true)}
           className={
-            isCote ? "bg-[#06923E] text-white hover:bg-[#047a33]" : "text-white"
+            isCoding ? "bg-[#06923E] text-white hover:bg-[#047a33]" : "text-white"
           }
         >
           로그인
@@ -112,7 +112,7 @@ export default function HeaderActions() {
         size="icon"
         className={cn(
           "group relative isolate h-10 w-10 shrink-0 overflow-visible rounded-full border border-transparent bg-background p-0 transition",
-          isCote ? "hover:bg-[#06923E]/10" : "hover:bg-primary/10",
+          isCoding ? "hover:bg-[#06923E]/10" : "hover:bg-primary/10",
         )}
         onClick={() => setOpen(true)}
         aria-label="마이페이지 열기"
@@ -128,7 +128,7 @@ export default function HeaderActions() {
           height={30}
           className={cn(
             "relative z-10 h-full w-full rounded-full border border-border object-contain transition",
-            isCote
+            isCoding
               ? "group-hover:border-[#06923E]/35 dark:group-hover:border-[#46c86f]/45"
               : "group-hover:border-primary/30",
             !(platformProfile?.image ?? session?.user?.image) && "grayscale",
@@ -141,7 +141,7 @@ export default function HeaderActions() {
             aria-hidden="true"
           />
         ) : null}
-        {!isCote && hasUnreadNotifications ? (
+        {!isCoding && hasUnreadNotifications ? (
           <span className="absolute -right-0.5 top-0 z-20 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-zinc-950 dark:ring-white" />
         ) : null}
       </Button>

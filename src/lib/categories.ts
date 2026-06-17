@@ -95,23 +95,23 @@ export async function deleteUnusedCategories() {
   return prisma.$executeRaw`
     DO $$
     BEGIN
-      IF to_regclass('horok_tech.post_categories') IS NOT NULL THEN
-        DELETE FROM horok_tech.categories AS category
+      IF to_regclass('horok_log.post_categories') IS NOT NULL THEN
+        DELETE FROM horok_log.categories AS category
         WHERE NOT EXISTS (
           SELECT 1
-          FROM horok_tech.posts AS post
+          FROM horok_log.posts AS post
           WHERE post.category_id = category.id
         )
         AND NOT EXISTS (
           SELECT 1
-          FROM horok_tech.post_categories AS post_category
+          FROM horok_log.post_categories AS post_category
           WHERE post_category.category_id = category.id
         );
       ELSE
-        DELETE FROM horok_tech.categories AS category
+        DELETE FROM horok_log.categories AS category
         WHERE NOT EXISTS (
           SELECT 1
-          FROM horok_tech.posts AS post
+          FROM horok_log.posts AS post
           WHERE post.category_id = category.id
         );
       END IF;

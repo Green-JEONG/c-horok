@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { checkPlatformNicknameAvailability } from "@/lib/horok-cote-profile";
+import { checkPlatformNicknameAvailability } from "@/lib/horok-coding-profile";
 import { normalizeNickname, validateNickname } from "@/lib/nickname";
 
 function parsePlatform(value: string | null) {
-  return value === "cote" ? "cote" : "tech";
+  return value === "coding" ? "coding" : "log";
 }
 
 export async function GET(req: Request) {

@@ -11,7 +11,7 @@ import {
   RECENT_POSTS_UPDATED_EVENT,
   type RecentPost,
 } from "@/components/posts/PostViewTracker";
-import { getTechFeedPostPath } from "@/lib/routes";
+import { getLogFeedPostPath } from "@/lib/routes";
 
 type PopularPost = {
   id: number;
@@ -139,7 +139,7 @@ export default function PopularPosts() {
           {visiblePosts.map((post, index) => (
             <li key={post.id}>
               <Link
-                href={"href" in post ? post.href : getTechFeedPostPath(post.id)}
+                href={"href" in post ? post.href : getLogFeedPostPath(post.id)}
                 className="flex items-start gap-1 overflow-hidden text-muted-foreground hover:text-foreground"
               >
                 <span className="min-w-4 text-sm font-semibold tabular-nums text-foreground/80">

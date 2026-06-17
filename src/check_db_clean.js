@@ -15,7 +15,7 @@ async function main() {
       email: true,
       name: true,
       image: true,
-      coteMember: {
+      codingMember: {
         select: {
           nickname: true,
           avatarUrl: true,

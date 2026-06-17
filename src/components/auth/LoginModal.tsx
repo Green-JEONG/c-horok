@@ -26,7 +26,7 @@ export default function LoginModal({ open, onClose }: Props) {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  const platformLabel = pathname?.startsWith("/horok-cote") ? "cote" : "tech";
+  const platformLabel = pathname?.startsWith("/horok-coding") ? "coding" : "log";
 
   // 로그인 입력 state
   const [email, setEmail] = useState("");

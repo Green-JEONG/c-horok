@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import MyPageHeadingPortal from "@/components/mypage/MyPageHeadingPortal";
 import SectionPagination from "@/components/mypage/sections/SectionPagination";
-import { getTechNoticePath } from "@/lib/routes";
+import { getLogNoticePath } from "@/lib/routes";
 import { formatSeoulDate } from "@/lib/utils";
 
 const PAGE_SIZE = 5;
@@ -103,7 +103,7 @@ export default function MyAdminAnswersSection() {
                   className="scroll-mt-28 rounded-lg transition-colors"
                 >
                   <Link
-                    href={`${getTechNoticePath(post_id)}?commentId=${id}`}
+                    href={`${getLogNoticePath(post_id)}?commentId=${id}`}
                     className="block rounded-lg border px-4 py-3 text-sm transition-colors hover:bg-muted"
                   >
                     <div className="mb-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">

@@ -10,10 +10,10 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import {
-  getTechFaqPath,
-  getTechFeedPostPath,
-  getTechLikesPostPath,
-  getTechNoticePath,
+  getLogFaqPath,
+  getLogFeedPostPath,
+  getLogLikesPostPath,
+  getLogNoticePath,
 } from "@/lib/routes";
 import { formatSeoulDate } from "@/lib/utils";
 
@@ -78,12 +78,12 @@ export default function PostCard({
   const href =
     hrefOverride ??
     (category === "FAQ"
-      ? getTechFaqPath(id)
+      ? getLogFaqPath(id)
       : isNotice
-        ? getTechNoticePath(id)
+        ? getLogNoticePath(id)
         : postRouteSection === "likes"
-          ? getTechLikesPostPath(id)
-          : getTechFeedPostPath(id));
+          ? getLogLikesPostPath(id)
+          : getLogFeedPostPath(id));
   const defaultBadge = isUncategorized
     ? null
     : {

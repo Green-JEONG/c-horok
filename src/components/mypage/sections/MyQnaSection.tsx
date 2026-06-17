@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import MyPageHeadingPortal from "@/components/mypage/MyPageHeadingPortal";
 import SectionPagination from "@/components/mypage/sections/SectionPagination";
-import { getTechNoticePath } from "@/lib/routes";
+import { getLogNoticePath } from "@/lib/routes";
 import { formatSeoulDate } from "@/lib/utils";
 
 const DEFAULT_PREVIEW_PAGE_SIZE = 4;
@@ -244,7 +244,7 @@ export default function MyQnaSection() {
 
               return (
                 <Link
-                  href={getTechNoticePath(post.id)}
+                  href={getLogNoticePath(post.id)}
                   key={post.id}
                   id={`mypage-qna-${post.id}`}
                   className={`flex flex-col gap-3 border-b px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/30 md:grid md:grid-cols-[48px_minmax(0,1fr)_88px_92px_56px_56px] md:items-center md:gap-3 md:px-5 ${

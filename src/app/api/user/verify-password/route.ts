@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
-import { coteAuth } from "@/app/api/cote-auth/[...nextauth]/route";
+import { codingAuth } from "@/app/api/coding-auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { consumeRateLimit } from "@/lib/rate-limit";
 
@@ -13,8 +13,8 @@ const VERIFY_PASSWORD_RATE_LIMIT = {
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const platform = body?.platform === "cote" ? "cote" : "tech";
-    const session = await (platform === "cote" ? coteAuth() : auth());
+    const platform = body?.platform === "coding" ? "coding" : "log";
+    const session = await (platform === "coding" ? codingAuth() : auth());
     if (!session?.user?.id) {
       return NextResponse.json(
         { message: "인증이 필요합니다." },

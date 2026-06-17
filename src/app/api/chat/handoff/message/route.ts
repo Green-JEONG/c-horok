@@ -8,7 +8,7 @@ import {
 } from "@/lib/chat";
 
 function resolveChatPlatform(value: string | null | undefined) {
-  return value === "cote" ? "cote" : "tech";
+  return value === "coding" ? "coding" : "log";
 }
 
 function isChatPersistenceError(error: unknown) {

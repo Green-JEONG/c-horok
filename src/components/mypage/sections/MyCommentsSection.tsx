@@ -5,9 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MyPageHeadingPortal from "@/components/mypage/MyPageHeadingPortal";
 import {
-  getTechFaqPath,
-  getTechFeedPostPath,
-  getTechNoticePath,
+  getLogFaqPath,
+  getLogFeedPostPath,
+  getLogNoticePath,
 } from "@/lib/routes";
 import { formatSeoulDate } from "@/lib/utils";
 
@@ -264,11 +264,11 @@ export default function MyCommentsSection() {
                     (() => {
                       const postHref =
                         is_notice_post && notice_category_name === "FAQ"
-                          ? `${getTechFaqPath(post_id)}&commentId=${id}`
+                          ? `${getLogFaqPath(post_id)}&commentId=${id}`
                           : `${
                               is_notice_post
-                                ? getTechNoticePath(post_id)
-                                : getTechFeedPostPath(post_id)
+                                ? getLogNoticePath(post_id)
+                                : getLogFeedPostPath(post_id)
                             }?commentId=${id}`;
 
                       return (

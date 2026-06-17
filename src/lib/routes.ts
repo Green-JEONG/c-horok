@@ -1,28 +1,28 @@
-type TechPostSection = "feeds" | "likes";
+type LogPostSection = "feeds" | "likes";
 
-export function getTechPostPath(
-  section: TechPostSection,
+export function getLogPostPath(
+  section: LogPostSection,
   postId: number | string,
 ) {
-  return `/horok-tech/${section}/posts/${postId}`;
+  return `/horok-log/${section}/posts/${postId}`;
 }
 
-export function getTechFeedPostPath(postId: number | string) {
-  return getTechPostPath("feeds", postId);
+export function getLogFeedPostPath(postId: number | string) {
+  return getLogPostPath("feeds", postId);
 }
 
-export function getTechLikesPostPath(postId: number | string) {
-  return getTechPostPath("likes", postId);
+export function getLogLikesPostPath(postId: number | string) {
+  return getLogPostPath("likes", postId);
 }
 
-export function getTechFeedNewPostPath() {
-  return "/horok-tech/feeds/posts/new";
+export function getLogFeedNewPostPath() {
+  return "/horok-log/feeds/posts/new";
 }
 
-export function getTechFaqPath(postId: number | string) {
-  return `/horok-tech/notices?category=FAQ&open=${postId}`;
+export function getLogFaqPath(postId: number | string) {
+  return `/horok-log/notices?category=FAQ&open=${postId}`;
 }
 
-export function getTechNoticePath(postId: number | string) {
-  return `/horok-tech/notices/${postId}`;
+export function getLogNoticePath(postId: number | string) {
+  return `/horok-log/notices/${postId}`;
 }

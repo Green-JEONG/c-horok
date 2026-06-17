@@ -10,7 +10,7 @@ import MyPageHeaderControls, {
 import MyPageHeadingActionsPortal from "@/components/mypage/MyPageHeadingActionsPortal";
 import {
   countSyncedPostDrafts,
-  getTechPostDraftStorageKey,
+  getLogPostDraftStorageKey,
 } from "@/lib/post-drafts";
 import MyAdminAnswersSection from "./sections/MyAdminAnswersSection";
 import MyAdminPostsSection from "./sections/MyAdminPostsSection";
@@ -164,14 +164,14 @@ export default function MyPageSection() {
 
     const loadStats = async () => {
       try {
-        const response = await fetch("/api/mypage/stats?platform=tech");
+        const response = await fetch("/api/mypage/stats?platform=log");
         if (!response.ok) {
           return;
         }
 
         const data = await response.json();
         const draftCount = isLoggedIn
-          ? await countSyncedPostDrafts(getTechPostDraftStorageKey())
+          ? await countSyncedPostDrafts(getLogPostDraftStorageKey())
           : 0;
         setStats({
           posts: (typeof data.posts === "number" ? data.posts : 0) + draftCount,

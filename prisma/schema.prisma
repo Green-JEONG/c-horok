@@ -5,7 +5,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["public", "horok_tech", "horok_cote"]
+  schemas  = ["public", "horok_log", "horok_coding"]
 }
 
 enum Role {
@@ -51,17 +51,17 @@ model User {
   chatMessages          ChatMessage[]         @relation("ChatMessageSender")
   chatThreads           ChatThread[]
   comments              Comment[]
-  coteMember            CoteMember?
-  coteProblemProgresses CoteProblemProgress[]
-  coteSavedCodes        CoteSavedCode[]
-  coteSubmissions       CoteSubmission[]
+  codingMember            CodingMember?
+  codingProblemProgresses CodingProblemProgress[]
+  codingSavedCodes        CodingSavedCode[]
+  codingSubmissions       CodingSubmission[]
   followers             Friend[]              @relation("FriendFriendUser")
   friendships           Friend[]              @relation("FriendUser")
   notifications         Notification[]        @relation("NotificationActor")
   postLikes             PostLike[]
   posts                 Post[]
   receivedNotifications Notification[]        @relation("NotificationRecipient")
-  techMember            TechMember?
+  logMember             LogMember?
 
   @@map("users")
   @@schema("public")
@@ -131,7 +131,7 @@ model Category {
   postCategories PostCategory[]
 
   @@map("categories")
-  @@schema("horok_tech")
+  @@schema("horok_log")
 }
 
 model Post {
@@ -167,7 +167,7 @@ model Post {
   @@index([createdAt], map: "idx_posts_created_at")
   @@index([quotedPostId], map: "idx_posts_quoted_post_id")
   @@map("posts")
-  @@schema("horok_tech")
+  @@schema("horok_log")
 }
 
 model PostDownloadCount {
@@ -180,7 +180,7 @@ model PostDownloadCount {
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@map("post_download_counts")
-  @@schema("horok_tech")
+  @@schema("horok_log")
 }
 
 model PostCategory {
@@ -195,7 +195,7 @@ model PostCategory {
   @@id([postId, categoryId])
   @@index([categoryId], map: "idx_post_categories_category_id")
   @@map("post_categories")
-  @@schema("horok_tech")
+  @@schema("horok_log")
 }
 
 model Comment {
@@ -221,7 +221,7 @@ model Comment {
   @@index([postId], map: "fk_comments_post")
   @@index([userId], map: "fk_comments_user")
   @@map("comments")
-  @@schema("horok_tech")
+  @@schema("horok_log")
 }
 
 model PostLike {
@@ -234,7 +234,7 @@ model PostLike {
   @@id([postId, userId])
   @@index([userId], map: "fk_likes_user")
   @@map("post_likes")
-  @@schema("horok_tech")
+  @@schema("horok_log")
 }
 
 model PostView {
@@ -244,14 +244,14 @@ model PostView {
   post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@map("post_views")
-  @@schema("horok_tech")
+  @@schema("horok_log")
 }
 
 model StopWord {
   word String @id @db.VarChar(50)
 
   @@map("stop_words")
-  @@schema("horok_tech")
+  @@schema("horok_log")
 }
 
 model Friend {
@@ -306,7 +306,7 @@ model VerificationToken {
   @@schema("public")
 }
 
-model TechMember {
+model LogMember {
   id          BigInt    @id @default(autoincrement())
   userId      BigInt    @unique @map("user_id")
   displayName String?   @map("display_name") @db.VarChar(100)
@@ -318,10 +318,10 @@ model TechMember {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("members")
-  @@schema("horok_tech")
+  @@schema("horok_log")
 }
 
-model CoteMember {
+model CodingMember {
   id          BigInt                  @id @default(autoincrement())
   userId      BigInt                  @unique @map("user_id")
   nickname    String?                 @db.VarChar(50)
@@ -335,10 +335,10 @@ model CoteMember {
   user        User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("members")
-  @@schema("horok_cote")
+  @@schema("horok_coding")
 }
 
-model CoteProblem {
+model CodingProblem {
   id                BigInt   @id @default(autoincrement())
   number            Int      @unique
   slug              String   @unique @db.VarChar(120)
@@ -354,12 +354,12 @@ model CoteProblem {
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
 
-  @@index([level, number], map: "idx_cote_problems_level_number")
+  @@index([level, number], map: "idx_coding_problems_level_number")
   @@map("problems")
-  @@schema("horok_cote")
+  @@schema("horok_coding")
 }
 
-model CoteProblemProgress {
+model CodingProblemProgress {
   id              BigInt                  @id @default(autoincrement())
   userId          BigInt                  @map("user_id")
   problemSlug     String                  @map("problem_slug") @db.VarChar(120)
@@ -377,10 +377,10 @@ model CoteProblemProgress {
 
   @@unique([userId, problemSlug])
   @@map("problem_progress")
-  @@schema("horok_cote")
+  @@schema("horok_coding")
 }
 
-model CoteSubmission {
+model CodingSubmission {
   id             BigInt                  @id @default(autoincrement())
   userId         BigInt                  @map("user_id")
   problemSlug    String                  @map("problem_slug") @db.VarChar(120)
@@ -396,10 +396,10 @@ model CoteSubmission {
   user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("submissions")
-  @@schema("horok_cote")
+  @@schema("horok_coding")
 }
 
-model CoteSavedCode {
+model CodingSavedCode {
   id            BigInt                  @id @default(autoincrement())
   userId        BigInt                  @map("user_id")
   problemSlug   String                  @map("problem_slug") @db.VarChar(120)
@@ -413,5 +413,5 @@ model CoteSavedCode {
 
   @@unique([userId, problemSlug, language])
   @@map("saved_codes")
-  @@schema("horok_cote")
+  @@schema("horok_coding")
 }

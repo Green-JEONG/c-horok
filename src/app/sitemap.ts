@@ -1,10 +1,10 @@
 import type { MetadataRoute } from "next";
-import { listHorokCoteProblems } from "@/lib/horok-cote";
+import { listHorokCodingProblems } from "@/lib/horok-coding";
 // import { getSiteUrl } from "@/lib/site-url"; // 이 함수가 non-www를 주면 문제가 반복됨.
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://c-horok.com";
-  const horokCoteProblems = await listHorokCoteProblems();
+  const horokCodingProblems = await listHorokCodingProblems();
 
   return [
     {
@@ -14,43 +14,43 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1,
     },
     {
-      url: `${baseUrl}/horok-tech`,
+      url: `${baseUrl}/horok-log`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.95,
     },
     {
-      url: `${baseUrl}/horok-tech/feeds`, // 끝에 / X
+      url: `${baseUrl}/horok-log/feeds`, // 끝에 / X
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/horok-tech/notices`,
+      url: `${baseUrl}/horok-log/notices`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/horok-tv`,
+      url: `${baseUrl}/horok-edu`,
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/horok-cote`,
+      url: `${baseUrl}/horok-coding`,
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/horok-shop`,
+      url: `${baseUrl}/horok-item`,
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.7,
     },
-    ...horokCoteProblems.map((problem) => ({
-      url: `${baseUrl}/horok-cote/${problem.number}`,
+    ...horokCodingProblems.map((problem) => ({
+      url: `${baseUrl}/horok-coding/${problem.number}`,
       lastModified: new Date(),
       changeFrequency: "monthly" as const,
       priority: 0.6,

@@ -98,10 +98,10 @@ export async function GET(request: Request) {
       category.name,
       category.slug,
       COUNT(DISTINCT post.id) AS "postCount"
-    FROM horok_tech.categories AS category
-    INNER JOIN horok_tech.post_categories AS post_category
+    FROM horok_log.categories AS category
+    INNER JOIN horok_log.post_categories AS post_category
       ON post_category.category_id = category.id
-    INNER JOIN horok_tech.posts AS post
+    INNER JOIN horok_log.posts AS post
       ON post.id = post_category.post_id
     WHERE post.is_deleted = FALSE
       ${hiddenFilter}

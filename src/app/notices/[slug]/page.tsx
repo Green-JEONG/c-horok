@@ -6,5 +6,5 @@ type Props = {
 
 export default async function LegacyNoticeDetailPage({ params }: Props) {
   const { slug } = await params;
-  redirect(`/horok-tech/notices/${slug}`);
+  redirect(`/horok-log/notices/${slug}`);
 }

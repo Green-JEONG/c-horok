@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import MyPageHeadingPortal from "@/components/mypage/MyPageHeadingPortal";
 import SectionPagination from "@/components/mypage/sections/SectionPagination";
-import { getTechFaqPath, getTechNoticePath } from "@/lib/routes";
+import { getLogFaqPath, getLogNoticePath } from "@/lib/routes";
 import { formatSeoulDate } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
@@ -165,8 +165,8 @@ export default function MyAdminPostsSection({
             {posts.map((post, index) => {
               const postNumber = totalCount - (page - 1) * PAGE_SIZE - index;
               const href = isFaqCategory
-                ? getTechFaqPath(post.id)
-                : getTechNoticePath(post.id);
+                ? getLogFaqPath(post.id)
+                : getLogNoticePath(post.id);
 
               return (
                 <Link

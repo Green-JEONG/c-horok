@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isNoticeCategoryName } from "@/lib/notice-categories";
 import { parseSortType, type SortType } from "@/lib/post-sort";
-import { getTechFaqPath, getTechNoticePath } from "@/lib/routes";
+import { getLogFaqPath, getLogNoticePath } from "@/lib/routes";
 import { formatSeoulDate } from "@/lib/utils";
 import PostCard from "./PostCard";
 
@@ -472,8 +472,8 @@ export default function PostListInfinite({
         {groupPosts.map((post, index) => {
           const href =
             post.category_name === "FAQ"
-              ? getTechFaqPath(post.id)
-              : getTechNoticePath(post.id);
+              ? getLogFaqPath(post.id)
+              : getLogNoticePath(post.id);
           const number = groupPosts.length - index;
           const statusLabel = getInquiryStatusLabel(post);
 

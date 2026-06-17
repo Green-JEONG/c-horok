@@ -5,7 +5,7 @@ import { getChatThreadById } from "@/lib/chat";
 import { prisma } from "@/lib/prisma";
 
 function resolveChatPlatform(value: string | null | undefined) {
-  return value === "cote" ? "cote" : "tech";
+  return value === "coding" ? "coding" : "log";
 }
 
 function isChatHandoffTableUnavailable(error: unknown) {

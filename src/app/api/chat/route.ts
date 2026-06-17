@@ -17,7 +17,7 @@ import { prisma } from "@/lib/prisma";
 export const maxDuration = 30;
 
 function resolveChatPlatform(value: string | null | undefined) {
-  return value === "cote" ? "cote" : "tech";
+  return value === "coding" ? "coding" : "log";
 }
 
 function isChatPersistenceError(error: unknown) {
@@ -43,7 +43,7 @@ function buildThreadTitle(text: string) {
   return text.replace(/\s+/g, " ").trim().slice(0, 60) || null;
 }
 
-function buildChatSystemPrompt(platform: "tech" | "cote") {
+function buildChatSystemPrompt(platform: "log" | "coding") {
   return [
     "답변은 항상 한국어로 작성한다.",
     "친절하고 간결하게 답하되, 필요한 경우에는 핵심을 짧게 정리한다.",
@@ -57,9 +57,9 @@ function buildChatSystemPrompt(platform: "tech" | "cote") {
     "너는 기술을 쉽고 창의적인 콘텐츠로 전달하는 역할을 한다.",
     "코딩테스트 및 알고리즘 문제 풀이에 대한 질문에도 친절하게 답변한다.",
     "현재 Python을 가지고 코딩테스트를 준비하는 사람들에게 도움이 되기 위해 교육 영상을 준비 중이다.",
-    platform === "cote"
+    platform === "coding"
       ? [
-          "horok-cote 문제별 채팅방에서는 이전 대화에 포함된 문제 설명, 핵심 요구사항, 예제, 사용자의 질문을 문제 맥락으로 삼아 답한다.",
+          "horok-coding 문제별 채팅방에서는 이전 대화에 포함된 문제 설명, 핵심 요구사항, 예제, 사용자의 질문을 문제 맥락으로 삼아 답한다.",
           "사용자가 풀이 코드나 코드 일부를 보여주면 먼저 해당 문제 요구사항에 비추어 잘한 점을 구체적으로 짚어 준다.",
           "코드가 정답에 가깝거나 좋은 접근이라면 어떤 아이디어, 자료구조, 조건 처리, 복잡도 선택이 적절했는지 설명한다.",
           "더 최적의 풀이가 있다면 최적화 방향을 설명하고, 가능하면 Python 기준의 개선된 코드와 풀이 방식, 시간/공간 복잡도를 함께 제시한다.",

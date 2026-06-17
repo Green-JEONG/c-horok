@@ -10,8 +10,8 @@ type Props = {
 
 export default function AuthSessionProvider({ children }: Props) {
   const pathname = usePathname();
-  const basePath = pathname?.startsWith("/horok-cote")
-    ? "/api/cote-auth"
+  const basePath = pathname?.startsWith("/horok-coding")
+    ? "/api/coding-auth"
     : "/api/auth";
 
   return <SessionProvider basePath={basePath}>{children}</SessionProvider>;

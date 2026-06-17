@@ -2,7 +2,7 @@
 
 import { Copy } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { getTechFeedNewPostPath } from "@/lib/routes";
+import { getLogFeedNewPostPath } from "@/lib/routes";
 
 type Props = {
   postId: number;
@@ -23,7 +23,7 @@ export default function CopyPostButton({
       return;
     }
 
-    router.push(`${getTechFeedNewPostPath()}?copyPostId=${postId}`);
+    router.push(`${getLogFeedNewPostPath()}?copyPostId=${postId}`);
   }
 
   return (

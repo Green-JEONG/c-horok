@@ -33,7 +33,7 @@ async function ensurePostReactionTable() {
   }
 
   await prisma.$executeRaw`
-    CREATE TABLE IF NOT EXISTS horok_tech.post_emoji_reactions (
+    CREATE TABLE IF NOT EXISTS horok_log.post_emoji_reactions (
       post_id BIGINT NOT NULL,
       user_id BIGINT NOT NULL,
       emoji VARCHAR(16) NOT NULL,
@@ -43,11 +43,11 @@ async function ensurePostReactionTable() {
   `;
   await prisma.$executeRaw`
     CREATE INDEX IF NOT EXISTS idx_post_emoji_reactions_post
-    ON horok_tech.post_emoji_reactions (post_id)
+    ON horok_log.post_emoji_reactions (post_id)
   `;
   await prisma.$executeRaw`
     CREATE INDEX IF NOT EXISTS idx_post_emoji_reactions_user
-    ON horok_tech.post_emoji_reactions (user_id)
+    ON horok_log.post_emoji_reactions (user_id)
   `;
 
   hasEnsuredReactionTable = true;
@@ -62,7 +62,7 @@ export async function getPostReactionSummary(
   const [countRows, userRows] = await Promise.all([
     prisma.$queryRaw<ReactionCountRow[]>`
       SELECT emoji, COUNT(*)::bigint AS count, MIN(created_at) AS "firstCreatedAt"
-      FROM horok_tech.post_emoji_reactions
+      FROM horok_log.post_emoji_reactions
       WHERE post_id = ${BigInt(postId)}
       GROUP BY emoji
       ORDER BY MIN(created_at) ASC
@@ -70,7 +70,7 @@ export async function getPostReactionSummary(
     userId
       ? prisma.$queryRaw<UserReactionRow[]>`
           SELECT emoji
-          FROM horok_tech.post_emoji_reactions
+          FROM horok_log.post_emoji_reactions
           WHERE post_id = ${BigInt(postId)}
             AND user_id = ${BigInt(userId)}
         `
@@ -97,7 +97,7 @@ export async function getAdminReactedPostIdSet(postIds: bigint[]) {
 
   const rows = await prisma.$queryRaw<PostIdRow[]>`
     SELECT DISTINCT per.post_id AS "postId"
-    FROM horok_tech.post_emoji_reactions per
+    FROM horok_log.post_emoji_reactions per
     JOIN public.users u ON u.id = per.user_id
     WHERE per.post_id IN (${Prisma.join(postIds)})
       AND u.role = 'ADMIN'
@@ -120,7 +120,7 @@ export async function getPostReactionCountsByPostId(
   const normalizedPostIds = postIds.map((postId) => BigInt(postId));
   const rows = await prisma.$queryRaw<ReactionTotalRow[]>`
     SELECT post_id AS "postId", COUNT(*)::bigint AS count
-    FROM horok_tech.post_emoji_reactions
+    FROM horok_log.post_emoji_reactions
     WHERE post_id IN (${Prisma.join(normalizedPostIds)})
     GROUP BY post_id
   `;
@@ -138,7 +138,7 @@ export async function togglePostReaction(params: {
   const { postId, userId, emoji } = params;
   const existingRows = await prisma.$queryRaw<Array<{ emoji: string }>>`
     SELECT emoji
-    FROM horok_tech.post_emoji_reactions
+    FROM horok_log.post_emoji_reactions
     WHERE post_id = ${BigInt(postId)}
       AND user_id = ${BigInt(userId)}
       AND emoji = ${emoji}
@@ -147,7 +147,7 @@ export async function togglePostReaction(params: {
 
   if (existingRows.length > 0) {
     await prisma.$executeRaw`
-      DELETE FROM horok_tech.post_emoji_reactions
+      DELETE FROM horok_log.post_emoji_reactions
       WHERE post_id = ${BigInt(postId)}
         AND user_id = ${BigInt(userId)}
     `;
@@ -157,12 +157,12 @@ export async function togglePostReaction(params: {
 
   await prisma.$transaction([
     prisma.$executeRaw`
-      DELETE FROM horok_tech.post_emoji_reactions
+      DELETE FROM horok_log.post_emoji_reactions
       WHERE post_id = ${BigInt(postId)}
         AND user_id = ${BigInt(userId)}
     `,
     prisma.$executeRaw`
-      INSERT INTO horok_tech.post_emoji_reactions (post_id, user_id, emoji)
+      INSERT INTO horok_log.post_emoji_reactions (post_id, user_id, emoji)
       VALUES (${BigInt(postId)}, ${BigInt(userId)}, ${emoji})
       ON CONFLICT (post_id, user_id, emoji) DO NOTHING
     `,

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { DbCopiedPost } from "@/lib/db";
-import { getTechFeedPostPath } from "@/lib/routes";
+import { getLogFeedPostPath } from "@/lib/routes";
 import { formatSeoulDateTime } from "@/lib/utils";
 
 type Props = {
@@ -27,7 +27,7 @@ export default function CopiedPostCard({ copiedPost }: Props) {
         복사한 글
       </span>
       <Link
-        href={getTechFeedPostPath(copiedPost.id)}
+        href={getLogFeedPostPath(copiedPost.id)}
         className="group grid w-full min-w-0 grid-cols-[88px_minmax(0,1fr)] gap-3 border-b border-border py-4 text-left transition hover:text-foreground sm:grid-cols-[132px_minmax(0,1fr)] sm:gap-5 lg:grid-cols-[144px_minmax(0,1fr)]"
       >
         <div className="relative aspect-square w-full shrink-0 overflow-hidden rounded-md border border-border bg-muted">
