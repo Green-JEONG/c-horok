@@ -11,7 +11,30 @@ import {
 } from "@/lib/notification-messages";
 import { parseSortType } from "@/lib/post-sort";
 import { createPost } from "@/lib/posts";
+import { type PostAttachmentInput } from "@/lib/post-attachments";
 import { prisma } from "@/lib/prisma";
+
+function getAttachments(body: { attachments?: unknown }): PostAttachmentInput[] {
+  if (!Array.isArray(body.attachments)) {
+    return [];
+  }
+
+  return body.attachments
+    .filter(
+      (item): item is Record<string, unknown> =>
+        Boolean(item) && typeof item === "object",
+    )
+    .map((item) => ({
+      fileName:
+        typeof item.fileName === "string" ? item.fileName.trim() : "",
+      fileUrl: typeof item.fileUrl === "string" ? item.fileUrl.trim() : "",
+      fileSize:
+        typeof item.fileSize === "number" && Number.isFinite(item.fileSize)
+          ? item.fileSize
+          : null,
+    }))
+    .filter((item) => item.fileName && item.fileUrl);
+}
 
 function getCategoryNames(body: {
   categoryName?: unknown;
@@ -77,6 +100,7 @@ export async function POST(req: Request) {
   const { title, content, thumbnailUrl, isBanner, isSecret, copiedFromPostId } =
     body;
   const categoryNames = getCategoryNames(body);
+  const attachments = getAttachments(body);
   const normalizedCategoryName = categoryNames[0] ?? "";
 
   if (!title || !content) {
@@ -125,6 +149,7 @@ export async function POST(req: Request) {
         ? thumbnailUrl.trim()
         : null,
     copiedFromPostId: normalizedCopiedFromPostId,
+    attachments,
   });
 
   if (normalizedCategoryName === "QnA" && session.user.role !== "ADMIN") {

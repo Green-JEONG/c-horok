@@ -4,6 +4,8 @@ import {
   normalizeCategoryNames,
   syncPostCategories,
 } from "@/lib/post-categories";
+import { type PostAttachmentInput } from "@/lib/post-attachments";
+import { syncPostAttachments } from "@/lib/post-attachments.server";
 import { prisma } from "@/lib/prisma";
 
 const INTERNAL_UNCATEGORIZED_CATEGORY_NAME = "미분류";
@@ -161,6 +163,7 @@ export async function createPost(params: {
   isBanner?: boolean;
   isSecret?: boolean;
   copiedFromPostId?: number | null;
+  attachments?: PostAttachmentInput[];
 }) {
   const {
     userId,
@@ -172,6 +175,7 @@ export async function createPost(params: {
     isBanner = false,
     isSecret = false,
     copiedFromPostId = null,
+    attachments = [],
   } = params;
   const normalizedCategoryNames = normalizeCategoryNames(
     categoryNames ?? (categoryName ? [categoryName] : []),
@@ -213,6 +217,8 @@ export async function createPost(params: {
     categories.map((category) => category.id),
   );
 
+  await syncPostAttachments(post.id, attachments);
+
   return mapPost(post);
 }
 
@@ -240,6 +246,7 @@ export async function updatePost(params: {
   thumbnailUrl?: string | null;
   isBanner?: boolean;
   isSecret?: boolean;
+  attachments?: PostAttachmentInput[];
 }) {
   const {
     postId,
@@ -250,6 +257,7 @@ export async function updatePost(params: {
     thumbnailUrl,
     isBanner,
     isSecret,
+    attachments,
   } = params;
   const normalizedCategoryNames =
     categoryNames !== undefined
@@ -296,6 +304,10 @@ export async function updatePost(params: {
       post.id,
       categories.map((category) => category.id),
     );
+  }
+
+  if (attachments !== undefined) {
+    await syncPostAttachments(post.id, attachments);
   }
 
   return mapPost(post);

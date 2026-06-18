@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { buildVisibleCommentCountWhere } from "@/lib/comment-counts";
+import { mapPostAttachments } from "@/lib/post-attachments";
 import { ALL_NOTICE_TAG_OPTIONS } from "@/lib/notice-categories";
 import { getPostCategoryNameMap } from "@/lib/post-categories";
 import { getPostReactionCountsByPostId } from "@/lib/post-reactions";
@@ -43,6 +44,7 @@ export type DbPost = {
   can_view_secret: boolean;
   user_id?: number;
   copied_from_post?: DbCopiedPost | null;
+  attachments?: DbPostAttachment[];
 };
 
 export type DbCopiedPost = {
@@ -53,6 +55,13 @@ export type DbCopiedPost = {
   author_name: string;
   author_image: string | null;
   created_at: Date;
+};
+
+export type DbPostAttachment = {
+  id: number;
+  file_name: string;
+  file_url: string;
+  file_size: number | null;
 };
 
 export type DbPostSeriesItem = {
@@ -143,6 +152,12 @@ function mapPost(
         pdfCount: number;
       } | null;
     } | null;
+    attachments?: Array<{
+      id: bigint;
+      fileName: string;
+      fileUrl: string;
+      fileSize: number | null;
+    }>;
   },
   options?: {
     viewerUserId?: number | null;
@@ -201,6 +216,9 @@ function mapPost(
           created_at: post.quotedPost.createdAt,
         }
       : null,
+    attachments: canViewSecret
+      ? mapPostAttachments(post.attachments ?? [])
+      : [],
   };
 }
 
@@ -561,6 +579,15 @@ export async function findPostById(
         },
       },
       views: { select: { viewCount: true } },
+      attachments: {
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+        select: {
+          id: true,
+          fileName: true,
+          fileUrl: true,
+          fileSize: true,
+        },
+      },
       _count: {
         select: {
           likes: true,
@@ -662,7 +689,7 @@ export async function findPostSeriesByTitle(
         },
       },
     },
-    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   });
 
   return posts.map((post) => ({

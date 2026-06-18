@@ -160,6 +160,7 @@ model Post {
   quotedPost    Post?           @relation("PostQuotes", fields: [quotedPostId], references: [id], onDelete: SetNull)
   quotingPosts  Post[]          @relation("PostQuotes")
   downloadCounts PostDownloadCount?
+  attachments   PostAttachment[]
   views         PostView?
   notifications Notification[]
   user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -180,6 +181,22 @@ model PostDownloadCount {
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@map("post_download_counts")
+  @@schema("horok_log")
+}
+
+model PostAttachment {
+  id        BigInt   @id @default(autoincrement())
+  postId    BigInt   @map("post_id")
+  fileName  String   @map("file_name") @db.VarChar(255)
+  fileUrl   String   @map("file_url") @db.VarChar(500)
+  fileSize  Int?     @map("file_size")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId], map: "idx_post_attachments_post_id")
+  @@map("post_attachments")
   @@schema("horok_log")
 }
 

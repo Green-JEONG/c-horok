@@ -6,10 +6,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import CopiedPostCard from "@/components/posts/CopiedPostCard";
 import MarkdownRenderer from "@/components/posts/MarkdownRenderer";
+import PostAttachmentsAccordion from "@/components/posts/PostAttachmentsAccordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { DbCopiedPost } from "@/lib/db";
+import type { DbCopiedPost, DbPostAttachment } from "@/lib/db";
 import { isNoticeCategoryName } from "@/lib/notice-categories";
+import { formatAttachmentFileSize } from "@/lib/post-attachments";
 import {
   clearSyncedPostDraft,
   getPostDraftStorageKey,
@@ -18,6 +20,7 @@ import {
   saveSyncedPostDraft,
 } from "@/lib/post-drafts";
 import {
+  createPostAttachmentPath,
   createPostContentImagePath,
   getStorageObjectPathFromPublicUrl,
   POST_THUMBNAIL_BUCKET,
@@ -49,8 +52,16 @@ const markdownTools = [
   { label: "동영상", action: "video" },
 ] as const;
 
+const MAX_ATTACHMENT_COUNT = 10;
+const MAX_ATTACHMENT_SIZE_BYTES = 20 * 1024 * 1024;
+
 type MarkdownToolAction = (typeof markdownTools)[number]["action"];
-type EditorTab = "write" | "preview";
+type EditorTab = "write" | "attachments" | "preview";
+type EditorAttachment = {
+  fileName: string;
+  fileUrl: string;
+  fileSize: number | null;
+};
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -125,6 +136,7 @@ type PostEditorProps = {
   initialCategoryName?: string;
   initialCategoryNames?: string[];
   initialThumbnail?: string | null;
+  initialAttachments?: DbPostAttachment[];
   initialIsBanner?: boolean;
   initialIsSecret?: boolean;
   copiedFromPostId?: number | null;
@@ -151,6 +163,7 @@ export default function PostEditor({
   initialCategoryName = "",
   initialCategoryNames,
   initialThumbnail = null,
+  initialAttachments = [],
   initialIsBanner = false,
   initialIsSecret = false,
   copiedFromPostId = null,
@@ -174,6 +187,7 @@ export default function PostEditor({
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const contentImageInputRef = useRef<HTMLInputElement>(null);
   const contentVideoInputRef = useRef<HTMLInputElement>(null);
+  const contentAttachmentInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
   const isTagComposingRef = useRef(false);
   const isContentComposingRef = useRef(false);
@@ -184,6 +198,13 @@ export default function PostEditor({
 
   const [title, setTitle] = useState(initialInquiryTitle.title);
   const [content, setContent] = useState(initialContent);
+  const [attachments, setAttachments] = useState<EditorAttachment[]>(
+    initialAttachments.map((attachment) => ({
+      fileName: attachment.file_name,
+      fileUrl: attachment.file_url,
+      fileSize: attachment.file_size,
+    })),
+  );
   const initialTags =
     initialCategoryNames && initialCategoryNames.length > 0
       ? initialCategoryNames
@@ -206,6 +227,7 @@ export default function PostEditor({
     string | null
   >(initialThumbnail ?? null);
   const [isUploadingContentImage, setIsUploadingContentImage] = useState(false);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [draftToast, setDraftToast] = useState<{
@@ -315,6 +337,15 @@ export default function PostEditor({
       setIsBanner(Boolean(draft.isBanner));
       setIsSecret(Boolean(draft.isSecret));
       setSelectedThumbnailUrl(draft.thumbnailUrl ?? null);
+      setAttachments(
+        Array.isArray(draft.attachments)
+          ? draft.attachments.map((attachment) => ({
+              fileName: attachment.fileName,
+              fileUrl: attachment.fileUrl,
+              fileSize: attachment.fileSize ?? null,
+            }))
+          : [],
+      );
     };
 
     void restoreDraft();
@@ -711,6 +742,90 @@ export default function PostEditor({
     }
   }
 
+  async function handleAttachmentChange(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) {
+      return;
+    }
+
+    if (attachments.length + files.length > MAX_ATTACHMENT_COUNT) {
+      setError(
+        `첨부파일은 최대 ${MAX_ATTACHMENT_COUNT}개까지 등록할 수 있습니다.`,
+      );
+      event.target.value = "";
+      return;
+    }
+
+    setIsUploadingAttachment(true);
+    setError(null);
+
+    try {
+      const uploadedAttachments: EditorAttachment[] = [];
+
+      for (const file of files) {
+        if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+          throw new Error(
+            `${file.name} 파일이 너무 큽니다. 첨부파일은 최대 20MB까지 업로드할 수 있습니다.`,
+          );
+        }
+
+        const nextPath = createPostAttachmentPath(file.name);
+        const { error: uploadError } = await supabase.storage
+          .from(POST_THUMBNAIL_BUCKET)
+          .upload(nextPath, file, {
+            cacheControl: "3600",
+            contentType: file.type || undefined,
+            upsert: false,
+          });
+
+        if (uploadError) {
+          throw new Error(uploadError.message);
+        }
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from(POST_THUMBNAIL_BUCKET).getPublicUrl(nextPath);
+
+        uploadedAttachments.push({
+          fileName: file.name,
+          fileUrl: publicUrl,
+          fileSize: file.size,
+        });
+      }
+
+      setAttachments((prev) => [...prev, ...uploadedAttachments]);
+      event.target.value = "";
+    } catch (uploadError) {
+      const message =
+        uploadError instanceof Error
+          ? uploadError.message
+          : "첨부파일 업로드 중 오류가 발생했습니다.";
+      setError(message);
+    } finally {
+      setIsUploadingAttachment(false);
+    }
+  }
+
+  async function removeAttachment(fileUrl: string) {
+    const targetAttachment = attachments.find(
+      (attachment) => attachment.fileUrl === fileUrl,
+    );
+    if (!targetAttachment) {
+      return;
+    }
+
+    setAttachments((prev) =>
+      prev.filter((attachment) => attachment.fileUrl !== fileUrl),
+    );
+
+    const storagePath = getStorageObjectPathFromPublicUrl(fileUrl);
+    if (storagePath?.includes("/attachments/")) {
+      await removeThumbnailFromStorage(storagePath);
+    }
+  }
+
   async function handleContentPaste(
     event: React.ClipboardEvent<HTMLTextAreaElement>,
   ) {
@@ -815,6 +930,7 @@ export default function PostEditor({
           isBanner,
           isSecret,
           thumbnailUrl: nextThumbnailUrl,
+          attachments,
           ...(mode === "create" && copiedFromPostId
             ? { copiedFromPostId }
             : {}),
@@ -887,6 +1003,7 @@ export default function PostEditor({
         isBanner,
         isSecret,
         thumbnailUrl: selectedThumbnailUrl,
+        attachments,
         savedAt: new Date().toISOString(),
       };
 
@@ -1036,7 +1153,9 @@ export default function PostEditor({
         type="file"
         accept="image/*"
         multiple
-        disabled={isUploadingContentImage || isSubmitting}
+        disabled={
+          isUploadingContentImage || isUploadingAttachment || isSubmitting
+        }
         onChange={handleContentImageChange}
         className="hidden"
       />
@@ -1045,8 +1164,18 @@ export default function PostEditor({
         type="file"
         accept="video/*"
         multiple
-        disabled={isUploadingContentImage || isSubmitting}
+        disabled={
+          isUploadingContentImage || isUploadingAttachment || isSubmitting
+        }
         onChange={handleContentVideoChange}
+        className="hidden"
+      />
+      <input
+        ref={contentAttachmentInputRef}
+        type="file"
+        multiple
+        disabled={isUploadingAttachment || isSubmitting}
+        onChange={handleAttachmentChange}
         className="hidden"
       />
 
@@ -1057,31 +1186,40 @@ export default function PostEditor({
           </div>
         ) : null}
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center border-b border-border/70">
-            <button
-              type="button"
-              onClick={() => setActiveTab("write")}
-              className={`w-20 border-b-2 px-1 pb-2 text-center text-sm font-medium transition ${
-                activeTab === "write"
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground"
-              }`}
-            >
-              본문
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("preview")}
-              className={`w-20 border-b-2 px-1 pb-2 text-center text-sm font-medium transition ${
-                activeTab === "preview"
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground"
-              }`}
-            >
-              미리보기
-            </button>
-          </div>
+        <div className="flex flex-wrap items-center gap-3 border-b border-border/70">
+          <button
+            type="button"
+            onClick={() => setActiveTab("write")}
+            className={`w-20 border-b-2 px-1 pb-2 text-center text-sm font-medium transition ${
+              activeTab === "write"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground"
+            }`}
+          >
+            본문
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("attachments")}
+            className={`w-20 border-b-2 px-1 pb-2 text-center text-sm font-medium transition ${
+              activeTab === "attachments"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground"
+            }`}
+          >
+            첨부파일
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("preview")}
+            className={`w-20 border-b-2 px-1 pb-2 text-center text-sm font-medium transition ${
+              activeTab === "preview"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground"
+            }`}
+          >
+            미리보기
+          </button>
         </div>
 
         {activeTab === "write" ? (
@@ -1101,11 +1239,98 @@ export default function PostEditor({
 
         <div
           className={`rounded-md border border-border/80 bg-muted/15 ${
-            activeTab === "preview" ? "" : "h-[420px]"
+            activeTab === "write" ? "h-[420px]" : ""
           }`}
         >
-          {activeTab === "preview" ? (
+          {activeTab === "attachments" ? (
+            <div className="flex h-[420px] flex-col px-5 py-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  최대 {MAX_ATTACHMENT_COUNT}개, 파일당 20MB까지 업로드할 수
+                  있습니다.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => contentAttachmentInputRef.current?.click()}
+                  disabled={
+                    isUploadingAttachment ||
+                    isSubmitting ||
+                    attachments.length >= MAX_ATTACHMENT_COUNT
+                  }
+                  className="rounded-md border border-border/80 bg-background px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isUploadingAttachment ? "업로드 중..." : "파일 추가"}
+                </button>
+              </div>
+
+              {attachments.length > 0 ? (
+                <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border/80 bg-background">
+                  <table className="w-full min-w-[480px] border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left text-xs font-semibold text-muted-foreground">
+                        <th className="px-4 py-2.5">파일명</th>
+                        <th className="w-28 px-4 py-2.5 text-center">용량</th>
+                        <th className="w-16 px-4 py-2.5 text-center">삭제</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attachments.map((attachment) => {
+                        const fileSizeLabel = formatAttachmentFileSize(
+                          attachment.fileSize,
+                        );
+
+                        return (
+                          <tr
+                            key={attachment.fileUrl}
+                            className="border-b border-border/70 last:border-b-0"
+                          >
+                            <td className="px-4 py-2.5 font-medium text-foreground">
+                              <span className="block truncate">
+                                {attachment.fileName}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-center text-muted-foreground">
+                              {fileSizeLabel || "-"}
+                            </td>
+                            <td className="px-4 py-2.5 text-center">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void removeAttachment(attachment.fileUrl)
+                                }
+                                disabled={isUploadingAttachment || isSubmitting}
+                                className="inline-flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                aria-label={`${attachment.fileName} 삭제`}
+                              >
+                                <X aria-hidden="true" className="size-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  등록된 첨부파일이 없습니다.
+                </p>
+              )}
+            </div>
+          ) : activeTab === "preview" ? (
             <div className="px-5 py-5">
+              {attachments.length > 0 ? (
+                <div className="mb-4 flex justify-end">
+                  <PostAttachmentsAccordion
+                    attachments={attachments.map((attachment, index) => ({
+                      id: index,
+                      file_name: attachment.fileName,
+                      file_url: attachment.fileUrl,
+                      file_size: attachment.fileSize,
+                    }))}
+                  />
+                </div>
+              ) : null}
               {content.trim() ? (
                 <MarkdownRenderer
                   content={content}
@@ -1197,7 +1422,9 @@ export default function PostEditor({
           type="button"
           variant="outline"
           size="lg"
-          disabled={isSubmitting || isUploadingContentImage}
+          disabled={
+            isSubmitting || isUploadingContentImage || isUploadingAttachment
+          }
           onClick={() => {
             if (onCancel) {
               onCancel();
@@ -1227,7 +1454,10 @@ export default function PostEditor({
               variant="outline"
               size="lg"
               disabled={
-                isSubmitting || isUploadingContentImage || isSavingDraft
+                isSubmitting ||
+                isUploadingContentImage ||
+                isUploadingAttachment ||
+                isSavingDraft
               }
               onClick={handleSaveDraft}
               className="min-w-28"
@@ -1238,13 +1468,15 @@ export default function PostEditor({
           <Button
             type="button"
             size="lg"
-            disabled={isSubmitting || isUploadingContentImage}
+            disabled={
+              isSubmitting || isUploadingContentImage || isUploadingAttachment
+            }
             onClick={handleSubmit}
             className="min-w-28 text-white dark:text-white"
           >
             {isSubmitting
               ? submittingLabel
-              : isUploadingContentImage
+              : isUploadingContentImage || isUploadingAttachment
                 ? "업로드 중..."
                 : submitLabel}
           </Button>

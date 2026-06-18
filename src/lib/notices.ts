@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { ensureCategoryByName } from "@/lib/categories";
 import { buildVisibleCommentCountWhere } from "@/lib/comment-counts";
+import type { DbPostAttachment } from "@/lib/db";
 import {
   ALL_NOTICE_TAG_OPTIONS,
   getNoticeCategoryQueryNames,
@@ -10,6 +11,7 @@ import {
   parseNoticeSearchTarget,
 } from "@/lib/notice-categories";
 import { getAdminReactedPostIdSet } from "@/lib/post-reactions";
+import { mapPostAttachments } from "@/lib/post-attachments";
 import {
   comparePostMetrics,
   DEFAULT_SORT,
@@ -133,6 +135,7 @@ export type NoticeDetail = {
   canViewSecret: boolean;
   isResolved: boolean;
   hasAdminAnswer: boolean;
+  attachments: DbPostAttachment[];
 };
 
 export type NoticeBannerItem = {
@@ -527,6 +530,15 @@ export async function findNoticeById(
         views: {
           select: { viewCount: true },
         },
+        attachments: {
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+          select: {
+            id: true,
+            fileName: true,
+            fileUrl: true,
+            fileSize: true,
+          },
+        },
         _count: {
           select: {
             likes: true,
@@ -598,6 +610,9 @@ export async function findNoticeById(
       normalizedCategory === "QnA" || normalizedCategory === "버그 제보"
         ? adminAnswerCount > 0 || adminReactedPostIdSet.has(id)
         : false,
+    attachments: canViewSecret
+      ? mapPostAttachments(notice.attachments ?? [])
+      : [],
   } satisfies NoticeDetail;
 }
 

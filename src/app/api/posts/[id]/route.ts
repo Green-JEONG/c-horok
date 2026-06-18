@@ -12,7 +12,30 @@ import {
   setPostHidden,
   updatePost,
 } from "@/lib/posts";
+import { type PostAttachmentInput } from "@/lib/post-attachments";
 import { prisma } from "@/lib/prisma";
+
+function getAttachments(body: { attachments?: unknown }): PostAttachmentInput[] {
+  if (!Array.isArray(body.attachments)) {
+    return [];
+  }
+
+  return body.attachments
+    .filter(
+      (item): item is Record<string, unknown> =>
+        Boolean(item) && typeof item === "object",
+    )
+    .map((item) => ({
+      fileName:
+        typeof item.fileName === "string" ? item.fileName.trim() : "",
+      fileUrl: typeof item.fileUrl === "string" ? item.fileUrl.trim() : "",
+      fileSize:
+        typeof item.fileSize === "number" && Number.isFinite(item.fileSize)
+          ? item.fileSize
+          : null,
+    }))
+    .filter((item) => item.fileName && item.fileUrl);
+}
 
 function getCategoryNames(body: {
   categoryName?: unknown;
@@ -105,6 +128,7 @@ export async function PUT(
   const { title, content, categoryName, thumbnailUrl, isBanner, isSecret } =
     body;
   const categoryNames = getCategoryNames(body);
+  const attachments = getAttachments(body);
   const normalizedCategoryName =
     categoryNames[0] ??
     (typeof categoryName === "string" ? categoryName.trim() : "");
@@ -139,6 +163,7 @@ export async function PUT(
         : thumbnailUrl === null
           ? null
           : undefined,
+    attachments,
   });
 
   return NextResponse.json(updated);
