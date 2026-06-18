@@ -117,23 +117,29 @@ export default function HeaderActions() {
         onClick={() => setOpen(true)}
         aria-label="마이페이지 열기"
       >
-        <Image
-          src={platformProfile?.image ?? session?.user?.image ?? "/logo.png"}
-          alt={
-            (platformProfile?.name ?? session?.user?.name)
-              ? `${platformProfile?.name ?? session?.user?.name} 프로필`
-              : "profile"
-          }
-          width={30}
-          height={30}
+        <span
           className={cn(
-            "relative z-10 h-full w-full rounded-full border border-border object-contain transition",
+            "relative z-10 block h-full w-full overflow-hidden rounded-full border border-border transition",
             isCoding
               ? "group-hover:border-[#06923E]/35 dark:group-hover:border-[#46c86f]/45"
               : "group-hover:border-primary/30",
-            !(platformProfile?.image ?? session?.user?.image) && "grayscale",
           )}
-        />
+        >
+          <Image
+            src={platformProfile?.image ?? session?.user?.image ?? "/logo.png"}
+            alt={
+              (platformProfile?.name ?? session?.user?.name)
+                ? `${platformProfile?.name ?? session?.user?.name} 프로필`
+                : "profile"
+            }
+            width={40}
+            height={40}
+            className={cn(
+              "h-full w-full object-cover",
+              !(platformProfile?.image ?? session?.user?.image) && "grayscale",
+            )}
+          />
+        </span>
         {isAdmin ? (
           <Crown
             className="pointer-events-none absolute -top-2 left-1/2 z-0 h-4 w-4 -translate-x-1/2 fill-amber-300 text-amber-500 drop-shadow-sm"

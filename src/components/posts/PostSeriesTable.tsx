@@ -47,20 +47,23 @@ export default function PostSeriesTable({ currentPostId, items }: Props) {
 
   return (
     <section className="mb-5 min-w-0 border-y border-border py-4">
-      <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
-        <h2 className="min-w-0 truncate text-base font-bold text-foreground">
-          {seriesName ? (
-            <>
-              <span className="text-primary">{seriesName}</span> 시리즈
-            </>
-          ) : (
-            "시리즈"
-          )}
-        </h2>
-        <span className="shrink-0 text-sm text-muted-foreground">
-          {items.length}개 글
-        </span>
-      </div>
+      <h2 className="mb-3 min-w-0 truncate text-base font-bold text-foreground">
+        {seriesName ? (
+          <>
+            <span className="text-primary">{seriesName}</span> 시리즈{" "}
+            <span className="font-semibold text-muted-foreground">
+              {items.length}
+            </span>
+          </>
+        ) : (
+          <>
+            시리즈{" "}
+            <span className="font-semibold text-muted-foreground">
+              {items.length}
+            </span>
+          </>
+        )}
+      </h2>
 
       <div
         className={cn(
