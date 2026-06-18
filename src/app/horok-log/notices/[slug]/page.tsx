@@ -151,6 +151,7 @@ export default async function HorokLogNoticeDetailPage({
     is_secret: notice.isSecret,
     can_view_secret: notice.canViewSecret,
     user_id: notice.userId,
+    attachments: notice.attachments,
   };
   const inquiryStatus = notice.isResolved
     ? "resolved"

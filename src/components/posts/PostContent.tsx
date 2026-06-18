@@ -1,5 +1,6 @@
 import Image from "next/image";
 import CopiedPostCard from "@/components/posts/CopiedPostCard";
+import PostAttachmentsAccordion from "@/components/posts/PostAttachmentsAccordion";
 import MarkdownRenderer from "@/components/posts/MarkdownRenderer";
 import PostHashScroll from "@/components/posts/PostHashScroll";
 import type { DbPost } from "@/lib/db";
@@ -46,6 +47,11 @@ export default function PostContent({ post }: { post: DbPost }) {
         </div>
       ) : null}
       <PostHashScroll />
+      {post.attachments && post.attachments.length > 0 ? (
+        <div className="mb-4 flex justify-end">
+          <PostAttachmentsAccordion attachments={post.attachments} />
+        </div>
+      ) : null}
       <MarkdownRenderer content={post.content} />
     </section>
   );

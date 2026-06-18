@@ -20,6 +20,11 @@ export function createPostContentImagePath(fileName: string) {
   return `public/content/${crypto.randomUUID()}-${safeFileName}`;
 }
 
+export function createPostAttachmentPath(fileName: string) {
+  const safeFileName = sanitizeFileName(fileName) || "attachment";
+  return `public/attachments/${crypto.randomUUID()}-${safeFileName}`;
+}
+
 export function getStorageObjectPathFromPublicUrl(url?: string | null) {
   if (!url) return null;
 

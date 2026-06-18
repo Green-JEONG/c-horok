@@ -6,6 +6,11 @@ export type PostDraftPayload = {
   selectedFixedTag: string;
   selectedInquiryTag?: string;
   thumbnailUrl?: string | null;
+  attachments?: Array<{
+    fileName: string;
+    fileUrl: string;
+    fileSize?: number | null;
+  }>;
   isBanner: boolean;
   isSecret: boolean;
   savedAt: string;

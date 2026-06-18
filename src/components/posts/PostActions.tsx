@@ -201,6 +201,7 @@ export default function PostActions({
             initialCategoryName={initialCategoryName}
             initialCategoryNames={initialCategoryNames}
             initialThumbnail={initialThumbnail}
+            initialAttachments={headerPost?.attachments}
             initialIsBanner={initialIsBanner}
             initialIsSecret={initialIsSecret}
             copiedFromPost={initialCopiedFromPost}
