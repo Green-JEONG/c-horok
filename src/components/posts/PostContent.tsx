@@ -1,6 +1,7 @@
 import Image from "next/image";
 import CopiedPostCard from "@/components/posts/CopiedPostCard";
 import MarkdownRenderer from "@/components/posts/MarkdownRenderer";
+import PostHashScroll from "@/components/posts/PostHashScroll";
 import type { DbPost } from "@/lib/db";
 
 function contentIncludesImageUrl(content: string, imageUrl?: string | null) {
@@ -44,6 +45,7 @@ export default function PostContent({ post }: { post: DbPost }) {
           />
         </div>
       ) : null}
+      <PostHashScroll />
       <MarkdownRenderer content={post.content} />
     </section>
   );
