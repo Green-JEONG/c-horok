@@ -4,8 +4,14 @@ import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import CodeBlock from "@/components/posts/CodeBlock";
+import MarkdownAnchor from "@/components/posts/MarkdownAnchor";
+import {
+  parseMarkdownAttributeBlock,
+  remarkLinkAttributes,
+} from "@/lib/remark-link-attributes";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -29,9 +35,10 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
         "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4",
         "[&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground",
         "[&_code]:rounded [&_code]:bg-orange-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.9em] [&_code]:text-orange-900 dark:[&_code]:bg-orange-300/85 dark:[&_code]:text-orange-950",
-        "[&_h1]:mt-8 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-bold",
-        "[&_h2]:mt-7 [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold",
-        "[&_h3]:mt-6 [&_h3]:mb-3 [&_h3]:text-xl [&_h3]:font-semibold",
+        "[&_h1]:mt-8 [&_h1]:mb-4 [&_h1]:scroll-mt-6 [&_h1]:text-3xl [&_h1]:font-bold",
+        "[&_h2]:mt-7 [&_h2]:mb-3 [&_h2]:scroll-mt-6 [&_h2]:text-2xl [&_h2]:font-semibold",
+        "[&_h3]:mt-6 [&_h3]:mb-3 [&_h3]:scroll-mt-6 [&_h3]:text-xl [&_h3]:font-semibold",
+        "[&_h4]:scroll-mt-6 [&_h5]:scroll-mt-6 [&_h6]:scroll-mt-6",
         "[&_hr]:my-6 [&_hr]:border-border",
         "[&_img]:max-w-full",
         "[&_li]:my-1",
@@ -82,8 +89,16 @@ function renderMarkdownBody(
 ) {
   const sanitizeSchema = {
     ...defaultSchema,
+    clobberPrefix: "",
     attributes: {
       ...defaultSchema.attributes,
+      a: [...(defaultSchema.attributes?.a ?? []), "href", "target", "rel"],
+      h1: [...(defaultSchema.attributes?.h1 ?? []), "id"],
+      h2: [...(defaultSchema.attributes?.h2 ?? []), "id"],
+      h3: [...(defaultSchema.attributes?.h3 ?? []), "id"],
+      h4: [...(defaultSchema.attributes?.h4 ?? []), "id"],
+      h5: [...(defaultSchema.attributes?.h5 ?? []), "id"],
+      h6: [...(defaultSchema.attributes?.h6 ?? []), "id"],
       code: [...(defaultSchema.attributes?.code ?? []), ["className"]],
       span: [...(defaultSchema.attributes?.span ?? []), ["className"]],
       div: [...(defaultSchema.attributes?.div ?? []), ["className"]],
@@ -99,13 +114,31 @@ function renderMarkdownBody(
 
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkLinkAttributes]}
       rehypePlugins={[
         rehypeRaw,
         rehypeHighlight,
+        rehypeSlug,
         [rehypeSanitize, sanitizeSchema],
       ]}
       components={{
+        a({ href, children, target, rel, ...props }) {
+          const normalizedRel =
+            target === "_blank"
+              ? (rel ?? "noopener noreferrer")
+              : (rel ?? undefined);
+
+          return (
+            <MarkdownAnchor
+              href={href}
+              target={target}
+              rel={normalizedRel}
+              {...props}
+            >
+              {children}
+            </MarkdownAnchor>
+          );
+        },
         p({ children }) {
           if (layout === "inline-row") {
             return <div className="contents">{children}</div>;
@@ -463,6 +496,47 @@ function collapseLayoutBlockImages(content: string): string {
   );
 }
 
+function buildHtmlAnchor(
+  text: string,
+  url: string,
+  attrs: Record<string, string>,
+): string {
+  const normalizedAttrs = { ...attrs };
+
+  if (normalizedAttrs.target === "_blank" && !normalizedAttrs.rel) {
+    normalizedAttrs.rel = "noopener noreferrer";
+  }
+
+  const attrString = Object.entries(normalizedAttrs)
+    .map(([key, value]) => `${key}="${value}"`)
+    .join(" ");
+
+  return attrString
+    ? `<a href="${url}" ${attrString}>${text}</a>`
+    : `<a href="${url}">${text}</a>`;
+}
+
+function convertMarkdownLinkAttributes(content: string): string {
+  return content.replace(
+    /(?<!!)\[([^\]]*)]\(([^)\s]+)(?:\s+["']([^"']*)["'])?\)\s*\{([^}]+)\}/g,
+    (
+      _,
+      text: string,
+      url: string,
+      _existingTitle: string | undefined,
+      attrBlock: string,
+    ) => {
+      const attrs = parseMarkdownAttributeBlock(attrBlock.replace(/^:/, ""));
+
+      if (Object.keys(attrs).length === 0) {
+        return _;
+      }
+
+      return buildHtmlAnchor(text, url, attrs);
+    },
+  );
+}
+
 function convertMarkdownImageAttributes(content: string): string {
   return content.replace(
     /!\[([^\]]*)]\(([^)\s]+)(?:\s+["']([^"']*)["'])?\)\s*\{([^}]+)\}/g,
@@ -475,7 +549,7 @@ function convertMarkdownImageAttributes(content: string): string {
     ) => {
       const dimensions = parseImageDimensions({
         title: existingTitle,
-        ...parseImageAttributeBlock(attrBlock),
+        ...parseImageAttributeBlock(attrBlock.replace(/^:/, "")),
       });
 
       return buildMarkdownImage(alt, src, dimensions);
@@ -530,7 +604,9 @@ export function normalizeHtmlLikeMarkdown(content: string): string {
     );
 
   return collapseLayoutBlockImages(
-    convertMarkdownImageAttributes(convertHtmlImgToMarkdown(normalized)),
+    convertMarkdownImageAttributes(
+      convertMarkdownLinkAttributes(convertHtmlImgToMarkdown(normalized)),
+    ),
   );
 }
 
