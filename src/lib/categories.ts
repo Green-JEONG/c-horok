@@ -1,5 +1,12 @@
 import { normalizeNoticeCategory } from "@/lib/notice-categories";
+import { INTERNAL_UNCATEGORIZED_CATEGORY_NAME } from "@/lib/category-labels";
 import { prisma } from "@/lib/prisma";
+
+export {
+  INTERNAL_UNCATEGORIZED_CATEGORY_NAME,
+  filterVisibleCategoryNames,
+  isInternalUncategorizedCategory,
+} from "@/lib/category-labels";
 
 function normalizeCategoryName(name: string) {
   const normalizedName = name.replace(/\s+/g, " ").trim();
@@ -47,7 +54,7 @@ export async function getCategoryBySlug(
     return null;
   }
 
-  if (category?.name === "미분류") {
+  if (category?.name === INTERNAL_UNCATEGORIZED_CATEGORY_NAME) {
     return null;
   }
 

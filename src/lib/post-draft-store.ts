@@ -43,7 +43,7 @@ function normalizeServerDraft(
 
   return {
     ...draft,
-    id: draft.id ?? fallbackId ?? randomUUID(),
+    id: fallbackId ?? draft.id ?? randomUUID(),
     tags: Array.isArray(draft.tags) ? draft.tags : [],
     selectedFixedTag: draft.selectedFixedTag ?? "",
     isBanner: Boolean(draft.isBanner),

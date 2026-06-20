@@ -8,7 +8,7 @@ export function platformPageTitle(platform: string, section?: string) {
 
 export const HOROK_LOG = "horok-log";
 export const HOROK_CODING = "horok-coding";
-export const HOROK_EDU = "horok-edu";
+export const HOROK_ACADEMY = "horok-academy";
 export const HOROK_ITEM = "horok-item";
 
 export function horokLogTitle(section?: string) {
@@ -19,8 +19,8 @@ export function horokCodingTitle(section?: string) {
   return platformPageTitle(HOROK_CODING, section);
 }
 
-export function horokEduTitle(section?: string) {
-  return platformPageTitle(HOROK_EDU, section);
+export function horokAcademyTitle(section?: string) {
+  return platformPageTitle(HOROK_ACADEMY, section);
 }
 
 export function horokItemTitle(section?: string) {

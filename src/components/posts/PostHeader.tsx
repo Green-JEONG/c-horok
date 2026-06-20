@@ -1,9 +1,11 @@
-import { EyeOff, Lock } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import PostDownloadMenu from "@/components/posts/PostDownloadMenu";
 import PostSeriesTable from "@/components/posts/PostSeriesTable";
+import PostTitleStatusIcons, {
+  getTitleStatusIndent,
+} from "@/components/posts/PostTitleStatusIcons";
 import type { DbPost, DbPostSeriesItem } from "@/lib/db";
 import { isNoticeCategoryName } from "@/lib/notice-categories";
 import { formatSeoulDateTime } from "@/lib/utils";
@@ -14,12 +16,20 @@ export default function PostHeader({
   titleAddon,
   seriesItems = [],
   isOwner = false,
+  titleSection,
+  titleStatusSection,
+  titleStatusIndent,
+  tagsSection,
 }: {
   post: DbPost;
   actionSlot?: ReactNode;
   titleAddon?: ReactNode;
   seriesItems?: DbPostSeriesItem[];
   isOwner?: boolean;
+  titleSection?: ReactNode;
+  titleStatusSection?: ReactNode;
+  titleStatusIndent?: string;
+  tagsSection?: ReactNode;
 }) {
   const createdDateTime = formatSeoulDateTime(post.created_at);
   const [, createdDateText = createdDateTime, createdTimeText = ""] =
@@ -49,36 +59,61 @@ export default function PostHeader({
     </>
   );
 
+  const statusIcons =
+    titleStatusSection ??
+    (showHiddenIcon || showSecretLock ? (
+      <PostTitleStatusIcons
+        showHidden={showHiddenIcon}
+        showSecret={showSecretLock}
+      />
+    ) : null);
+  const titleStatusIndentValue =
+    titleStatusIndent ??
+    (statusIcons
+      ? getTitleStatusIndent(showHiddenIcon, showSecretLock)
+      : undefined);
+  const applyWrapperTitleIndent = Boolean(statusIcons && !titleSection);
+
   return (
     <header className="mb-3">
       <PostSeriesTable currentPostId={post.id} items={seriesItems} />
 
-      <h1 className="flex items-center gap-2 text-3xl font-bold leading-tight">
-        <span className="min-w-0 flex-1">{post.title}</span>
-        {showHiddenIcon || showSecretLock ? (
-          <span className="inline-flex shrink-0 items-center gap-2">
-            {showHiddenIcon ? (
-              <EyeOff className="h-6 w-6 shrink-0 text-muted-foreground" />
-            ) : null}
-            {showSecretLock ? (
-              <Lock className="h-6 w-6 shrink-0 text-muted-foreground" />
-            ) : null}
-          </span>
-        ) : null}
+      <h1 className="flex items-start gap-x-2 gap-y-2 text-3xl font-bold leading-tight">
+        <div className="relative min-w-0 flex-1">
+          {statusIcons ? (
+            <span className="absolute top-0 left-0 flex items-center pt-1">
+              {statusIcons}
+            </span>
+          ) : null}
+          <div
+            className="min-w-0 break-words [overflow-wrap:anywhere]"
+            style={{
+              textIndent: applyWrapperTitleIndent
+                ? titleStatusIndentValue
+                : undefined,
+            }}
+          >
+            {titleSection ?? (
+              <span className="whitespace-pre-wrap break-words">{post.title}</span>
+            )}
+          </div>
+        </div>
         {titleAddon ? (
-          <span className="inline-flex shrink-0 items-center">
+          <span className="inline-flex shrink-0 items-center self-start">
             {titleAddon}
           </span>
         ) : null}
-        <PostDownloadMenu
-          postId={post.id}
-          title={post.title}
-          content={post.content}
-          authorName={post.author_name}
-          createdAt={post.created_at}
-          initialMarkdownCount={post.markdown_download_count ?? 0}
-          initialPdfCount={post.pdf_download_count ?? 0}
-        />
+        <span className="ml-auto shrink-0 self-start">
+          <PostDownloadMenu
+            postId={post.id}
+            title={post.title}
+            content={post.content}
+            authorName={post.author_name}
+            createdAt={post.created_at}
+            initialMarkdownCount={post.markdown_download_count ?? 0}
+            initialPdfCount={post.pdf_download_count ?? 0}
+          />
+        </span>
       </h1>
 
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -128,7 +163,9 @@ export default function PostHeader({
         ) : null}
       </div>
 
-      {visibleCategoryNames.length > 0 ? (
+      {tagsSection ? (
+        <div className="mt-3">{tagsSection}</div>
+      ) : visibleCategoryNames.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {visibleCategoryNames.map((categoryName) => (
             <span

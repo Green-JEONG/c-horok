@@ -21,6 +21,9 @@ import {
 } from "@/lib/post-sort";
 import { prisma } from "@/lib/prisma";
 import { normalizeSearchText, tokenizeSearchQuery } from "@/lib/search";
+import { parsePostThumbnailCrop, resolvePostThumbnailCrop } from "@/lib/post-thumbnail-crop";
+import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
+import { getPostThumbnailCropsByPostIds } from "@/lib/post-thumbnail-crop-access";
 import {
   parseUserSearchSort,
   type UserSearchSort,
@@ -31,6 +34,7 @@ export type DbPost = {
   title: string;
   content: string;
   thumbnail: string | null;
+  thumbnail_crop?: PostThumbnailCrop | null;
   created_at: Date;
   author_name: string;
   author_image: string | null;
@@ -91,6 +95,7 @@ function mapPost(
     title: string;
     content: string;
     thumbnail: string | null;
+    thumbnailCrop?: unknown;
     createdAt: Date;
     isHidden: boolean;
     isSecret: boolean;
@@ -119,6 +124,7 @@ function mapPost(
     title: post.title,
     content: canViewSecret ? post.content : "비밀글입니다.",
     thumbnail: canViewSecret ? post.thumbnail : null,
+    thumbnail_crop: canViewSecret ? parsePostThumbnailCrop(post.thumbnailCrop) : null,
     created_at: post.createdAt,
     author_name: post.user.name ?? "Unknown",
     author_image: post.user.image ?? null,
@@ -138,12 +144,23 @@ async function mapPostsWithReactionCounts(
   posts: Array<Parameters<typeof mapPost>[0]>,
   options?: Parameters<typeof mapPost>[1],
 ) {
-  const reactionCounts = await getPostReactionCountsByPostId(
-    posts.map((post) => post.id),
-  );
+  const postIds = posts.map((post) => post.id);
+  const [reactionCounts, thumbnailCropMap] = await Promise.all([
+    getPostReactionCountsByPostId(postIds),
+    getPostThumbnailCropsByPostIds(postIds),
+  ]);
 
   return posts.map((post) => {
-    const mappedPost = mapPost(post, options);
+    const mappedPost = mapPost(
+      {
+        ...post,
+        thumbnailCrop: resolvePostThumbnailCrop(
+          thumbnailCropMap.get(post.id.toString()),
+          post.thumbnailCrop,
+        ),
+      },
+      options,
+    );
 
     return {
       ...mappedPost,

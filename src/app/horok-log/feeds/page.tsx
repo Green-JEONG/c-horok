@@ -39,7 +39,7 @@ export default async function HorokLogFeedsPage({
           />
         </Suspense>
       </div>
-      <OrangeScrollArea className="min-h-0 flex-1 pr-3">
+      <OrangeScrollArea className="min-h-0 flex-1" showScrollDownHint>
         <PostList sort={sort} />
       </OrangeScrollArea>
     </div>

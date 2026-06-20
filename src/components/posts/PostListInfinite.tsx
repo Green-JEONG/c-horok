@@ -7,12 +7,15 @@ import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isNoticeCategoryName } from "@/lib/notice-categories";
+import { dispatchOrangeScrollHasMore } from "@/lib/orange-scroll-area-events";
 import { parseSortType, type SortType } from "@/lib/post-sort";
+import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
 import { getLogFaqPath, getLogNoticePath } from "@/lib/routes";
 import { formatSeoulDate } from "@/lib/utils";
 import PostCard from "./PostCard";
 
 const PAGE_SIZE = 12;
+const API_MAX_PAGE_LIMIT = 15;
 const GRID_PROBE_ITEMS = [
   "probe-1",
   "probe-2",
@@ -27,6 +30,7 @@ type PostListItem = {
   title: string;
   content: string;
   thumbnail: string | null;
+  thumbnail_crop?: PostThumbnailCrop | null;
   created_at: Date | string;
   author_name: string;
   author_image?: string | null;
@@ -122,6 +126,23 @@ function readPostsFromPayload(
   return [];
 }
 
+function resolveRequestLimit(
+  responsiveRowLoading: boolean,
+  responsivePageSize: number | null,
+  initialVisibleRowCount: number,
+  options?: { initialBatch?: boolean },
+  hasLoadedOnce?: boolean,
+  postsLength?: number,
+) {
+  const computedLimit = responsiveRowLoading
+    ? options?.initialBatch || (!hasLoadedOnce && postsLength === 0)
+      ? (responsivePageSize ?? PAGE_SIZE) * initialVisibleRowCount
+      : (responsivePageSize ?? PAGE_SIZE)
+    : PAGE_SIZE;
+
+  return Math.min(computedLimit, API_MAX_PAGE_LIMIT);
+}
+
 export default function PostListInfinite({
   initialPosts,
   endpoint,
@@ -154,13 +175,30 @@ export default function PostListInfinite({
     responsiveRowLoading ? null : PAGE_SIZE,
   );
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(initialPosts.length >= PAGE_SIZE);
+  const [hasMore, setHasMore] = useState(
+    !disableInfinite &&
+      (initialPosts.length >= PAGE_SIZE ||
+        autoloadFirstPage ||
+        responsiveRowLoading),
+  );
   const [hasLoadedOnce, setHasLoadedOnce] = useState(!autoloadFirstPage);
+  const [visiblePostLimit, setVisiblePostLimit] = useState<number | null>(null);
 
   const loaderRef = useRef<HTMLDivElement | null>(null);
   const gridProbeRef = useRef<HTMLDivElement | null>(null);
   const fetchingRef = useRef(false);
   const loadedServerPostCountRef = useRef(initialPosts.length);
+  const nearEndRevealLockedRef = useRef(false);
+  const nearEndRevealUnlockTimeoutRef = useRef<number | null>(null);
+  const previousListKeyRef = useRef(searchParamsString);
+  const loadMoreRef = useRef<
+    (options?: { initialBatch?: boolean }) => Promise<void>
+  >(async () => {});
+  const postsLengthRef = useRef(posts.length);
+  const visiblePostLimitRef = useRef(visiblePostLimit);
+  const hasMoreRef = useRef(hasMore);
+  const loadingRef = useRef(loading);
+  const responsivePageSizeRef = useRef(responsivePageSize);
 
   useEffect(() => {
     setPosts(initialPosts);
@@ -198,7 +236,18 @@ export default function PostListInfinite({
         return;
       }
 
-      setResponsivePageSize((current) => (current === next ? current : next));
+      setResponsivePageSize((current) => {
+        if (current !== next) {
+          setPosts([]);
+          setVisiblePostLimit(next * initialVisibleRowCount);
+          setHasMore(!disableInfinite);
+          setHasLoadedOnce(false);
+          loadedServerPostCountRef.current = 0;
+          fetchingRef.current = false;
+        }
+
+        return current === next ? current : next;
+      });
     };
 
     const frame = window.requestAnimationFrame(updatePageSize);
@@ -208,10 +257,15 @@ export default function PostListInfinite({
     return () => {
       window.cancelAnimationFrame(frame);
       observer.disconnect();
+      if (nearEndRevealUnlockTimeoutRef.current !== null) {
+        window.clearTimeout(nearEndRevealUnlockTimeoutRef.current);
+        nearEndRevealUnlockTimeoutRef.current = null;
+      }
+      nearEndRevealLockedRef.current = false;
     };
-  }, [responsiveRowLoading]);
+  }, [disableInfinite, initialVisibleRowCount, responsiveRowLoading]);
 
-  const loadMore = useCallback(async () => {
+  const loadMore = useCallback(async (options?: { initialBatch?: boolean }) => {
     if (
       disableInfinite ||
       loading ||
@@ -227,11 +281,14 @@ export default function PostListInfinite({
 
     try {
       const url = new URL(endpoint, window.location.origin);
-      const requestLimit = responsiveRowLoading
-        ? hasLoadedOnce || posts.length > 0
-          ? responsivePageSize
-          : responsivePageSize * initialVisibleRowCount
-        : PAGE_SIZE;
+      const requestLimit = resolveRequestLimit(
+        responsiveRowLoading,
+        responsivePageSize,
+        initialVisibleRowCount,
+        options,
+        hasLoadedOnce,
+        posts.length,
+      );
 
       if (syncSortWithSearchParams) {
         const currentParams = new URLSearchParams(searchParamsString);
@@ -255,17 +312,15 @@ export default function PostListInfinite({
       const res = await fetch(url.toString());
       const data = readPostsFromPayload(await res.json(), responseKey);
 
+      if (responsiveRowLoading) {
+        loadedServerPostCountRef.current += data.length;
+      }
+
+      setHasMore(data.length >= requestLimit);
+
       setPosts((prev) => {
         const existingIds = new Set(prev.map((post) => post.id));
         const newPosts = data.filter((post) => !existingIds.has(post.id));
-
-        if (responsiveRowLoading) {
-          loadedServerPostCountRef.current += data.length;
-        }
-
-        if (data.length < requestLimit) {
-          setHasMore(false);
-        }
 
         return [...prev, ...newPosts];
       });
@@ -293,18 +348,28 @@ export default function PostListInfinite({
     syncSortWithSearchParams,
   ]);
 
+  loadMoreRef.current = loadMore;
+  postsLengthRef.current = posts.length;
+  visiblePostLimitRef.current = visiblePostLimit;
+  hasMoreRef.current = hasMore;
+  loadingRef.current = loading;
+  responsivePageSizeRef.current = responsivePageSize;
+
   const reloadFirstPage = useCallback(async () => {
     if (responsivePageSize === null) {
       return;
     }
 
     const url = new URL(endpoint, window.location.origin);
-    const requestLimit = responsiveRowLoading
-      ? Math.max(
-          responsivePageSize * initialVisibleRowCount,
-          loadedServerPostCountRef.current || initialPosts.length,
-        )
-      : PAGE_SIZE;
+    const requestLimit = Math.min(
+      responsiveRowLoading
+        ? Math.max(
+            (responsivePageSize ?? PAGE_SIZE) * initialVisibleRowCount,
+            loadedServerPostCountRef.current || initialPosts.length,
+          )
+        : PAGE_SIZE,
+      API_MAX_PAGE_LIMIT,
+    );
 
     if (syncSortWithSearchParams) {
       const currentParams = new URLSearchParams(searchParamsString);
@@ -330,6 +395,9 @@ export default function PostListInfinite({
     loadedServerPostCountRef.current = data.length;
     setHasMore(!disableInfinite && data.length >= requestLimit);
     setHasLoadedOnce(true);
+    if (responsiveRowLoading) {
+      setVisiblePostLimit(responsivePageSize * initialVisibleRowCount);
+    }
     fetchingRef.current = false;
   }, [
     disableInfinite,
@@ -364,11 +432,13 @@ export default function PostListInfinite({
       posts.length === 0 &&
       responsivePageSize !== null
     ) {
-      void loadMore();
+      void loadMore({ initialBatch: true });
       return;
     }
 
-    if (!loaderRef.current) return;
+    if (responsiveRowLoading || !loaderRef.current) {
+      return;
+    }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -387,6 +457,37 @@ export default function PostListInfinite({
     loadMore,
     posts.length,
     responsivePageSize,
+    responsiveRowLoading,
+  ]);
+
+  useEffect(() => {
+    if (
+      !responsiveRowLoading ||
+      !syncSortWithSearchParams ||
+      responsivePageSize === null
+    ) {
+      return;
+    }
+
+    if (previousListKeyRef.current === searchParamsString) {
+      return;
+    }
+
+    previousListKeyRef.current = searchParamsString;
+    loadedServerPostCountRef.current = 0;
+    setPosts([]);
+    setPage(1);
+    setHasMore(true);
+    setVisiblePostLimit(responsivePageSize * initialVisibleRowCount);
+    fetchingRef.current = false;
+    void loadMore({ initialBatch: true });
+  }, [
+    initialVisibleRowCount,
+    loadMore,
+    responsivePageSize,
+    responsiveRowLoading,
+    searchParamsString,
+    syncSortWithSearchParams,
   ]);
 
   useEffect(() => {
@@ -394,20 +495,107 @@ export default function PostListInfinite({
       return;
     }
 
-    const handleNearEnd = () => {
-      void loadMore();
+    const handleNearEnd = async () => {
+      if (!responsiveRowLoading) {
+        void loadMoreRef.current();
+        return;
+      }
+
+      const pageSize = responsivePageSizeRef.current;
+
+      if (
+        loadingRef.current ||
+        nearEndRevealLockedRef.current ||
+        pageSize === null
+      ) {
+        return;
+      }
+
+      nearEndRevealLockedRef.current = true;
+
+      const unlockNearEndReveal = () => {
+        if (nearEndRevealUnlockTimeoutRef.current !== null) {
+          window.clearTimeout(nearEndRevealUnlockTimeoutRef.current);
+        }
+
+        nearEndRevealUnlockTimeoutRef.current = window.setTimeout(() => {
+          nearEndRevealLockedRef.current = false;
+        }, 450);
+      };
+
+      try {
+        const currentVisiblePostLimit = visiblePostLimitRef.current ?? pageSize;
+        const hiddenLoadedPostCount = Math.max(
+          0,
+          postsLengthRef.current - currentVisiblePostLimit,
+        );
+
+        if (!hasMoreRef.current && hiddenLoadedPostCount === 0) {
+          return;
+        }
+
+        if (hiddenLoadedPostCount < pageSize && hasMoreRef.current) {
+          await loadMoreRef.current();
+        }
+
+        setVisiblePostLimit((current) => {
+          const next =
+            current === null
+              ? pageSize * initialVisibleRowCount
+              : current + pageSize;
+          visiblePostLimitRef.current = next;
+          return next;
+        });
+      } finally {
+        unlockNearEndReveal();
+      }
     };
 
     window.addEventListener("orange-scroll-area-near-end", handleNearEnd);
 
     return () => {
       window.removeEventListener("orange-scroll-area-near-end", handleNearEnd);
+      if (nearEndRevealUnlockTimeoutRef.current !== null) {
+        window.clearTimeout(nearEndRevealUnlockTimeoutRef.current);
+        nearEndRevealUnlockTimeoutRef.current = null;
+      }
+      nearEndRevealLockedRef.current = false;
     };
-  }, [disableInfinite, loadMore]);
+  }, [disableInfinite, initialVisibleRowCount, responsiveRowLoading]);
+
+  useEffect(() => {
+    const hasMoreBelow =
+      !disableInfinite &&
+      (responsiveRowLoading
+        ? hasMore ||
+          (visiblePostLimit !== null && posts.length > visiblePostLimit)
+        : hasMore);
+
+    dispatchOrangeScrollHasMore(hasMoreBelow);
+
+    return () => {
+      dispatchOrangeScrollHasMore(false);
+    };
+  }, [
+    disableInfinite,
+    hasMore,
+    posts.length,
+    responsiveRowLoading,
+    visiblePostLimit,
+  ]);
 
   if (!loading && posts.length === 0 && !hasMore && hasLoadedOnce) {
     return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
   }
+
+  const visiblePosts =
+    responsiveRowLoading && visiblePostLimit !== null
+      ? posts.slice(0, visiblePostLimit)
+      : posts;
+  const canShowMorePosts =
+    responsiveRowLoading &&
+    (hasMore ||
+      (visiblePostLimit !== null && posts.length > visiblePostLimit));
 
   const groupedPosts = groupBySearchCategory
     ? SEARCH_RESULT_GROUPS.map((group) => ({
@@ -416,13 +604,18 @@ export default function PostListInfinite({
       })).filter((group) => group.posts.length > 0)
     : [];
 
-  const renderPostCard = (post: PostListItem, eagerThumbnail = false) => (
+  const renderPostCard = (
+    post: PostListItem,
+    eagerThumbnail = false,
+    priorityThumbnail = false,
+  ) => (
     <PostCard
       key={post.id}
       id={post.id}
       title={post.title}
       description={post.content}
       thumbnail={post.thumbnail}
+      thumbnailCrop={post.thumbnail_crop ?? null}
       category={post.category_name}
       author={post.author_name}
       authorImage={post.author_image}
@@ -436,6 +629,7 @@ export default function PostListInfinite({
       canViewSecret={post.can_view_secret}
       postRouteSection={postRouteSection}
       thumbnailLoading={eagerThumbnail ? "eager" : "lazy"}
+      thumbnailPriority={priorityThumbnail}
     />
   );
 
@@ -491,24 +685,26 @@ export default function PostListInfinite({
                 {number}
               </span>
               <div className="min-w-0">
-                <div className="flex min-w-0 items-center gap-1.5">
+                <div className="flex min-w-0 items-start gap-1.5">
                   <span className="hidden shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
                     {number}
                   </span>
                   {post.category_name === "FAQ" ? (
-                    <span className="shrink-0 text-sm font-semibold text-primary">
+                    <span className="shrink-0 pt-0.5 text-sm font-semibold text-primary">
                       Q.
                     </span>
                   ) : null}
-                  <p className="truncate text-sm font-semibold text-foreground">
+                  <span className="inline-flex shrink-0 items-center gap-1 pt-0.5">
+                    {post.is_secret ? (
+                      <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    ) : null}
+                    {post.is_hidden ? (
+                      <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    ) : null}
+                  </span>
+                  <p className="min-w-0 flex-1 break-words text-sm font-semibold text-foreground">
                     {post.title}
                   </p>
-                  {post.is_secret ? (
-                    <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  ) : null}
-                  {post.is_hidden ? (
-                    <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  ) : null}
                 </div>
                 <div className="hidden mt-2 flex-wrap items-center gap-3 text-xs text-muted-foreground">
                   <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -603,20 +799,24 @@ export default function PostListInfinite({
               ) : (
                 <div className={gridClassName}>
                   {group.posts.map((post, index) =>
-                    renderPostCard(post, index < 6),
+                    renderPostCard(post, index < 10, index === 0),
                   )}
                 </div>
               )}
             </section>
           ))}
         </div>
-      ) : posts.length > 0 ? (
+      ) : visiblePosts.length > 0 ? (
         <div className={gridClassName}>
-          {posts.map((post, index) => renderPostCard(post, index < 6))}
+          {visiblePosts.map((post, index) =>
+            renderPostCard(post, index < 10, index === 0),
+          )}
         </div>
       ) : null}
 
-      {hasMore && <div ref={loaderRef} className="h-16 w-full" />}
+      {canShowMorePosts || (!responsiveRowLoading && hasMore) ? (
+        <div ref={loaderRef} className="h-14 w-full" />
+      ) : null}
 
       {loading && (
         <p className="py-6 text-center text-sm text-muted-foreground">

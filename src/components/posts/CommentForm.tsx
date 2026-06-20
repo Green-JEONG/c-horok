@@ -491,7 +491,7 @@ export default function CommentForm({
     <button
       type="button"
       onClick={togglePreviewTab}
-      className="box-border inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-primary px-3 py-1.5 text-sm leading-none text-primary-foreground transition hover:bg-primary/90"
+      className="box-border inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-primary px-3 py-1.5 text-sm leading-none text-white transition hover:bg-primary/90"
     >
       {activeTab === "preview" ? "미리보기 닫기" : "미리보기"}
     </button>
@@ -670,7 +670,7 @@ export default function CommentForm({
         <button
           type="submit"
           disabled={isSubmitting || isUploadingContentImage}
-          className="box-border inline-flex h-7 min-w-10 items-center justify-center rounded-md bg-primary px-3 py-1.5 leading-none text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
+          className="box-border inline-flex h-7 min-w-10 items-center justify-center rounded-md bg-primary px-3 py-1.5 leading-none text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isUploadingContentImage
             ? "업로드 중..."

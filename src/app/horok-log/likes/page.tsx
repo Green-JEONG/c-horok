@@ -37,7 +37,7 @@ export default async function HorokLogLikesPage({
     : 0;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
+    <div className="flex h-[calc(100dvh-190px)] min-h-0 flex-col gap-4 overflow-hidden md:h-[calc(100dvh-134px)]">
       <div className="shrink-0">
         <Suspense
           fallback={<div className="h-6 w-32 rounded bg-muted animate-pulse" />}
@@ -54,7 +54,7 @@ export default async function HorokLogLikesPage({
         </Suspense>
       </div>
 
-      <OrangeScrollArea className="min-h-0 flex-1 pr-3">
+      <OrangeScrollArea className="min-h-0 flex-1 pr-3" showScrollDownHint>
         <LikedPostList
           query={q}
           searchTarget={parsedSearchTarget}

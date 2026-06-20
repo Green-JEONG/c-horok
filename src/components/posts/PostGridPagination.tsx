@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
 import SectionPagination from "@/components/mypage/sections/SectionPagination";
 import PostCard from "./PostCard";
 
@@ -11,6 +12,7 @@ type PostItem = {
   title: string;
   content: string;
   thumbnail: string | null;
+  thumbnail_crop?: PostThumbnailCrop | null;
   created_at: Date | string;
   author_name: string;
   author_image?: string | null;
@@ -40,6 +42,7 @@ export default function PostGridPagination({ posts }: { posts: PostItem[] }) {
             title={post.title}
             description={post.content}
             thumbnail={post.thumbnail}
+            thumbnailCrop={post.thumbnail_crop ?? null}
             category={post.category_name}
             author={post.author_name}
             authorImage={post.author_image}
@@ -51,7 +54,8 @@ export default function PostGridPagination({ posts }: { posts: PostItem[] }) {
             isHidden={post.is_hidden}
             isSecret={post.is_secret}
             canViewSecret={post.can_view_secret}
-            thumbnailLoading={index < 6 ? "eager" : "lazy"}
+            thumbnailLoading={index < 10 ? "eager" : "lazy"}
+            thumbnailPriority={index === 0}
           />
         ))}
       </div>

@@ -1,4 +1,3 @@
-import { List } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
@@ -89,10 +88,9 @@ export default async function PostFooter({
 
       <Link
         href={backHref}
-        aria-label="목록으로"
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-foreground"
+        className="box-border inline-flex h-7 items-center justify-center rounded-md border px-3 py-1.5 text-xs leading-none transition hover:border-primary/30 hover:bg-primary/10 hover:text-foreground"
       >
-        <List className="h-4 w-4" />
+        목록
       </Link>
     </footer>
   );

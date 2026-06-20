@@ -74,7 +74,7 @@ export default function PostSeriesTable({ currentPostId, items }: Props) {
   };
 
   return (
-    <section className="mb-5 min-w-0 border-y border-border py-4">
+    <section className="mb-5 min-w-0 border-b border-border pb-4">
       <h2 className="mb-3 min-w-0 truncate text-base font-bold text-foreground">
         {seriesName ? (
           <>

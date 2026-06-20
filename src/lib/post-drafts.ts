@@ -1,3 +1,5 @@
+import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
+
 export type PostDraftPayload = {
   id?: string;
   title: string;
@@ -6,6 +8,7 @@ export type PostDraftPayload = {
   selectedFixedTag: string;
   selectedInquiryTag?: string;
   thumbnailUrl?: string | null;
+  thumbnailCrop?: PostThumbnailCrop | null;
   attachments?: Array<{
     fileName: string;
     fileUrl: string;
@@ -195,17 +198,97 @@ function mergeDrafts(
   ].sort((a, b) => Date.parse(b.savedAt) - Date.parse(a.savedAt));
 }
 
-export async function loadSyncedPostDrafts(storageKey: string) {
-  const localDrafts = loadPostDrafts(storageKey);
-  const remoteDrafts = await loadRemotePostDrafts(storageKey).catch(() => null);
+const syncedDraftsCache = new Map<string, PostDraftPayload[]>();
+const syncedDraftsRequests = new Map<string, Promise<PostDraftPayload[]>>();
 
-  if (remoteDrafts === null) {
-    return localDrafts;
+export function invalidateSyncedPostDraftsCache(storageKey?: string) {
+  if (storageKey) {
+    syncedDraftsCache.delete(storageKey);
+    syncedDraftsRequests.delete(storageKey);
+    return;
   }
 
-  clearPostDraft(storageKey);
+  syncedDraftsCache.clear();
+  syncedDraftsRequests.clear();
+}
 
-  return mergeDrafts(remoteDrafts, []);
+function setPostDraftsCache(
+  storageKey: string,
+  drafts: PostDraftPayload[],
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(
+    getPostDraftListStorageKey(storageKey),
+    JSON.stringify(drafts),
+  );
+}
+
+export async function loadSyncedPostDrafts(
+  storageKey: string,
+  options?: { force?: boolean },
+) {
+  if (!options?.force) {
+    const cachedDrafts = syncedDraftsCache.get(storageKey);
+
+    if (cachedDrafts) {
+      return cachedDrafts;
+    }
+
+    const inFlightRequest = syncedDraftsRequests.get(storageKey);
+
+    if (inFlightRequest) {
+      return inFlightRequest;
+    }
+  }
+
+  const request = (async () => {
+    const localDrafts = loadPostDrafts(storageKey);
+    const remoteDrafts = await loadRemotePostDrafts(storageKey).catch(() => null);
+
+    if (remoteDrafts === null) {
+      syncedDraftsCache.set(storageKey, localDrafts);
+      return localDrafts;
+    }
+
+    const merged = mergeDrafts(remoteDrafts, localDrafts);
+    setPostDraftsCache(storageKey, merged);
+    syncedDraftsCache.set(storageKey, merged);
+
+    return merged;
+  })();
+
+  syncedDraftsRequests.set(storageKey, request);
+
+  try {
+    return await request;
+  } finally {
+    syncedDraftsRequests.delete(storageKey);
+  }
+}
+
+export async function loadSyncedPostDraft(
+  storageKey: string,
+  draftId: string,
+) {
+  const cachedDrafts = syncedDraftsCache.get(storageKey);
+  const cachedDraft = cachedDrafts?.find((draft) => draft.id === draftId);
+
+  if (cachedDraft) {
+    return cachedDraft;
+  }
+
+  const localDraft = loadPostDraft(storageKey, draftId);
+
+  if (localDraft && syncedDraftsCache.has(storageKey)) {
+    return localDraft;
+  }
+
+  const drafts = await loadSyncedPostDrafts(storageKey);
+
+  return drafts.find((draft) => draft.id === draftId) ?? localDraft;
 }
 
 async function saveRemotePostDraft(
@@ -244,10 +327,12 @@ export async function saveSyncedPostDraft(
   );
 
   if (!remoteDraft) {
+    invalidateSyncedPostDraftsCache(storageKey);
     return localDraft;
   }
 
   clearPostDraft(storageKey, localDraft.id);
+  invalidateSyncedPostDraftsCache(storageKey);
 
   return remoteDraft;
 }
@@ -257,6 +342,7 @@ export async function clearSyncedPostDraft(
   draftId?: string | null,
 ) {
   clearPostDraft(storageKey, draftId);
+  invalidateSyncedPostDraftsCache(storageKey);
 
   await fetch(getPostDraftApiUrl(storageKey, draftId), {
     method: "DELETE",

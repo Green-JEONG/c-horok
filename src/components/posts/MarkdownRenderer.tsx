@@ -8,6 +8,7 @@ import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import CodeBlock from "@/components/posts/CodeBlock";
 import MarkdownAnchor from "@/components/posts/MarkdownAnchor";
+import PostMarkdownImage from "@/components/posts/PostMarkdownImage";
 import {
   parseMarkdownAttributeBlock,
   remarkLinkAttributes,
@@ -144,7 +145,7 @@ function renderMarkdownBody(
             return <div className="contents">{children}</div>;
           }
 
-          return <p className="my-4 whitespace-pre-wrap">{children}</p>;
+          return <p className="whitespace-pre-wrap">{children}</p>;
         },
         img(props) {
           const { src, alt, title, width, height } = props;
@@ -182,6 +183,13 @@ function renderMarkdownBody(
             }
 
             if (isVideoUrl(src)) {
+              const videoClassName = cn(
+                layout === "inline-row"
+                  ? "inline-block align-top"
+                  : "block",
+                "my-4 h-auto w-auto max-w-full max-h-[32rem] rounded-xl border border-border bg-black",
+              );
+
               return (
                 // biome-ignore lint/a11y/useMediaCaption: user-uploaded videos do not have caption tracks
                 <video
@@ -189,7 +197,8 @@ function renderMarkdownBody(
                   controls
                   playsInline
                   preload="metadata"
-                  className="my-4 max-h-[32rem] w-full rounded-xl border border-border bg-black"
+                  className={videoClassName}
+                  style={imageStyle}
                   aria-label="업로드 동영상"
                 >
                   동영상을 재생할 수 없습니다.
@@ -199,8 +208,7 @@ function renderMarkdownBody(
           }
 
           return (
-            // biome-ignore lint/performance/noImgElement: markdown content needs native rendering
-            <img
+            <PostMarkdownImage
               src={typeof src === "string" ? src : ""}
               alt={alt ?? ""}
               className={imageClassName}

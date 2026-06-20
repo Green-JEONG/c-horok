@@ -647,7 +647,12 @@ function getVisibleMessages(
   activeThreadId: string | null,
   fallbackMessages: ChatUIMessage[],
   hasLoadedChatState: boolean,
+  mounted: boolean,
 ): ChatUIMessage[] {
+  if (!mounted) {
+    return [];
+  }
+
   if (sessionStatus !== "authenticated") {
     return messages.length > 0 ? messages : fallbackMessages;
   }
@@ -777,8 +782,16 @@ export default function HorokChat({
         threadId,
         initialMessages,
         hasLoadedChatState,
+        mounted,
       ),
-    [hasLoadedChatState, initialMessages, messages, sessionStatus, threadId],
+    [
+      hasLoadedChatState,
+      initialMessages,
+      messages,
+      mounted,
+      sessionStatus,
+      threadId,
+    ],
   );
   const isAssistantResponding =
     status === "submitted" || status === "streaming";
@@ -2835,7 +2848,7 @@ export default function HorokChat({
                         })
                       : null}
 
-                    {isAssistantResponding ? (
+                    {mounted && isAssistantResponding ? (
                       <div className="flex w-full min-w-0 items-start justify-start gap-2">
                         <button
                           type="button"

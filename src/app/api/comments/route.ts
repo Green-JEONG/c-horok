@@ -3,7 +3,7 @@ import { requireDbUserId } from "@/lib/auth-db";
 import { createComment, getCommentById } from "@/lib/comments";
 import { normalizeNoticeCategory } from "@/lib/notice-categories";
 import { createCommentNotificationMessage } from "@/lib/notification-messages";
-import { getPostById } from "@/lib/posts";
+import { getPostByIdWithSecretAccess } from "@/lib/post-detail-access";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: Request) {
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Invalid input" }, { status: 400 });
     }
 
-    const post = await getPostById(Number(postId), {
+    const post = await getPostByIdWithSecretAccess(Number(postId), {
       includeHiddenForUserId: userId,
     });
     if (!post) {

@@ -12,6 +12,8 @@ import {
 import { parseSortType } from "@/lib/post-sort";
 import { createPost } from "@/lib/posts";
 import { type PostAttachmentInput } from "@/lib/post-attachments";
+import { parseThumbnailCropFromRequestBody } from "@/lib/post-thumbnail-crop";
+import { validatePostSecretPassword } from "@/lib/post-secret-password";
 import { prisma } from "@/lib/prisma";
 
 function getAttachments(body: { attachments?: unknown }): PostAttachmentInput[] {
@@ -97,14 +99,28 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { title, content, thumbnailUrl, isBanner, isSecret, copiedFromPostId } =
+  const { title, content, thumbnailUrl, isBanner, isSecret, secretPassword, copiedFromPostId } =
     body;
+  const thumbnailCrop = parseThumbnailCropFromRequestBody(body);
   const categoryNames = getCategoryNames(body);
   const attachments = getAttachments(body);
   const normalizedCategoryName = categoryNames[0] ?? "";
 
   if (!title || !content) {
     return NextResponse.json({ message: "Invalid input" }, { status: 400 });
+  }
+
+  if (Boolean(isSecret)) {
+    const secretPasswordValue =
+      typeof secretPassword === "string" ? secretPassword.trim() : "";
+
+    if (secretPasswordValue) {
+      const validationMessage = validatePostSecretPassword(secretPasswordValue);
+
+      if (validationMessage) {
+        return NextResponse.json({ message: validationMessage }, { status: 400 });
+      }
+    }
   }
 
   if (
@@ -144,10 +160,13 @@ export async function POST(req: Request) {
     content,
     isBanner: Boolean(isBanner) && isNoticeCategoryName(normalizedCategoryName),
     isSecret: Boolean(isSecret),
+    secretPassword:
+      typeof secretPassword === "string" ? secretPassword : null,
     thumbnailUrl:
       typeof thumbnailUrl === "string" && thumbnailUrl.trim()
         ? thumbnailUrl.trim()
         : null,
+    thumbnailCrop: thumbnailCrop ?? null,
     copiedFromPostId: normalizedCopiedFromPostId,
     attachments,
   });

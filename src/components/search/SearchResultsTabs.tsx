@@ -213,7 +213,10 @@ export default function SearchResultsTabs({
         </div>
       </div>
 
-      <OrangeScrollArea className="max-h-[calc(100dvh-260px)] min-h-80 sm:max-h-[calc(100dvh-220px)]">
+      <OrangeScrollArea
+        className="max-h-[calc(100dvh-260px)] min-h-80 sm:max-h-[calc(100dvh-220px)]"
+        showScrollDownHint
+      >
         {activeTab === "users" ? (
           <UserSearchGrid
             users={users}

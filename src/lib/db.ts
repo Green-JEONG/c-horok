@@ -1,8 +1,12 @@
 import { Prisma } from "@prisma/client";
 import { buildVisibleCommentCountWhere } from "@/lib/comment-counts";
 import { mapPostAttachments } from "@/lib/post-attachments";
+import { parsePostThumbnailCrop, resolvePostThumbnailCrop } from "@/lib/post-thumbnail-crop";
+import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
+import { getPostThumbnailCropsByPostIds } from "@/lib/post-thumbnail-crop-access";
 import { ALL_NOTICE_TAG_OPTIONS } from "@/lib/notice-categories";
 import { getPostCategoryNameMap } from "@/lib/post-categories";
+import { canViewSecretPost } from "@/lib/post-secret-password";
 import { getPostReactionCountsByPostId } from "@/lib/post-reactions";
 import { DEFAULT_SORT, type SortType } from "@/lib/post-sort";
 import { prisma } from "@/lib/prisma";
@@ -24,6 +28,7 @@ export type DbPost = {
   title: string;
   content: string;
   thumbnail: string | null;
+  thumbnail_crop?: PostThumbnailCrop | null;
   created_at: Date;
   updated_at: Date;
   author_name: string;
@@ -124,6 +129,7 @@ function mapPost(
     title: string;
     content: string;
     thumbnail: string | null;
+    thumbnailCrop?: unknown;
     createdAt: Date;
     updatedAt: Date;
     isBanner: boolean;
@@ -162,28 +168,32 @@ function mapPost(
   options?: {
     viewerUserId?: number | null;
     isAdmin?: boolean;
+    hasSecretPasswordAccess?: boolean;
   },
 ): DbPost {
   const ownerUserId = post.userId ? bigintToNumber(post.userId) : undefined;
-  const isSecretQna = post.category?.name === "QnA" && post.isSecret;
+  const categoryName = post.category?.name ?? post.categoryNames?.[0] ?? null;
+  const canViewSecret = canViewSecretPost({
+    isSecret: post.isSecret,
+    ownerUserId: ownerUserId ?? -1,
+    viewerUserId: options?.viewerUserId,
+    isAdmin: options?.isAdmin,
+    categoryName,
+    hasSecretPasswordAccess: options?.hasSecretPasswordAccess,
+  });
   const categoryNames =
     post.categoryNames && post.categoryNames.length > 0
       ? post.categoryNames
       : post.category?.name
         ? [post.category.name]
         : [];
-  const canViewSecret =
-    !post.isSecret ||
-    (typeof ownerUserId === "number" &&
-      typeof options?.viewerUserId === "number" &&
-      ownerUserId === options.viewerUserId) ||
-    (isSecretQna && Boolean(options?.isAdmin));
 
   return {
     id: bigintToNumber(post.id),
     title: post.title,
     content: canViewSecret ? post.content : "비밀글입니다.",
     thumbnail: canViewSecret ? post.thumbnail : null,
+    thumbnail_crop: canViewSecret ? parsePostThumbnailCrop(post.thumbnailCrop) : null,
     created_at: post.createdAt,
     updated_at: post.updatedAt,
     author_name: post.user.name ?? "Unknown",
@@ -234,15 +244,20 @@ async function mapPostsWithReactionCounts(
       .filter((postId): postId is bigint => Boolean(postId)),
   ];
   const categoryNameMap = await getPostCategoryNameMap(postIds);
-  const [reactionCounts, downloadCountMap] = await Promise.all([
+  const [reactionCounts, downloadCountMap, thumbnailCropMap] = await Promise.all([
     getPostReactionCountsByPostId(postIds),
     getPostDownloadCountMap(downloadCountIds),
+    getPostThumbnailCropsByPostIds(postIds),
   ]);
 
   return posts.map((post) => {
     const mappedPost = mapPost(
       {
         ...post,
+        thumbnailCrop: resolvePostThumbnailCrop(
+          thumbnailCropMap.get(post.id.toString()),
+          post.thumbnailCrop,
+        ),
         categoryNames: categoryNameMap.get(post.id.toString()),
         downloadCounts: downloadCountMap.get(post.id.toString()),
         quotedPost: post.quotedPost
@@ -548,6 +563,7 @@ export async function findPostById(
   options?: {
     includeHiddenForUserId?: number | null;
     includeHiddenForAdmin?: boolean;
+    hasSecretPasswordAccess?: boolean;
   },
 ) {
   const post = await prisma.post.findFirst({
@@ -611,10 +627,15 @@ export async function findPostById(
       Boolean(postId),
     ),
   );
+  const thumbnailCropMap = await getPostThumbnailCropsByPostIds([post.id]);
 
   return mapPost(
     {
       ...post,
+      thumbnailCrop: resolvePostThumbnailCrop(
+        thumbnailCropMap.get(post.id.toString()),
+        post.thumbnailCrop,
+      ),
       categoryNames: categoryNameMap.get(post.id.toString()),
       downloadCounts: downloadCountMap.get(post.id.toString()),
       quotedPost: post.quotedPost
@@ -627,6 +648,7 @@ export async function findPostById(
     {
       viewerUserId: options?.includeHiddenForUserId ?? null,
       isAdmin: options?.includeHiddenForAdmin,
+      hasSecretPasswordAccess: options?.hasSecretPasswordAccess,
     },
   );
 }
@@ -707,12 +729,16 @@ export async function findPostAccessMetaById(id: number) {
     where: { id: BigInt(id) },
     select: {
       isDeleted: true,
+      isSecret: true,
+      secretPasswordHash: true,
     },
   });
 
   return {
     exists: Boolean(post),
     isDeleted: post?.isDeleted ?? false,
+    isSecret: post?.isSecret ?? false,
+    hasSecretPassword: Boolean(post?.secretPasswordHash),
   };
 }
 
