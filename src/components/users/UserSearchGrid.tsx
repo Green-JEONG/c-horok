@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import SectionPagination from "@/components/mypage/sections/SectionPagination";
 import UserSearchSortButton from "@/components/users/UserSearchSortButton";
 import type { DbUserSearchResult } from "@/lib/queries";
+import { dispatchOrangeScrollHasMore } from "@/lib/orange-scroll-area-events";
 
 const DEFAULT_PAGE_SIZE = 2;
 
@@ -165,6 +166,16 @@ export default function UserSearchGrid({
     pageSize,
     searchParamsString,
   ]);
+
+  useEffect(() => {
+    dispatchOrangeScrollHasMore(
+      infinite && (hasMoreLocal || hasMoreRemote) && !loadingMore,
+    );
+
+    return () => {
+      dispatchOrangeScrollHasMore(false);
+    };
+  }, [hasMoreLocal, hasMoreRemote, infinite, loadingMore]);
 
   if (items.length === 0) {
     return null;

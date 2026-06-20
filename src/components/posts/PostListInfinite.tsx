@@ -7,12 +7,15 @@ import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isNoticeCategoryName } from "@/lib/notice-categories";
+import { dispatchOrangeScrollHasMore } from "@/lib/orange-scroll-area-events";
 import { parseSortType, type SortType } from "@/lib/post-sort";
+import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
 import { getLogFaqPath, getLogNoticePath } from "@/lib/routes";
 import { formatSeoulDate } from "@/lib/utils";
 import PostCard from "./PostCard";
 
 const PAGE_SIZE = 12;
+const API_MAX_PAGE_LIMIT = 15;
 const GRID_PROBE_ITEMS = [
   "probe-1",
   "probe-2",
@@ -27,6 +30,7 @@ type PostListItem = {
   title: string;
   content: string;
   thumbnail: string | null;
+  thumbnail_crop?: PostThumbnailCrop | null;
   created_at: Date | string;
   author_name: string;
   author_image?: string | null;
@@ -122,6 +126,23 @@ function readPostsFromPayload(
   return [];
 }
 
+function resolveRequestLimit(
+  responsiveRowLoading: boolean,
+  responsivePageSize: number | null,
+  initialVisibleRowCount: number,
+  options?: { initialBatch?: boolean },
+  hasLoadedOnce?: boolean,
+  postsLength?: number,
+) {
+  const computedLimit = responsiveRowLoading
+    ? options?.initialBatch || (!hasLoadedOnce && postsLength === 0)
+      ? (responsivePageSize ?? PAGE_SIZE) * initialVisibleRowCount
+      : (responsivePageSize ?? PAGE_SIZE)
+    : PAGE_SIZE;
+
+  return Math.min(computedLimit, API_MAX_PAGE_LIMIT);
+}
+
 export default function PostListInfinite({
   initialPosts,
   endpoint,
@@ -154,13 +175,19 @@ export default function PostListInfinite({
     responsiveRowLoading ? null : PAGE_SIZE,
   );
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(initialPosts.length >= PAGE_SIZE);
+  const [hasMore, setHasMore] = useState(
+    !disableInfinite &&
+      (initialPosts.length >= PAGE_SIZE ||
+        autoloadFirstPage ||
+        responsiveRowLoading),
+  );
   const [hasLoadedOnce, setHasLoadedOnce] = useState(!autoloadFirstPage);
 
   const loaderRef = useRef<HTMLDivElement | null>(null);
   const gridProbeRef = useRef<HTMLDivElement | null>(null);
   const fetchingRef = useRef(false);
   const loadedServerPostCountRef = useRef(initialPosts.length);
+  const previousListKeyRef = useRef(searchParamsString);
 
   useEffect(() => {
     setPosts(initialPosts);
@@ -211,7 +238,7 @@ export default function PostListInfinite({
     };
   }, [responsiveRowLoading]);
 
-  const loadMore = useCallback(async () => {
+  const loadMore = useCallback(async (options?: { initialBatch?: boolean }) => {
     if (
       disableInfinite ||
       loading ||
@@ -227,11 +254,14 @@ export default function PostListInfinite({
 
     try {
       const url = new URL(endpoint, window.location.origin);
-      const requestLimit = responsiveRowLoading
-        ? hasLoadedOnce || posts.length > 0
-          ? responsivePageSize
-          : responsivePageSize * initialVisibleRowCount
-        : PAGE_SIZE;
+      const requestLimit = resolveRequestLimit(
+        responsiveRowLoading,
+        responsivePageSize,
+        initialVisibleRowCount,
+        options,
+        hasLoadedOnce,
+        posts.length,
+      );
 
       if (syncSortWithSearchParams) {
         const currentParams = new URLSearchParams(searchParamsString);
@@ -255,17 +285,15 @@ export default function PostListInfinite({
       const res = await fetch(url.toString());
       const data = readPostsFromPayload(await res.json(), responseKey);
 
+      if (responsiveRowLoading) {
+        loadedServerPostCountRef.current += data.length;
+      }
+
+      setHasMore(data.length >= requestLimit);
+
       setPosts((prev) => {
         const existingIds = new Set(prev.map((post) => post.id));
         const newPosts = data.filter((post) => !existingIds.has(post.id));
-
-        if (responsiveRowLoading) {
-          loadedServerPostCountRef.current += data.length;
-        }
-
-        if (data.length < requestLimit) {
-          setHasMore(false);
-        }
 
         return [...prev, ...newPosts];
       });
@@ -299,12 +327,15 @@ export default function PostListInfinite({
     }
 
     const url = new URL(endpoint, window.location.origin);
-    const requestLimit = responsiveRowLoading
-      ? Math.max(
-          responsivePageSize * initialVisibleRowCount,
-          loadedServerPostCountRef.current || initialPosts.length,
-        )
-      : PAGE_SIZE;
+    const requestLimit = Math.min(
+      responsiveRowLoading
+        ? Math.max(
+            (responsivePageSize ?? PAGE_SIZE) * initialVisibleRowCount,
+            loadedServerPostCountRef.current || initialPosts.length,
+          )
+        : PAGE_SIZE,
+      API_MAX_PAGE_LIMIT,
+    );
 
     if (syncSortWithSearchParams) {
       const currentParams = new URLSearchParams(searchParamsString);
@@ -364,11 +395,13 @@ export default function PostListInfinite({
       posts.length === 0 &&
       responsivePageSize !== null
     ) {
-      void loadMore();
+      void loadMore({ initialBatch: true });
       return;
     }
 
-    if (!loaderRef.current) return;
+    if (!loaderRef.current) {
+      return;
+    }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -390,6 +423,35 @@ export default function PostListInfinite({
   ]);
 
   useEffect(() => {
+    if (
+      !responsiveRowLoading ||
+      !syncSortWithSearchParams ||
+      responsivePageSize === null
+    ) {
+      return;
+    }
+
+    if (previousListKeyRef.current === searchParamsString) {
+      return;
+    }
+
+    previousListKeyRef.current = searchParamsString;
+    loadedServerPostCountRef.current = 0;
+    setPosts([]);
+    setPage(1);
+    setHasMore(true);
+    fetchingRef.current = false;
+    void loadMore({ initialBatch: true });
+  }, [
+    initialVisibleRowCount,
+    loadMore,
+    responsivePageSize,
+    responsiveRowLoading,
+    searchParamsString,
+    syncSortWithSearchParams,
+  ]);
+
+  useEffect(() => {
     if (disableInfinite) {
       return;
     }
@@ -405,6 +467,14 @@ export default function PostListInfinite({
     };
   }, [disableInfinite, loadMore]);
 
+  useEffect(() => {
+    dispatchOrangeScrollHasMore(!disableInfinite && hasMore);
+
+    return () => {
+      dispatchOrangeScrollHasMore(false);
+    };
+  }, [disableInfinite, hasMore]);
+
   if (!loading && posts.length === 0 && !hasMore && hasLoadedOnce) {
     return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
   }
@@ -416,13 +486,18 @@ export default function PostListInfinite({
       })).filter((group) => group.posts.length > 0)
     : [];
 
-  const renderPostCard = (post: PostListItem, eagerThumbnail = false) => (
+  const renderPostCard = (
+    post: PostListItem,
+    eagerThumbnail = false,
+    priorityThumbnail = false,
+  ) => (
     <PostCard
       key={post.id}
       id={post.id}
       title={post.title}
       description={post.content}
       thumbnail={post.thumbnail}
+      thumbnailCrop={post.thumbnail_crop ?? null}
       category={post.category_name}
       author={post.author_name}
       authorImage={post.author_image}
@@ -436,6 +511,7 @@ export default function PostListInfinite({
       canViewSecret={post.can_view_secret}
       postRouteSection={postRouteSection}
       thumbnailLoading={eagerThumbnail ? "eager" : "lazy"}
+      thumbnailPriority={priorityThumbnail}
     />
   );
 
@@ -491,24 +567,26 @@ export default function PostListInfinite({
                 {number}
               </span>
               <div className="min-w-0">
-                <div className="flex min-w-0 items-center gap-1.5">
+                <div className="flex min-w-0 items-start gap-1.5">
                   <span className="hidden shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
                     {number}
                   </span>
                   {post.category_name === "FAQ" ? (
-                    <span className="shrink-0 text-sm font-semibold text-primary">
+                    <span className="shrink-0 pt-0.5 text-sm font-semibold text-primary">
                       Q.
                     </span>
                   ) : null}
-                  <p className="truncate text-sm font-semibold text-foreground">
+                  <span className="inline-flex shrink-0 items-center gap-1 pt-0.5">
+                    {post.is_secret ? (
+                      <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    ) : null}
+                    {post.is_hidden ? (
+                      <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    ) : null}
+                  </span>
+                  <p className="min-w-0 flex-1 break-words text-sm font-semibold text-foreground">
                     {post.title}
                   </p>
-                  {post.is_secret ? (
-                    <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  ) : null}
-                  {post.is_hidden ? (
-                    <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  ) : null}
                 </div>
                 <div className="hidden mt-2 flex-wrap items-center gap-3 text-xs text-muted-foreground">
                   <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -603,7 +681,7 @@ export default function PostListInfinite({
               ) : (
                 <div className={gridClassName}>
                   {group.posts.map((post, index) =>
-                    renderPostCard(post, index < 6),
+                    renderPostCard(post, index < 10, index === 0),
                   )}
                 </div>
               )}
@@ -612,11 +690,13 @@ export default function PostListInfinite({
         </div>
       ) : posts.length > 0 ? (
         <div className={gridClassName}>
-          {posts.map((post, index) => renderPostCard(post, index < 6))}
+          {posts.map((post, index) =>
+            renderPostCard(post, index < 10, index === 0),
+          )}
         </div>
       ) : null}
 
-      {hasMore && <div ref={loaderRef} className="h-16 w-full" />}
+      {hasMore ? <div ref={loaderRef} className="h-14 w-full" /> : null}
 
       {loading && (
         <p className="py-6 text-center text-sm text-muted-foreground">

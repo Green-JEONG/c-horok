@@ -1,14 +1,24 @@
-import { deleteUnusedCategories, ensureCategoryByName } from "@/lib/categories";
+import {
+  deleteUnusedCategories,
+  ensureCategoryByName,
+} from "@/lib/categories";
+import { INTERNAL_UNCATEGORIZED_CATEGORY_NAME } from "@/lib/category-labels";
 import { ALL_NOTICE_TAG_OPTIONS } from "@/lib/notice-categories";
+import { canViewSecretPost } from "@/lib/post-secret-password";
+import {
+  ensurePostSecretPasswordColumn,
+  hashPostSecretPassword,
+} from "@/lib/post-secret-access";
 import {
   normalizeCategoryNames,
   syncPostCategories,
 } from "@/lib/post-categories";
 import { type PostAttachmentInput } from "@/lib/post-attachments";
 import { syncPostAttachments } from "@/lib/post-attachments.server";
+import { ensurePostThumbnailCropColumn, setPostThumbnailCrop } from "@/lib/post-thumbnail-crop-access";
+import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-
-const INTERNAL_UNCATEGORIZED_CATEGORY_NAME = "미분류";
 
 export type PostRow = {
   id: number;
@@ -50,10 +60,19 @@ function mapPost(
   options?: {
     viewerUserId?: number | null;
     isAdmin?: boolean;
+    hasSecretPasswordAccess?: boolean;
+    categoryName?: string | null;
   },
 ) {
   const ownerUserId = Number(post.userId);
-  const canViewSecret = !post.isSecret || ownerUserId === options?.viewerUserId;
+  const canViewSecret = canViewSecretPost({
+    isSecret: post.isSecret,
+    ownerUserId,
+    viewerUserId: options?.viewerUserId,
+    isAdmin: options?.isAdmin,
+    categoryName: options?.categoryName,
+    hasSecretPasswordAccess: options?.hasSecretPasswordAccess,
+  });
 
   return {
     id: Number(post.id),
@@ -77,6 +96,7 @@ export async function getPostById(
   options?: {
     includeHiddenForUserId?: number | null;
     includeHiddenForAdmin?: boolean;
+    hasSecretPasswordAccess?: boolean;
   },
 ) {
   const post = await prisma.post.findFirst({
@@ -94,12 +114,19 @@ export async function getPostById(
           : []),
       ],
     },
+    include: {
+      category: {
+        select: { name: true },
+      },
+    },
   });
 
   return post
     ? mapPost(post, {
         viewerUserId: options?.includeHiddenForUserId ?? null,
         isAdmin: options?.includeHiddenForAdmin,
+        hasSecretPasswordAccess: options?.hasSecretPasswordAccess,
+        categoryName: post.category?.name ?? null,
       })
     : null;
 }
@@ -160,8 +187,10 @@ export async function createPost(params: {
   title: string;
   content: string;
   thumbnailUrl?: string | null;
+  thumbnailCrop?: PostThumbnailCrop | null;
   isBanner?: boolean;
   isSecret?: boolean;
+  secretPassword?: string | null;
   copiedFromPostId?: number | null;
   attachments?: PostAttachmentInput[];
 }) {
@@ -172,8 +201,10 @@ export async function createPost(params: {
     title,
     content,
     thumbnailUrl = null,
+    thumbnailCrop = null,
     isBanner = false,
     isSecret = false,
+    secretPassword = null,
     copiedFromPostId = null,
     attachments = [],
   } = params;
@@ -189,6 +220,14 @@ export async function createPost(params: {
   );
   const [primaryCategory] = categories;
 
+  await ensurePostSecretPasswordColumn();
+  await ensurePostThumbnailCropColumn();
+
+  const secretPasswordHash =
+    isSecret && secretPassword?.trim()
+      ? await hashPostSecretPassword(secretPassword)
+      : null;
+
   const post = await prisma.post.create({
     data: {
       user: {
@@ -200,8 +239,11 @@ export async function createPost(params: {
       title,
       content,
       thumbnail: thumbnailUrl,
+      thumbnailCrop:
+        thumbnailUrl && thumbnailCrop ? thumbnailCrop : Prisma.DbNull,
       isBanner,
       isSecret,
+      secretPasswordHash,
       ...(copiedFromPostId
         ? {
             quotedPost: {
@@ -219,7 +261,15 @@ export async function createPost(params: {
 
   await syncPostAttachments(post.id, attachments);
 
-  return mapPost(post);
+  await setPostThumbnailCrop(
+    post.id,
+    thumbnailUrl && thumbnailCrop ? thumbnailCrop : null,
+  );
+
+  return mapPost(post, {
+    viewerUserId: userId,
+    categoryName: primaryCategory.name,
+  });
 }
 
 export async function setPostHidden(params: {
@@ -244,8 +294,11 @@ export async function updatePost(params: {
   title: string;
   content: string;
   thumbnailUrl?: string | null;
+  thumbnailCrop?: PostThumbnailCrop | null;
   isBanner?: boolean;
   isSecret?: boolean;
+  secretPassword?: string | null;
+  isHidden?: boolean;
   attachments?: PostAttachmentInput[];
 }) {
   const {
@@ -255,8 +308,11 @@ export async function updatePost(params: {
     title,
     content,
     thumbnailUrl,
+    thumbnailCrop,
     isBanner,
     isSecret,
+    secretPassword,
+    isHidden,
     attachments,
   } = params;
   const normalizedCategoryNames =
@@ -281,6 +337,23 @@ export async function updatePost(params: {
           ).map((name) => ensureCategoryByName(name)),
         );
 
+  await ensurePostSecretPasswordColumn();
+  await ensurePostThumbnailCropColumn();
+
+  const secretPasswordHash =
+    isSecret === false
+      ? null
+      : secretPassword?.trim()
+        ? await hashPostSecretPassword(secretPassword)
+        : undefined;
+
+  const nextThumbnailCrop =
+    thumbnailUrl === null
+      ? null
+      : thumbnailCrop !== undefined
+        ? thumbnailCrop
+        : undefined;
+
   const post = await prisma.post.update({
     where: { id: BigInt(postId) },
     data: {
@@ -288,6 +361,10 @@ export async function updatePost(params: {
       content,
       ...(isBanner !== undefined ? { isBanner } : {}),
       ...(isSecret !== undefined ? { isSecret } : {}),
+      ...(secretPasswordHash !== undefined ? { secretPasswordHash } : {}),
+      ...(isHidden !== undefined
+        ? { isHidden, hiddenAt: isHidden ? new Date() : null }
+        : {}),
       ...(category
         ? {
             category: {
@@ -296,6 +373,14 @@ export async function updatePost(params: {
           }
         : {}),
       ...(thumbnailUrl !== undefined ? { thumbnail: thumbnailUrl } : {}),
+      ...(nextThumbnailCrop !== undefined
+        ? {
+            thumbnailCrop:
+              nextThumbnailCrop === null
+                ? Prisma.DbNull
+                : nextThumbnailCrop,
+          }
+        : {}),
     },
   });
 
@@ -308,6 +393,15 @@ export async function updatePost(params: {
 
   if (attachments !== undefined) {
     await syncPostAttachments(post.id, attachments);
+  }
+
+  if (nextThumbnailCrop !== undefined) {
+    await setPostThumbnailCrop(
+      post.id,
+      thumbnailUrl === null || !nextThumbnailCrop ? null : nextThumbnailCrop,
+    );
+  } else if (thumbnailUrl === null) {
+    await setPostThumbnailCrop(post.id, null);
   }
 
   return mapPost(post);

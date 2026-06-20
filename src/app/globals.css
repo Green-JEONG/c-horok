@@ -360,6 +360,20 @@
     transform: scale(1);
   }
 
+  .card-hover-lift {
+    transition-property: box-shadow, border-color;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
+  }
+
+  .card-hover-lift:hover {
+    position: relative;
+    z-index: 20;
+    box-shadow:
+      0 10px 24px rgba(0, 0, 0, 0.08),
+      0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
   .mypage-comment-hover-scale {
     transform: scale(0.998);
   }

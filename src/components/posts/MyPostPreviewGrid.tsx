@@ -7,6 +7,7 @@ import {
   loadSyncedPostDrafts,
 } from "@/lib/post-drafts";
 import { getLogFeedNewPostPath } from "@/lib/routes";
+import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
 import PostCard from "./PostCard";
 
 type PreviewPost = {
@@ -14,6 +15,7 @@ type PreviewPost = {
   title: string;
   content: string;
   thumbnail: string | null;
+  thumbnail_crop?: PostThumbnailCrop | null;
   created_at: Date | string;
   author_name: string;
   author_image?: string | null;
@@ -59,10 +61,25 @@ export default function MyPostPreviewGrid({
   posts: PreviewPost[];
   limit: number;
 }) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const sessionUserId =
+    typeof session?.user?.id === "string" ? session.user.id : null;
   const [mergedPosts, setMergedPosts] = useState<DraftPreviewPost[]>(posts);
+  const postIdsKey = posts.map((post) => post.id).join(",");
 
   useEffect(() => {
+    if (!sessionUserId) {
+      setMergedPosts((current) => {
+        const nextPosts = posts.slice(0, limit);
+        const isSame =
+          current.length === nextPosts.length &&
+          current.every((post, index) => post.id === nextPosts[index]?.id);
+
+        return isSame ? current : nextPosts;
+      });
+      return;
+    }
+
     const draftStorageKey = getPostDraftStorageKey({
       successPathPrefix: "/horok-log/feeds/posts",
       fixedTagOptions: [],
@@ -77,6 +94,7 @@ export default function MyPostPreviewGrid({
           title: draft.title.trim() || "임시저장된 글",
           content: draft.content.trim() || "임시 저장된 글입니다.",
           thumbnail: draft.thumbnailUrl ?? null,
+          thumbnail_crop: draft.thumbnailCrop ?? null,
           created_at: draft.savedAt,
           author_name: session?.user?.name ?? "Unknown",
           author_image: session?.user?.image ?? null,
@@ -109,7 +127,7 @@ export default function MyPostPreviewGrid({
     return () => {
       cancelled = true;
     };
-  }, [limit, posts, session?.user?.image, session?.user?.name]);
+  }, [limit, postIdsKey, sessionUserId, session?.user?.image, session?.user?.name]);
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -120,6 +138,7 @@ export default function MyPostPreviewGrid({
             title={post.title}
             description={post.content}
             thumbnail={post.thumbnail}
+            thumbnailCrop={post.thumbnail_crop ?? null}
             category={post.category_name}
             author={post.author_name}
             authorImage={post.author_image}
@@ -128,7 +147,8 @@ export default function MyPostPreviewGrid({
             comments={post.comments_count}
             views={post.view_count}
             createdAt={new Date(post.created_at)}
-            thumbnailLoading={index < 6 ? "eager" : "lazy"}
+            thumbnailLoading={index < 10 ? "eager" : "lazy"}
+            thumbnailPriority={index === 0}
             isHidden={post.is_hidden}
             isSecret={post.is_secret}
             isDraft={post.is_draft}

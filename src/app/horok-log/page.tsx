@@ -32,6 +32,16 @@ function getPreviewVisibilityClassName(index: number) {
   return "hidden";
 }
 
+function HorokLogPageFallback() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-lg font-semibold">마이홈</h1>
+      <div className="h-6 w-32 animate-pulse rounded bg-muted" />
+      <div className="h-40 animate-pulse rounded-md bg-muted/60" />
+    </div>
+  );
+}
+
 export const metadata: Metadata = {
   title: horokLogTitle("호록 블로그"),
   description: "호록 기술 블로그 메인 페이지",
@@ -40,7 +50,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function HorokLogPage({
+export default function HorokLogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string }>;
+}) {
+  return (
+    <Suspense fallback={<HorokLogPageFallback />}>
+      <HorokLogPageContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function HorokLogPageContent({
   searchParams,
 }: {
   searchParams: Promise<{ sort?: string }>;
@@ -76,6 +98,7 @@ export default async function HorokLogPage({
                 title={post.title}
                 description={post.content}
                 thumbnail={post.thumbnail}
+                thumbnailCrop={post.thumbnail_crop ?? null}
                 category={post.category_name}
                 author={post.author_name}
                 authorImage={post.author_image}
@@ -85,7 +108,8 @@ export default async function HorokLogPage({
                 views={post.view_count}
                 createdAt={post.created_at}
                 postRouteSection="feeds"
-                thumbnailLoading={index < 6 ? "eager" : "lazy"}
+                thumbnailLoading={index < 10 ? "eager" : "lazy"}
+                thumbnailPriority={index === 0}
               />
             </div>
           ))}

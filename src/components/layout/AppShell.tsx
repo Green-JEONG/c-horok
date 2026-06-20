@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
 
 type AppShellProps = {
   header: React.ReactNode;
@@ -21,8 +20,6 @@ export default function AppShell({
   children,
 }: AppShellProps) {
   const pathname = usePathname();
-  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isContentScrolling, setIsContentScrolling] = useState(false);
   const topLevelSegment = pathname.split("/")[1] ?? "";
   const knownTopLevelSegments = new Set([
     "",
@@ -32,6 +29,7 @@ export default function AppShell({
     "coding-tests",
     "feed",
     "feeds",
+    "horok-academy",
     "horok-edu",
     "horok-item",
     "horok-log",
@@ -54,6 +52,8 @@ export default function AppShell({
     pathname === "/posts" ||
     pathname.startsWith("/posts/");
   const isMyPage = pathname === "/mypage";
+  const isFeedListPage =
+    pathname === "/horok-log/feeds" || pathname === "/feeds";
   const isSearchPage = pathname === "/search";
   const isUserProfilePage =
     pathname === "/users" || pathname.startsWith("/users/");
@@ -61,6 +61,8 @@ export default function AppShell({
     pathname === "/horok-coding" || pathname.startsWith("/horok-coding/");
   const isStandaloneServicePage =
     isHorokCodingPage ||
+    pathname === "/horok-academy" ||
+    pathname.startsWith("/horok-academy/") ||
     pathname === "/horok-edu" ||
     pathname.startsWith("/horok-edu/") ||
     pathname === "/horok-item" ||
@@ -92,33 +94,6 @@ export default function AppShell({
     isSearchPage ||
     isMyPage ||
     isUserProfilePage;
-  const isPostDetailPage =
-    /^\/horok-log\/(?:feeds|likes)\/posts\/[^/]+$/.test(pathname) ||
-    /^\/horok-log\/notices\/[^/]+$/.test(pathname);
-
-  useEffect(() => {
-    return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleContentScroll = () => {
-    if (!isPostDetailPage) {
-      return;
-    }
-
-    setIsContentScrolling(true);
-
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-
-    scrollTimeoutRef.current = setTimeout(() => {
-      setIsContentScrolling(false);
-    }, 900);
-  };
   if (isPortalPage || isStandaloneServicePage) {
     return (
       <>
@@ -128,27 +103,30 @@ export default function AppShell({
     );
   }
 
-  const mainLayoutClassName = isMyPage
-    ? "mr-auto flex h-[calc(100dvh-190px)] w-full min-w-0 max-w-[1400px] flex-1 overflow-hidden md:h-[calc(100dvh-134px)]"
-    : isWideSidebarLayoutPage
-      ? "mr-auto flex w-full min-w-0 max-w-[1400px] flex-1 md:min-h-0 md:overflow-hidden"
-      : "mx-auto flex w-full min-w-0 max-w-6xl flex-1 md:min-h-0 md:overflow-hidden";
+  const mainLayoutClassName =
+    isMyPage || isFeedListPage
+      ? "mr-auto flex h-[calc(100dvh-190px)] w-full min-w-0 max-w-[1400px] flex-1 overflow-hidden md:h-[calc(100dvh-134px)]"
+      : isWideSidebarLayoutPage
+        ? "mr-auto flex w-full min-w-0 max-w-[1400px] flex-1 md:min-h-0 md:overflow-hidden"
+        : "mx-auto flex w-full min-w-0 max-w-6xl flex-1 md:min-h-0 md:overflow-hidden";
 
   const asideClassName = isWideSidebarLayoutPage
     ? "sticky top-0 hidden h-full w-[250px] shrink-0 md:block lg:w-[270px] xl:w-[290px]"
     : "sticky top-0 hidden h-full w-1/4 md:block";
 
-  const sectionWrapperClassName = isMyPage
-    ? "relative w-full min-w-0 min-h-0 overflow-hidden md:flex-1"
-    : isWideSidebarLayoutPage
-      ? "relative w-full min-w-0 md:min-h-0 md:flex-1"
-      : "relative w-full min-w-0 md:min-h-0 md:w-2/3";
+  const sectionWrapperClassName =
+    isMyPage || isFeedListPage
+      ? "relative w-full min-w-0 min-h-0 overflow-hidden md:flex-1"
+      : isWideSidebarLayoutPage
+        ? "relative w-full min-w-0 md:min-h-0 md:flex-1"
+        : "relative w-full min-w-0 md:min-h-0 md:w-2/3";
 
-  const sectionContentClassName = isMyPage
-    ? "h-full w-full min-w-0 p-6"
-    : isWideSidebarLayoutPage
-      ? `${isPostDetailPage ? "scrollbar-orange-auto" : "scrollbar-hide"} ${isContentScrolling ? "is-scrolling" : ""} h-full w-full min-w-0 p-6 md:overflow-y-auto`
-      : `${isPostDetailPage ? "scrollbar-orange-auto" : "scrollbar-hide"} ${isContentScrolling ? "is-scrolling" : ""} h-full w-full min-w-0 px-4 py-6 md:overflow-y-auto md:px-6`;
+  const sectionContentClassName =
+    isMyPage || isFeedListPage
+      ? "h-full w-full min-w-0 p-6"
+      : isWideSidebarLayoutPage
+        ? "h-full w-full min-w-0 p-6 md:overflow-y-auto"
+        : "h-full w-full min-w-0 px-4 py-6 md:overflow-y-auto md:px-6";
 
   return (
     <>
@@ -165,11 +143,7 @@ export default function AppShell({
 
         <section className={sectionWrapperClassName}>
           <div className="pointer-events-none absolute inset-y-6 right-0 hidden w-px bg-border md:block" />
-          <div
-            className={sectionContentClassName}
-            data-app-shell-scroll="true"
-            onScroll={handleContentScroll}
-          >
+          <div className={sectionContentClassName} data-app-shell-scroll="true">
             {children}
           </div>
         </section>

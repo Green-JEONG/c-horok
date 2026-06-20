@@ -13,6 +13,8 @@ import {
   updatePost,
 } from "@/lib/posts";
 import { type PostAttachmentInput } from "@/lib/post-attachments";
+import { validatePostSecretPassword } from "@/lib/post-secret-access";
+import { parseThumbnailCropFromRequestBody } from "@/lib/post-thumbnail-crop";
 import { prisma } from "@/lib/prisma";
 
 function getAttachments(body: { attachments?: unknown }): PostAttachmentInput[] {
@@ -125,8 +127,9 @@ export async function PUT(
   }
 
   const body = await req.json();
-  const { title, content, categoryName, thumbnailUrl, isBanner, isSecret } =
+  const { title, content, categoryName, thumbnailUrl, isBanner, isSecret, isHidden, secretPassword } =
     body;
+  const thumbnailCrop = parseThumbnailCropFromRequestBody(body);
   const categoryNames = getCategoryNames(body);
   const attachments = getAttachments(body);
   const normalizedCategoryName =
@@ -135,6 +138,19 @@ export async function PUT(
 
   if (!title || !content) {
     return NextResponse.json({ message: "Invalid input" }, { status: 400 });
+  }
+
+  const nextIsSecret =
+    typeof isSecret === "boolean" ? isSecret : post.is_secret;
+  const secretPasswordValue =
+    typeof secretPassword === "string" ? secretPassword.trim() : "";
+
+  if (nextIsSecret && secretPasswordValue) {
+    const validationMessage = validatePostSecretPassword(secretPasswordValue);
+
+    if (validationMessage) {
+      return NextResponse.json({ message: validationMessage }, { status: 400 });
+    }
   }
 
   if (
@@ -157,12 +173,15 @@ export async function PUT(
         ? isBanner
         : false,
     isSecret: typeof isSecret === "boolean" ? isSecret : undefined,
+    secretPassword: secretPasswordValue || null,
+    isHidden: typeof isHidden === "boolean" ? isHidden : undefined,
     thumbnailUrl:
       typeof thumbnailUrl === "string"
         ? thumbnailUrl.trim() || null
         : thumbnailUrl === null
           ? null
           : undefined,
+    thumbnailCrop,
     attachments,
   });
 

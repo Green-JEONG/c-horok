@@ -14,7 +14,9 @@ import {
   loadSyncedPostDrafts,
 } from "@/lib/post-drafts";
 import { comparePostMetrics, parseSortType } from "@/lib/post-sort";
+import { dispatchOrangeScrollHasMore } from "@/lib/orange-scroll-area-events";
 import { getLogFeedNewPostPath } from "@/lib/routes";
+import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
 
 const GRID_PROBE_ITEMS = [
   "probe-1",
@@ -32,6 +34,7 @@ type MyPost = {
   title: string;
   content: string;
   thumbnail: string | null;
+  thumbnail_crop?: PostThumbnailCrop | null;
   created_at: Date | string;
   author_name: string;
   author_image?: string | null;
@@ -228,6 +231,7 @@ export default function MyPostsSection() {
                 title: draft.title.trim() || "임시저장된 글",
                 content: draft.content.trim() || "임시 저장된 글입니다.",
                 thumbnail: draft.thumbnailUrl ?? null,
+                thumbnail_crop: draft.thumbnailCrop ?? null,
                 created_at: draft.savedAt,
                 author_name: session?.user?.name ?? "Unknown",
                 author_image: session?.user?.image ?? null,
@@ -379,6 +383,17 @@ export default function MyPostsSection() {
   ]);
 
   useEffect(() => {
+    dispatchOrangeScrollHasMore(
+      hasMore ||
+        (visiblePostLimit !== null && posts.length > visiblePostLimit),
+    );
+
+    return () => {
+      dispatchOrangeScrollHasMore(false);
+    };
+  }, [hasMore, posts.length, visiblePostLimit]);
+
+  useEffect(() => {
     if (typeof targetPostId !== "number") {
       return;
     }
@@ -489,6 +504,7 @@ export default function MyPostsSection() {
                   title={post.title}
                   description={post.content}
                   thumbnail={post.thumbnail}
+                  thumbnailCrop={post.thumbnail_crop ?? null}
                   category={post.category_name}
                   author={post.author_name}
                   authorImage={post.author_image}

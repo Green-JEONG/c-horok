@@ -1,20 +1,16 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { auth } from "@/app/api/auth/[...nextauth]/route";
 import ErrorState from "@/components/common/ErrorState";
 import CommentList from "@/components/posts/CommentList";
 import PostActions from "@/components/posts/PostActions";
 import PostContent from "@/components/posts/PostContent";
 import PostFooter from "@/components/posts/PostFooter";
 import PostScrollTopButton from "@/components/posts/PostScrollTopButton";
+import PostSecretAccessGate from "@/components/posts/PostSecretAccessGate";
 import PostViewTracker from "@/components/posts/PostViewTracker";
-import { getDbUserIdFromSession } from "@/lib/auth-db";
-import {
-  findPostAccessMetaById,
-  findPostById,
-  findPostSeriesByTitle,
-} from "@/lib/db";
+import { findPostAccessMetaById, findPostSeriesByTitle } from "@/lib/db";
 import { horokLogTitle } from "@/lib/page-titles";
+import { loadPostDetailAccess } from "@/lib/post-detail-access";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -34,12 +30,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  const dbUserId = await getDbUserIdFromSession();
-  const session = await auth();
-  const post = await findPostById(postId, {
-    includeHiddenForUserId: dbUserId,
-    includeHiddenForAdmin: session?.user?.role === "ADMIN",
-  });
+  const { post } = await loadPostDetailAccess(postId);
 
   if (!post || (post.is_secret && !post.can_view_secret)) {
     return {
@@ -61,12 +52,9 @@ export default async function HorokLogLikedPostPage({ params }: Props) {
     notFound();
   }
 
-  const dbUserId = await getDbUserIdFromSession();
-  const session = await auth();
-  const post = await findPostById(postId, {
-    includeHiddenForUserId: dbUserId,
-    includeHiddenForAdmin: session?.user?.role === "ADMIN",
-  });
+  const { post, dbUserId, session, secretMeta } =
+    await loadPostDetailAccess(postId);
+
   if (!post) {
     const accessMeta = await findPostAccessMetaById(postId);
 
@@ -79,7 +67,15 @@ export default async function HorokLogLikedPostPage({ params }: Props) {
 
   if (post.is_secret && !post.can_view_secret) {
     return (
-      <ErrorState code={403} message="이 게시물은 작성자만 볼 수 있습니다." />
+      <PostSecretAccessGate
+        postId={postId}
+        hasPassword={Boolean(secretMeta?.hasSecretPassword)}
+        message={
+          secretMeta?.hasSecretPassword
+            ? "비밀번호를 입력하면 게시물을 볼 수 있습니다."
+            : "이 게시물은 작성자만 볼 수 있습니다."
+        }
+      />
     );
   }
 

@@ -1,21 +1,28 @@
 import {
   Bookmark,
   Eye,
-  EyeOff,
-  Lock,
   MessageCircle,
   PenSquare,
   SmilePlus,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import PostCroppedThumbnail from "@/components/posts/PostCroppedThumbnail";
+import PostTitleStatusIcons from "@/components/posts/PostTitleStatusIcons";
+import { getPostCardPreviewText } from "@/lib/post-card-preview";
+import {
+  isDefaultPostThumbnailUrl,
+  isGifImageUrl,
+  POST_CARD_THUMBNAIL_SIZES,
+} from "@/lib/post-thumbnails";
+import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
 import {
   getLogFaqPath,
   getLogFeedPostPath,
   getLogLikesPostPath,
   getLogNoticePath,
 } from "@/lib/routes";
-import { formatSeoulDate } from "@/lib/utils";
+import { cn, formatSeoulDate } from "@/lib/utils";
 
 type Props = {
   id: number;
@@ -30,6 +37,7 @@ type Props = {
   views?: number;
   createdAt: Date;
   thumbnail?: string | null;
+  thumbnailCrop?: PostThumbnailCrop | null;
   isHidden?: boolean;
   isSecret?: boolean;
   isDraft?: boolean;
@@ -45,12 +53,14 @@ type Props = {
   hrefOverride?: string;
   className?: string;
   thumbnailLoading?: "eager" | "lazy";
+  thumbnailPriority?: boolean;
 };
 
 export default function PostCard({
   id,
   title,
   thumbnail,
+  thumbnailCrop = null,
   description,
   category,
   author,
@@ -72,6 +82,7 @@ export default function PostCard({
   hrefOverride,
   className = "",
   thumbnailLoading = "lazy",
+  thumbnailPriority = false,
 }: Props) {
   const isNotice = ["공지", "FAQ", "QnA"].includes(category);
   const isUncategorized = !category || category === "미분류";
@@ -99,25 +110,39 @@ export default function PostCard({
         }
       : null;
   const normalizedThumbnail = thumbnail?.trim() || null;
-  const isDefaultThumbnail =
-    normalizedThumbnail === null ||
-    normalizedThumbnail === "/logo.png" ||
-    normalizedThumbnail === "/thumbnails.png";
+  const isDefaultThumbnail = isDefaultPostThumbnailUrl(normalizedThumbnail);
+  const isAnimatedGifThumbnail = Boolean(
+    normalizedThumbnail && isGifImageUrl(normalizedThumbnail),
+  );
+  const previewText = getPostCardPreviewText(description);
 
   return (
     <Link
       href={href}
-      className={`card-hover-scale group flex h-full min-w-0 flex-col overflow-hidden rounded-xl border bg-background shadow-sm ${className}`}
+      className={cn(
+        "group flex h-full min-w-0 flex-col overflow-hidden rounded-xl border bg-background shadow-sm",
+        isAnimatedGifThumbnail ? "card-hover-lift" : "card-hover-scale",
+        className,
+      )}
     >
-      <div className="relative flex h-30 items-center justify-center bg-zinc-900">
-        <Image
+      <div
+        className={cn(
+          "relative flex w-full items-center justify-center bg-zinc-900",
+          isDefaultThumbnail ? "h-30" : "aspect-video",
+        )}
+      >
+        <PostCroppedThumbnail
           src={normalizedThumbnail ?? "/thumbnails.png"}
           alt={title}
+          crop={isDefaultThumbnail ? null : thumbnailCrop}
           fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          sizes={POST_CARD_THUMBNAIL_SIZES}
           loading={thumbnailLoading}
+          priority={thumbnailPriority}
           unoptimized={!isDefaultThumbnail}
-          className={isDefaultThumbnail ? "object-contain p-8" : "object-cover"}
+          quality={90}
+          objectFit={isDefaultThumbnail ? "contain" : "cover"}
+          className={isDefaultThumbnail ? "p-8" : undefined}
         />
         <div className="absolute inset-x-0 bottom-0 flex items-end bg-gradient-to-t from-black/75 via-black/35 to-transparent px-3 pb-2 pt-10">
           <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-white drop-shadow">
@@ -167,23 +192,27 @@ export default function PostCard({
           </div>
         </div>
 
-        <div className="mb-1 flex items-center gap-1.5">
-          <h3 className="line-clamp-1 min-w-0 text-sm font-semibold">
+        <div className="mb-1 flex min-w-0 items-start gap-1.5">
+          {isHidden || isSecret || isDraft ? (
+            <span className="inline-flex shrink-0 items-center gap-1 pt-0.5">
+              <PostTitleStatusIcons
+                showHidden={isHidden}
+                showSecret={isSecret}
+                iconClassName="h-3.5 w-3.5"
+                className="gap-1"
+              />
+              {isDraft ? (
+                <PenSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              ) : null}
+            </span>
+          ) : null}
+          <h3 className="min-w-0 flex-1 truncate text-sm font-semibold leading-snug">
             {title}
           </h3>
-          {isHidden ? (
-            <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          ) : null}
-          {isSecret ? (
-            <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          ) : null}
-          {isDraft ? (
-            <PenSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          ) : null}
         </div>
 
         <p className="line-clamp-1 text-xs text-muted-foreground">
-          {isSecret && !canViewSecret ? "비밀글입니다." : description}
+          {isSecret && !canViewSecret ? "비밀글입니다." : previewText}
         </p>
 
         <div className="mt-auto" />

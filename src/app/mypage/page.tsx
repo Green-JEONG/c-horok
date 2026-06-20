@@ -49,6 +49,7 @@ export default async function MyPage({ searchParams }: Props) {
         <div
           id={MYPAGE_HEADING_ACTIONS_SLOT_ID}
           className="flex min-w-0 w-full flex-row items-center justify-end gap-2 sm:ml-auto sm:w-auto"
+          suppressHydrationWarning
         />
       </div>
       <div className="min-h-0 flex-1">

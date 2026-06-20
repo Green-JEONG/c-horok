@@ -1,13 +1,13 @@
 "use client";
 
-import { UserRound, X } from "lucide-react";
+import { UserRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import LoginModal from "@/components/auth/LoginModal";
+import ProfileImagePreviewModal from "@/components/common/ProfileImagePreviewModal";
 import { Button } from "@/components/ui/button";
 import {
   countSyncedPostDrafts,
@@ -33,16 +33,14 @@ export default function UserProfiles() {
   const [isSubscribedHovering, setIsSubscribedHovering] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [draftPostCount, setDraftPostCount] = useState(0);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const sessionUserId =
+    typeof session?.user?.id === "string" ? session.user.id : null;
 
   const loadProfile = useCallback(async () => {
-    const selfProfile = session?.user?.id
-      ? await fetch(`/api/users/${session.user.id}/profile`, {
+    const selfProfile = sessionUserId
+      ? await fetch(`/api/users/${sessionUserId}/profile`, {
           cache: "no-store",
         })
           .then((response) => {
@@ -53,9 +51,9 @@ export default function UserProfiles() {
             return response.json();
           })
           .catch(() => ({
-            id: Number(session.user.id),
-            name: session.user.name ?? null,
-            image: session.user.image ?? null,
+            id: Number(sessionUserId),
+            name: session?.user?.name ?? null,
+            image: session?.user?.image ?? null,
             followerCount: 0,
             postCount: 0,
             isSelf: true,
@@ -88,7 +86,7 @@ export default function UserProfiles() {
 
     setProfile(selfProfile);
     setLoading(false);
-  }, [pathname, session]);
+  }, [pathname, sessionUserId, session?.user?.image, session?.user?.name]);
 
   useEffect(() => {
     void loadProfile();
@@ -103,10 +101,15 @@ export default function UserProfiles() {
   }, [loadProfile]);
 
   useEffect(() => {
+    if (status !== "authenticated") {
+      setDraftPostCount(0);
+      return;
+    }
+
     void countSyncedPostDrafts(getLogPostDraftStorageKey()).then(
       setDraftPostCount,
     );
-  }, []);
+  }, [status]);
 
   const handleToggleFriend = async (
     friendUserId: number,
@@ -280,41 +283,14 @@ export default function UserProfiles() {
             </div>
           </div>
 
-          {imagePreviewOpen && mounted
-            ? createPortal(
-                <div
-                  className="fixed inset-0 z-[9999] flex items-center justify-center px-6"
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label={`${profile.name ?? "사용자"} 프로필 이미지`}
-                >
-                  <button
-                    type="button"
-                    className="absolute inset-0 z-0 bg-black/60"
-                    onClick={() => setImagePreviewOpen(false)}
-                    aria-label="프로필 이미지 닫기"
-                  />
-                  <div className="relative z-10 rounded-2xl bg-background p-4 shadow-xl">
-                    <Image
-                      src={profile.image ?? "/logo.png"}
-                      alt={`${profile.name ?? "사용자"} 프로필 확대`}
-                      width={360}
-                      height={360}
-                      className={`max-h-[80vh] max-w-[80vw] object-contain ${!profile.image ? "grayscale" : ""}`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setImagePreviewOpen(false)}
-                      className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-background/80 text-muted-foreground backdrop-blur-sm transition hover:bg-muted hover:text-foreground"
-                      aria-label="프로필 이미지 닫기"
-                    >
-                      <X className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                  </div>
-                </div>,
-                document.body,
-              )
-            : null}
+          <ProfileImagePreviewModal
+            open={imagePreviewOpen}
+            onClose={() => setImagePreviewOpen(false)}
+            imageSrc={profile.image ?? "/logo.png"}
+            alt={`${profile.name ?? "사용자"} 프로필 확대`}
+            ariaLabel={`${profile.name ?? "사용자"} 프로필 이미지`}
+            imageClassName={!profile.image ? "grayscale" : undefined}
+          />
         </>
       )}
     </section>

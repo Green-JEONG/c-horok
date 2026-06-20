@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Crown,
   Eye,
   EyeOff,
   ImagePlus,
@@ -9,8 +8,6 @@ import {
   LockOpen,
   Video,
 } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -21,6 +18,7 @@ import {
 } from "@/lib/post-thumbnails";
 import { supabase } from "@/lib/supabase";
 import { formatSeoulDateTime } from "@/lib/utils";
+import CommentAuthorHeader from "./CommentAuthorHeader";
 import CommentForm from "./CommentForm";
 import CommentReactionButton from "./CommentReactionButton";
 import MarkdownRenderer from "./MarkdownRenderer";
@@ -459,28 +457,14 @@ export default function CommentItem({
         ) : null}
         <span className="absolute top-1/2 z-10 -left-[30px] size-3 -translate-y-1/2 rounded-full border-2 border-[var(--comment-graph-color)] bg-[var(--comment-graph-color)]" />
         <span className="absolute top-1/2 -left-6 h-0.5 w-6 -translate-y-1/2 bg-[var(--comment-graph-color)]" />
-        <div className="flex justify-between gap-3 text-sm">
-          <span className="inline-flex min-w-0 items-center gap-3 text-2xl font-medium leading-9">
-            <Link
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <CommentAuthorHeader
               href={authorHref}
-              className="inline-flex min-w-0 items-center gap-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              aria-label={`${comment.author} 홈으로 이동`}
-            >
-              <Image
-                src={comment.author_image ?? "/logo.png"}
-                alt={`${comment.author} 프로필`}
-                width={36}
-                height={36}
-                className={`h-9 w-9 shrink-0 rounded-full border object-cover ${!comment.author_image ? "grayscale" : ""}`}
-              />
-              <span className="truncate">{comment.author}</span>
-            </Link>
-            {comment.author_role === "ADMIN" ? (
-              <Crown
-                aria-label="관리자"
-                className="h-5 w-5 shrink-0 fill-amber-300 text-amber-500"
-              />
-            ) : null}
+              name={comment.author}
+              image={comment.author_image}
+              role={comment.author_role}
+            />
             {isHidden && !comment.is_deleted ? (
               <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             ) : null}
@@ -654,30 +638,13 @@ export default function CommentItem({
             className="mt-0"
             autoFocus
             cardHeader={
-              <div className="flex items-center gap-3 text-2xl font-medium leading-9">
-                <Link
-                  href="/mypage"
-                  className="inline-flex min-w-0 items-center gap-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  aria-label="마이페이지로 이동"
-                >
-                  <Image
-                    src={currentUserImage ?? "/logo.png"}
-                    alt={`${currentUserName ?? "사용자"} 프로필`}
-                    width={36}
-                    height={36}
-                    className={`h-9 w-9 shrink-0 rounded-full border object-cover ${!currentUserImage ? "grayscale" : ""}`}
-                  />
-                  <span className="truncate">
-                    {currentUserName ?? "사용자"}
-                  </span>
-                </Link>
-                {currentUserRole === "ADMIN" ? (
-                  <Crown
-                    aria-label="관리자"
-                    className="h-5 w-5 shrink-0 fill-amber-300 text-amber-500"
-                  />
-                ) : null}
-              </div>
+              <CommentAuthorHeader
+                href="/mypage"
+                name={currentUserName ?? "사용자"}
+                image={currentUserImage}
+                role={currentUserRole}
+                ariaLabel="마이페이지로 이동"
+              />
             }
             cancelAction={
               <button

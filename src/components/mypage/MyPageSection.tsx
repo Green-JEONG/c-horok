@@ -316,7 +316,7 @@ export default function MyPageSection() {
         })}
       </div>
 
-      <OrangeScrollArea className="h-full min-h-0">
+      <OrangeScrollArea className="h-full min-h-0" showScrollDownHint>
         {activeSection}
       </OrangeScrollArea>
     </section>

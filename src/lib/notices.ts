@@ -12,6 +12,7 @@ import {
 } from "@/lib/notice-categories";
 import { getAdminReactedPostIdSet } from "@/lib/post-reactions";
 import { mapPostAttachments } from "@/lib/post-attachments";
+import { canViewSecretPost } from "@/lib/post-secret-password";
 import {
   comparePostMetrics,
   DEFAULT_SORT,
@@ -149,6 +150,7 @@ export type NoticeAccessMeta = {
   categoryName: NoticeTag | null;
   isDeleted: boolean;
   isSecret: boolean;
+  hasSecretPassword: boolean;
 };
 
 function extractPlainText(markdown: string) {
@@ -499,6 +501,7 @@ export async function findNoticeById(
   options?: {
     includeHiddenForUserId?: number | null;
     isAdmin?: boolean;
+    hasSecretPasswordAccess?: boolean;
   },
 ) {
   const [notice, adminAnswerCount, adminReactedPostIdSet] = await Promise.all([
@@ -570,17 +573,14 @@ export async function findNoticeById(
   }
 
   const normalizedCategory = normalizeNoticeCategory(notice.category?.name);
-  const isSecretQna = normalizedCategory === "QnA" && notice.isSecret;
-  const canViewSecret =
-    !notice.isSecret ||
-    (options?.includeHiddenForUserId
-      ? Number(notice.userId) === options.includeHiddenForUserId
-      : false) ||
-    (isSecretQna && Boolean(options?.isAdmin));
-
-  if (notice.isSecret && !canViewSecret) {
-    return null;
-  }
+  const canViewSecret = canViewSecretPost({
+    isSecret: notice.isSecret,
+    ownerUserId: Number(notice.userId),
+    viewerUserId: options?.includeHiddenForUserId,
+    isAdmin: options?.isAdmin,
+    categoryName: normalizedCategory,
+    hasSecretPasswordAccess: options?.hasSecretPasswordAccess,
+  });
 
   return {
     id: Number(notice.id),
@@ -633,6 +633,7 @@ export async function findNoticeAccessMetaById(
     select: {
       isDeleted: true,
       isSecret: true,
+      secretPasswordHash: true,
       category: {
         select: {
           name: true,
@@ -647,6 +648,7 @@ export async function findNoticeAccessMetaById(
       categoryName: null,
       isDeleted: false,
       isSecret: false,
+      hasSecretPassword: false,
     };
   }
 
@@ -655,5 +657,6 @@ export async function findNoticeAccessMetaById(
     categoryName: normalizeNoticeCategory(notice.category?.name),
     isDeleted: notice.isDeleted,
     isSecret: notice.isSecret,
+    hasSecretPassword: Boolean(notice.secretPasswordHash),
   };
 }

@@ -2,9 +2,9 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { CSSProperties, TouchEvent } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const services = [
   {
@@ -28,10 +28,10 @@ const services = [
     accentClassName: "text-[#44bb68]",
   },
   {
-    href: "/horok-edu",
+    href: "/horok-academy",
     folderColor: "bg-[#ff7b7b]",
     tabColor: "bg-[#eb5551]",
-    titleAccent: "edu",
+    titleAccent: "academy",
     titleAccentColor: "#bd2424",
     label: "호록 ",
     accent: "교육",
@@ -83,8 +83,15 @@ const carouselSlotStyles = [
 const swipeThreshold = 44;
 
 export default function RootPortal() {
+  const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    for (const service of services) {
+      router.prefetch(service.href);
+    }
+  }, [router]);
 
   function showPreviousService() {
     setActiveIndex((current) =>
@@ -216,29 +223,18 @@ export default function RootPortal() {
                 </>
               );
 
-              return (
-                <Link
-                  key={service.href}
-                  href={service.href}
-                  onClick={(event) => {
-                    if (isActive) return;
-
-                    event.preventDefault();
-                    showService(index);
-                  }}
-                  className={`group absolute left-1/2 top-1/2 flex min-w-0 flex-col items-center text-center outline-none transition-[transform,opacity,filter] duration-1000 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
-                    isActive ? "" : "cursor-pointer"
-                  }`}
-                  style={{
-                    ...slotStyle,
-                    transformStyle: "preserve-3d",
-                  }}
-                  aria-label={
-                    isActive
-                      ? `${service.label}${service.accent}로 이동`
-                      : `${service.label}${service.accent} 폴더 앞으로 가져오기`
-                  }
-                >
+              const itemClassName = `group absolute left-1/2 top-1/2 flex min-w-0 flex-col items-center text-center outline-none transition-[transform,opacity,filter] duration-1000 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
+                isActive ? "" : "cursor-pointer"
+              }`;
+              const itemStyle = {
+                ...slotStyle,
+                transformStyle: "preserve-3d" as const,
+              };
+              const itemLabel = isActive
+                ? `${service.label}${service.accent}로 이동`
+                : `${service.label}${service.accent} 폴더 앞으로 가져오기`;
+              const itemContent = (
+                <>
                   <div className="relative w-[min(9.75rem,44vw)] pt-8 transition duration-300 group-hover:-translate-y-2 group-focus-visible:-translate-y-2 sm:w-[min(12rem,52vw)] md:w-[min(15rem,64vw)]">
                     {folderLayer}
                   </div>
@@ -254,7 +250,34 @@ export default function RootPortal() {
                       {service.accent}
                     </span>
                   </p>
-                </Link>
+                </>
+              );
+
+              if (isActive) {
+                return (
+                  <a
+                    key={service.href}
+                    href={service.href}
+                    className={itemClassName}
+                    style={itemStyle}
+                    aria-label={itemLabel}
+                  >
+                    {itemContent}
+                  </a>
+                );
+              }
+
+              return (
+                <button
+                  key={service.href}
+                  type="button"
+                  onClick={() => showService(index)}
+                  className={itemClassName}
+                  style={itemStyle}
+                  aria-label={itemLabel}
+                >
+                  {itemContent}
+                </button>
               );
             })}
           </div>

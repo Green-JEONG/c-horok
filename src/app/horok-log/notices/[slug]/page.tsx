@@ -8,6 +8,7 @@ import PostActions from "@/components/posts/PostActions";
 import PostContent from "@/components/posts/PostContent";
 import PostFooter from "@/components/posts/PostFooter";
 import PostScrollTopButton from "@/components/posts/PostScrollTopButton";
+import PostSecretAccessGate from "@/components/posts/PostSecretAccessGate";
 import PostViewTracker from "@/components/posts/PostViewTracker";
 import {
   INQUIRY_TAG_OPTIONS,
@@ -16,6 +17,10 @@ import {
 } from "@/lib/notice-categories";
 import { findNoticeAccessMetaById, findNoticeById } from "@/lib/notices";
 import { horokLogTitle } from "@/lib/page-titles";
+import {
+  getPostSecretPasswordMeta,
+  hasPostSecretAccess,
+} from "@/lib/post-secret-access";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -80,12 +85,17 @@ export default async function HorokLogNoticeDetailPage({
   const session = await auth();
   const sessionUserId =
     typeof session?.user?.id === "string" ? Number(session.user.id) : null;
+  const secretMeta = await getPostSecretPasswordMeta(noticeId);
+  const hasPasswordAccess = secretMeta?.secretPasswordHash
+    ? await hasPostSecretAccess(noticeId, secretMeta.secretPasswordHash)
+    : false;
   const notice = await findNoticeById(noticeId, {
     includeHiddenForUserId:
       typeof sessionUserId === "number" && !Number.isNaN(sessionUserId)
         ? sessionUserId
         : null,
     isAdmin: session?.user?.role === "ADMIN",
+    hasSecretPasswordAccess: hasPasswordAccess,
   });
 
   if (!notice) {
@@ -95,20 +105,25 @@ export default async function HorokLogNoticeDetailPage({
       return <ErrorState code={404} message="삭제된 게시물입니다." />;
     }
 
-    if (accessMeta.exists && accessMeta.isSecret) {
-      return (
-        <ErrorState
-          code={403}
-          message={
-            accessMeta.categoryName === "QnA"
+    notFound();
+  }
+
+  if (notice.isSecret && !notice.canViewSecret) {
+    const isQnaNotice = notice.categoryName === "QnA";
+
+    return (
+      <PostSecretAccessGate
+        postId={noticeId}
+        hasPassword={Boolean(secretMeta?.hasSecretPassword)}
+        message={
+          secretMeta?.hasSecretPassword
+            ? "비밀번호를 입력하면 게시물을 볼 수 있습니다."
+            : isQnaNotice
               ? "이 문의 게시물은 작성자와 관리자만 볼 수 있습니다."
               : "이 게시물은 작성자만 볼 수 있습니다."
-          }
-        />
-      );
-    }
-
-    notFound();
+        }
+      />
+    );
   }
   const isAdmin = session?.user?.role === "ADMIN";
   const isQnaNotice = notice.categoryName === "QnA";

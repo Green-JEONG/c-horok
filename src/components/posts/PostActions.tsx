@@ -2,15 +2,40 @@
 
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { useState } from "react";
-import PostEditor from "@/components/posts/PostEditor";
+import { useEffect, useRef, useState } from "react";
+import PostEditor, {
+  type PostEditorHandle,
+} from "@/components/posts/PostEditor";
 import PostHeader from "@/components/posts/PostHeader";
+import { buttonVariants } from "@/components/ui/button";
 import type { DbCopiedPost, DbPost, DbPostSeriesItem } from "@/lib/db";
+import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
 import {
   getStorageObjectPathFromPublicUrl,
   POST_THUMBNAIL_BUCKET,
 } from "@/lib/post-thumbnails";
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
+
+type SavedPostFlags = {
+  is_secret?: boolean;
+  is_hidden?: boolean;
+};
+
+function getSavedPostFlags(payload: unknown): SavedPostFlags {
+  if (!payload || typeof payload !== "object") {
+    return {};
+  }
+
+  const record = payload as SavedPostFlags;
+
+  return {
+    is_secret:
+      typeof record.is_secret === "boolean" ? record.is_secret : undefined,
+    is_hidden:
+      typeof record.is_hidden === "boolean" ? record.is_hidden : undefined,
+  };
+}
 
 type Props = {
   postId: number;
@@ -19,6 +44,7 @@ type Props = {
   initialCategoryName: string;
   initialCategoryNames?: string[];
   initialThumbnail: string | null;
+  initialThumbnailCrop?: PostThumbnailCrop | null;
   initialIsHidden: boolean;
   initialIsSecret?: boolean;
   initialIsBanner?: boolean;
@@ -43,6 +69,7 @@ export default function PostActions({
   initialCategoryName,
   initialCategoryNames,
   initialThumbnail,
+  initialThumbnailCrop = null,
   initialIsHidden,
   initialIsSecret = false,
   initialIsBanner = false,
@@ -60,11 +87,42 @@ export default function PostActions({
   children,
 }: Props) {
   const router = useRouter();
+  const editorRef = useRef<PostEditorHandle>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditorSubmitting, setIsEditorSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isHidden, setIsHidden] = useState(initialIsHidden);
-  const [isTogglingHidden, setIsTogglingHidden] = useState(false);
+  const [savedIsSecret, setSavedIsSecret] = useState(initialIsSecret);
+  const [savedIsHidden, setSavedIsHidden] = useState(initialIsHidden);
+
+  useEffect(() => {
+    setSavedIsSecret(initialIsSecret);
+    setSavedIsHidden(initialIsHidden);
+  }, [initialIsHidden, initialIsSecret]);
+
+  const displayHeaderPost = headerPost
+    ? {
+        ...headerPost,
+        is_secret: savedIsSecret,
+        is_hidden: savedIsHidden,
+      }
+    : undefined;
+
+  function handleEditSuccess(payload: unknown) {
+    const savedFlags = getSavedPostFlags(payload);
+
+    if (typeof savedFlags.is_secret === "boolean") {
+      setSavedIsSecret(savedFlags.is_secret);
+    }
+
+    if (typeof savedFlags.is_hidden === "boolean") {
+      setSavedIsHidden(savedFlags.is_hidden);
+    }
+
+    setIsEditorSubmitting(false);
+    setIsEditing(false);
+    setError(null);
+  }
 
   async function removeThumbnailFromStorage(path?: string | null) {
     if (!path) return;
@@ -103,127 +161,138 @@ export default function PostActions({
     }
   }
 
-  async function handleToggleHidden() {
-    const nextHidden = !isHidden;
-    const confirmed = window.confirm(
-      nextHidden
-        ? "이 게시글을 숨김 처리할까요? 숨김 처리하면 다른 사용자는 볼 수 없습니다."
-        : "이 게시글을 다시 공개할까요?",
-    );
-    if (!confirmed) return;
-
-    setIsTogglingHidden(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/posts/${postId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ isHidden: nextHidden }),
-      });
-      const payload = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        setError(payload?.message ?? "게시글 숨김 상태 변경에 실패했습니다.");
-        return;
-      }
-
-      setIsHidden(nextHidden);
-      router.refresh();
-    } catch {
-      setError("게시글 숨김 상태 변경 중 오류가 발생했습니다.");
-    } finally {
-      setIsTogglingHidden(false);
+  function renderActionSlot(
+    secretSection?: ReactNode,
+    hiddenSection?: ReactNode,
+  ) {
+    if (!isOwner) {
+      return null;
     }
+
+    return (
+      <div className="flex flex-wrap justify-end gap-2 text-xs">
+        {isEditing ? secretSection : null}
+        {isEditing ? hiddenSection : null}
+
+        {isEditing ? (
+          <button
+            type="button"
+            disabled={isEditorSubmitting || isDeleting}
+            onClick={() => editorRef.current?.submit()}
+            className={cn(
+              buttonVariants({ variant: "default", size: "sm" }),
+              "box-border h-7 px-3 py-1.5 text-xs leading-none text-white dark:text-white",
+            )}
+          >
+            {isEditorSubmitting ? "저장 중..." : "저장"}
+          </button>
+        ) : null}
+
+        <button
+          type="button"
+          disabled={isDeleting || isEditorSubmitting}
+          onClick={() => {
+            setIsEditing((prev) => !prev);
+            setError(null);
+          }}
+          className="box-border inline-flex h-7 items-center justify-center rounded-md border px-3 py-1.5 leading-none transition hover:border-primary/30 hover:bg-primary/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isEditing ? "닫기" : "수정"}
+        </button>
+
+        <button
+          type="button"
+          disabled={isDeleting}
+          onClick={handleDelete}
+          className="box-border inline-flex h-7 items-center justify-center rounded-md border border-red-500 bg-red-500 px-3 py-1.5 leading-none text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isDeleting ? "삭제 중..." : "삭제"}
+        </button>
+      </div>
+    );
   }
 
-  const actionSlot = isOwner ? (
-    <div className="flex flex-wrap justify-end gap-2 text-xs">
-      <button
-        type="button"
-        disabled={isDeleting || isTogglingHidden}
-        onClick={() => {
-          setIsEditing((prev) => !prev);
-          setError(null);
-        }}
-        className="box-border inline-flex h-7 items-center justify-center rounded-md border px-3 py-1.5 leading-none transition hover:border-primary/30 hover:bg-primary/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isEditing ? "닫기" : "수정"}
-      </button>
-
-      <button
-        type="button"
-        disabled={isDeleting || isTogglingHidden}
-        onClick={handleToggleHidden}
-        className="box-border inline-flex h-7 items-center justify-center rounded-md border px-3 py-1.5 leading-none transition hover:border-primary/30 hover:bg-primary/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isTogglingHidden
-          ? isHidden
-            ? "공개 중..."
-            : "숨김 중..."
-          : isHidden
-            ? "숨김 해제"
-            : "숨김"}
-      </button>
-
-      <button
-        type="button"
-        disabled={isDeleting || isTogglingHidden}
-        onClick={handleDelete}
-        className="box-border inline-flex h-7 items-center justify-center rounded-md border border-red-500 bg-red-500 px-3 py-1.5 leading-none text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isDeleting ? "삭제 중..." : "삭제"}
-      </button>
-    </div>
-  ) : null;
+  const actionSlot = renderActionSlot();
 
   return (
     <div className="space-y-3">
-      {headerPost ? (
-        <PostHeader
-          post={headerPost}
-          actionSlot={actionSlot}
-          titleAddon={headerTitleAddon}
-          seriesItems={seriesItems}
-          isOwner={isOwner}
-        />
-      ) : null}
-
       {isOwner && isEditing ? (
-        <div className="mb-3 rounded-xl border bg-muted/20 p-4">
-          <PostEditor
-            mode="edit"
-            postId={postId}
-            initialTitle={initialTitle}
-            initialContent={initialContent}
-            initialCategoryName={initialCategoryName}
-            initialCategoryNames={initialCategoryNames}
-            initialThumbnail={initialThumbnail}
-            initialAttachments={headerPost?.attachments}
-            initialIsBanner={initialIsBanner}
-            initialIsSecret={initialIsSecret}
-            copiedFromPost={initialCopiedFromPost}
-            categoryLocked={categoryLocked}
-            fixedTagOptions={fixedTagOptions}
-            inquiryTagOptions={inquiryTagOptions}
-            showBannerOption={showBannerOption}
-            allowNoticeBannerForAllCategories={
-              allowNoticeBannerForAllCategories
-            }
-            onCancel={() => {
-              setIsEditing(false);
-              setError(null);
-            }}
-            onSuccess={() => {
-              setIsEditing(false);
-              setError(null);
-            }}
-          />
-        </div>
+        <PostEditor
+          ref={editorRef}
+          mode="edit"
+          layout="inline"
+          postId={postId}
+          initialTitle={initialTitle}
+          initialContent={initialContent}
+          initialCategoryName={initialCategoryName}
+          initialCategoryNames={initialCategoryNames}
+          initialThumbnail={initialThumbnail}
+          initialThumbnailCrop={initialThumbnailCrop}
+          initialAttachments={headerPost?.attachments}
+          initialIsBanner={initialIsBanner}
+          initialIsSecret={initialIsSecret}
+          initialIsHidden={initialIsHidden}
+          copiedFromPost={initialCopiedFromPost}
+          categoryLocked={categoryLocked}
+          fixedTagOptions={fixedTagOptions}
+          inquiryTagOptions={inquiryTagOptions}
+          showBannerOption={showBannerOption}
+          allowNoticeBannerForAllCategories={
+            allowNoticeBannerForAllCategories
+          }
+          onSubmittingChange={setIsEditorSubmitting}
+          onCancel={() => {
+            setIsEditorSubmitting(false);
+            setIsEditing(false);
+            setError(null);
+          }}
+          onSuccess={handleEditSuccess}
+          renderInline={({
+            titleSection,
+            titleStatusSection,
+            titleStatusIndent,
+            tagsSection,
+            contentSection,
+            secretSection,
+            hiddenSection,
+            footerExtrasSection,
+            errorSection,
+          }) => (
+            <>
+              {displayHeaderPost ? (
+                <PostHeader
+                  post={displayHeaderPost}
+                  actionSlot={renderActionSlot(secretSection, hiddenSection)}
+                  titleAddon={headerTitleAddon}
+                  seriesItems={seriesItems}
+                  isOwner={isOwner}
+                  titleSection={titleSection}
+                  titleStatusSection={titleStatusSection}
+                  titleStatusIndent={titleStatusIndent}
+                  tagsSection={tagsSection}
+                />
+              ) : null}
+              {contentSection}
+              {footerExtrasSection ? (
+                <div className="space-y-3">{footerExtrasSection}</div>
+              ) : null}
+              {errorSection}
+            </>
+          )}
+        />
       ) : (
-        children
+        <>
+          {displayHeaderPost ? (
+            <PostHeader
+              post={displayHeaderPost}
+              actionSlot={actionSlot}
+              titleAddon={headerTitleAddon}
+              seriesItems={seriesItems}
+              isOwner={isOwner}
+            />
+          ) : null}
+          {children}
+        </>
       )}
 
       {!isEditing && error ? (
