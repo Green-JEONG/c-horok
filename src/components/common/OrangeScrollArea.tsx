@@ -194,9 +194,13 @@ function NativeOrangeScrollArea({
       return;
     }
 
+    if (hasMoreBelow) {
+      dispatchNearEndIfNeeded(viewport);
+    }
+
     scrollViewportOnePage(viewport);
     window.requestAnimationFrame(updateScrollHint);
-  }, [updateScrollHint]);
+  }, [hasMoreBelow, updateScrollHint]);
 
   return (
     <div className={cn("relative flex min-h-0 flex-col", className)}>
@@ -433,9 +437,13 @@ function CustomOrangeScrollArea({
       return;
     }
 
+    if (hasMoreBelow) {
+      dispatchNearEndIfNeeded(viewport);
+    }
+
     scrollViewportOnePage(viewport);
     window.requestAnimationFrame(updateScrollHint);
-  }, [updateScrollHint]);
+  }, [hasMoreBelow, updateScrollHint]);
 
   return (
     <div className={cn("relative flex min-h-0 flex-col", className)}>

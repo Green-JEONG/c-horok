@@ -182,12 +182,23 @@ export default function PostListInfinite({
         responsiveRowLoading),
   );
   const [hasLoadedOnce, setHasLoadedOnce] = useState(!autoloadFirstPage);
+  const [visiblePostLimit, setVisiblePostLimit] = useState<number | null>(null);
 
   const loaderRef = useRef<HTMLDivElement | null>(null);
   const gridProbeRef = useRef<HTMLDivElement | null>(null);
   const fetchingRef = useRef(false);
   const loadedServerPostCountRef = useRef(initialPosts.length);
+  const nearEndRevealLockedRef = useRef(false);
+  const nearEndRevealUnlockTimeoutRef = useRef<number | null>(null);
   const previousListKeyRef = useRef(searchParamsString);
+  const loadMoreRef = useRef<
+    (options?: { initialBatch?: boolean }) => Promise<void>
+  >(async () => {});
+  const postsLengthRef = useRef(posts.length);
+  const visiblePostLimitRef = useRef(visiblePostLimit);
+  const hasMoreRef = useRef(hasMore);
+  const loadingRef = useRef(loading);
+  const responsivePageSizeRef = useRef(responsivePageSize);
 
   useEffect(() => {
     setPosts(initialPosts);
@@ -225,7 +236,18 @@ export default function PostListInfinite({
         return;
       }
 
-      setResponsivePageSize((current) => (current === next ? current : next));
+      setResponsivePageSize((current) => {
+        if (current !== next) {
+          setPosts([]);
+          setVisiblePostLimit(next * initialVisibleRowCount);
+          setHasMore(!disableInfinite);
+          setHasLoadedOnce(false);
+          loadedServerPostCountRef.current = 0;
+          fetchingRef.current = false;
+        }
+
+        return current === next ? current : next;
+      });
     };
 
     const frame = window.requestAnimationFrame(updatePageSize);
@@ -235,8 +257,13 @@ export default function PostListInfinite({
     return () => {
       window.cancelAnimationFrame(frame);
       observer.disconnect();
+      if (nearEndRevealUnlockTimeoutRef.current !== null) {
+        window.clearTimeout(nearEndRevealUnlockTimeoutRef.current);
+        nearEndRevealUnlockTimeoutRef.current = null;
+      }
+      nearEndRevealLockedRef.current = false;
     };
-  }, [responsiveRowLoading]);
+  }, [disableInfinite, initialVisibleRowCount, responsiveRowLoading]);
 
   const loadMore = useCallback(async (options?: { initialBatch?: boolean }) => {
     if (
@@ -321,6 +348,13 @@ export default function PostListInfinite({
     syncSortWithSearchParams,
   ]);
 
+  loadMoreRef.current = loadMore;
+  postsLengthRef.current = posts.length;
+  visiblePostLimitRef.current = visiblePostLimit;
+  hasMoreRef.current = hasMore;
+  loadingRef.current = loading;
+  responsivePageSizeRef.current = responsivePageSize;
+
   const reloadFirstPage = useCallback(async () => {
     if (responsivePageSize === null) {
       return;
@@ -361,6 +395,9 @@ export default function PostListInfinite({
     loadedServerPostCountRef.current = data.length;
     setHasMore(!disableInfinite && data.length >= requestLimit);
     setHasLoadedOnce(true);
+    if (responsiveRowLoading) {
+      setVisiblePostLimit(responsivePageSize * initialVisibleRowCount);
+    }
     fetchingRef.current = false;
   }, [
     disableInfinite,
@@ -399,7 +436,7 @@ export default function PostListInfinite({
       return;
     }
 
-    if (!loaderRef.current) {
+    if (responsiveRowLoading || !loaderRef.current) {
       return;
     }
 
@@ -420,6 +457,7 @@ export default function PostListInfinite({
     loadMore,
     posts.length,
     responsivePageSize,
+    responsiveRowLoading,
   ]);
 
   useEffect(() => {
@@ -440,6 +478,7 @@ export default function PostListInfinite({
     setPosts([]);
     setPage(1);
     setHasMore(true);
+    setVisiblePostLimit(responsivePageSize * initialVisibleRowCount);
     fetchingRef.current = false;
     void loadMore({ initialBatch: true });
   }, [
@@ -456,28 +495,107 @@ export default function PostListInfinite({
       return;
     }
 
-    const handleNearEnd = () => {
-      void loadMore();
+    const handleNearEnd = async () => {
+      if (!responsiveRowLoading) {
+        void loadMoreRef.current();
+        return;
+      }
+
+      const pageSize = responsivePageSizeRef.current;
+
+      if (
+        loadingRef.current ||
+        nearEndRevealLockedRef.current ||
+        pageSize === null
+      ) {
+        return;
+      }
+
+      nearEndRevealLockedRef.current = true;
+
+      const unlockNearEndReveal = () => {
+        if (nearEndRevealUnlockTimeoutRef.current !== null) {
+          window.clearTimeout(nearEndRevealUnlockTimeoutRef.current);
+        }
+
+        nearEndRevealUnlockTimeoutRef.current = window.setTimeout(() => {
+          nearEndRevealLockedRef.current = false;
+        }, 450);
+      };
+
+      try {
+        const currentVisiblePostLimit = visiblePostLimitRef.current ?? pageSize;
+        const hiddenLoadedPostCount = Math.max(
+          0,
+          postsLengthRef.current - currentVisiblePostLimit,
+        );
+
+        if (!hasMoreRef.current && hiddenLoadedPostCount === 0) {
+          return;
+        }
+
+        if (hiddenLoadedPostCount < pageSize && hasMoreRef.current) {
+          await loadMoreRef.current();
+        }
+
+        setVisiblePostLimit((current) => {
+          const next =
+            current === null
+              ? pageSize * initialVisibleRowCount
+              : current + pageSize;
+          visiblePostLimitRef.current = next;
+          return next;
+        });
+      } finally {
+        unlockNearEndReveal();
+      }
     };
 
     window.addEventListener("orange-scroll-area-near-end", handleNearEnd);
 
     return () => {
       window.removeEventListener("orange-scroll-area-near-end", handleNearEnd);
+      if (nearEndRevealUnlockTimeoutRef.current !== null) {
+        window.clearTimeout(nearEndRevealUnlockTimeoutRef.current);
+        nearEndRevealUnlockTimeoutRef.current = null;
+      }
+      nearEndRevealLockedRef.current = false;
     };
-  }, [disableInfinite, loadMore]);
+  }, [disableInfinite, initialVisibleRowCount, responsiveRowLoading]);
 
   useEffect(() => {
-    dispatchOrangeScrollHasMore(!disableInfinite && hasMore);
+    const hasMoreBelow =
+      !disableInfinite &&
+      (responsiveRowLoading
+        ? hasMore ||
+          (visiblePostLimit !== null && posts.length > visiblePostLimit)
+        : hasMore);
+
+    dispatchOrangeScrollHasMore(hasMoreBelow);
 
     return () => {
       dispatchOrangeScrollHasMore(false);
     };
-  }, [disableInfinite, hasMore]);
+  }, [
+    disableInfinite,
+    hasMore,
+    posts.length,
+    responsiveRowLoading,
+    visiblePostLimit,
+  ]);
 
   if (!loading && posts.length === 0 && !hasMore && hasLoadedOnce) {
     return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
   }
+
+  const visiblePosts =
+    responsiveRowLoading && visiblePostLimit !== null
+      ? posts.slice(0, visiblePostLimit)
+      : posts;
+  const canShowMorePosts =
+    responsiveRowLoading &&
+    (hasMore ||
+      (visiblePostLimit !== null && posts.length > visiblePostLimit));
 
   const groupedPosts = groupBySearchCategory
     ? SEARCH_RESULT_GROUPS.map((group) => ({
@@ -688,15 +806,17 @@ export default function PostListInfinite({
             </section>
           ))}
         </div>
-      ) : posts.length > 0 ? (
+      ) : visiblePosts.length > 0 ? (
         <div className={gridClassName}>
-          {posts.map((post, index) =>
+          {visiblePosts.map((post, index) =>
             renderPostCard(post, index < 10, index === 0),
           )}
         </div>
       ) : null}
 
-      {hasMore ? <div ref={loaderRef} className="h-14 w-full" /> : null}
+      {canShowMorePosts || (!responsiveRowLoading && hasMore) ? (
+        <div ref={loaderRef} className="h-14 w-full" />
+      ) : null}
 
       {loading && (
         <p className="py-6 text-center text-sm text-muted-foreground">

@@ -30,7 +30,7 @@ export default function InfiniteScrollDownHint({
     return (
       <div
         className={cn(
-          "pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center bg-gradient-to-t from-background from-40% via-background/90 to-transparent pb-8 pt-20",
+          "pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center bg-gradient-to-t from-background from-10% via-background/90 to-transparent pt-10",
           className,
         )}
       >
