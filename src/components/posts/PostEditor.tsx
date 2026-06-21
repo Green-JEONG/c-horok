@@ -925,7 +925,6 @@ const PostEditor = forwardRef<PostEditorHandle, PostEditorProps>(function PostEd
   ) {
     handleMarkdownEditorKeyDown(event, {
       isComposing: isContentComposingRef.current,
-      onUpdate: updateContentWithSelection,
     });
   }
 

@@ -15,12 +15,50 @@ const AUTO_PAIR_CLOSERS = new Set(Object.values(AUTO_PAIR_OPENERS));
 
 type MarkdownEditorKeyDownOptions = {
   isComposing?: boolean;
-  onUpdate: (
-    nextContent: string,
-    selectionStart: number,
-    selectionEnd?: number,
-  ) => void;
 };
+
+type TextareaWithValueTracker = HTMLTextAreaElement & {
+  _valueTracker?: { setValue: (value: string) => void };
+};
+
+function syncTextareaToReact(textarea: HTMLTextAreaElement) {
+  const valueTracker = (textarea as TextareaWithValueTracker)._valueTracker;
+  valueTracker?.setValue("");
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function setTextareaSelection(
+  textarea: HTMLTextAreaElement,
+  selectionStart: number,
+  selectionEnd = selectionStart,
+) {
+  requestAnimationFrame(() => {
+    textarea.focus();
+    textarea.setSelectionRange(selectionStart, selectionEnd);
+  });
+}
+
+function insertTextareaText(textarea: HTMLTextAreaElement, text: string) {
+  textarea.focus();
+  const inserted = document.execCommand("insertText", false, text);
+  if (!inserted) {
+    return false;
+  }
+
+  syncTextareaToReact(textarea);
+  return true;
+}
+
+function deleteTextareaSelection(textarea: HTMLTextAreaElement) {
+  textarea.focus();
+  const deleted = document.execCommand("delete", false);
+  if (!deleted) {
+    return false;
+  }
+
+  syncTextareaToReact(textarea);
+  return true;
+}
 
 function getLineBounds(value: string, position: number) {
   const lineStart = value.lastIndexOf("\n", Math.max(0, position - 1)) + 1;
@@ -54,10 +92,10 @@ function isInsideFencedCodeBlock(value: string, position: number) {
 
 function handleAutoPair(
   event: KeyboardEvent<HTMLTextAreaElement>,
+  textarea: HTMLTextAreaElement,
   value: string,
   start: number,
   end: number,
-  onUpdate: MarkdownEditorKeyDownOptions["onUpdate"],
 ) {
   const closer = AUTO_PAIR_OPENERS[event.key];
 
@@ -66,18 +104,26 @@ function handleAutoPair(
 
     if (start !== end) {
       const selectedText = value.slice(start, end);
-      const nextContent = `${value.slice(0, start)}${event.key}${selectedText}${closer}${value.slice(end)}`;
-      onUpdate(nextContent, start + 1, end + 1);
+      if (
+        !insertTextareaText(textarea, `${event.key}${selectedText}${closer}`)
+      ) {
+        return false;
+      }
+
+      setTextareaSelection(textarea, start + 1, end + 1);
       return true;
     }
 
     if (value[start] === closer) {
-      onUpdate(value, start + 1);
+      setTextareaSelection(textarea, start + 1);
       return true;
     }
 
-    const nextContent = `${value.slice(0, start)}${event.key}${closer}${value.slice(end)}`;
-    onUpdate(nextContent, start + 1);
+    if (!insertTextareaText(textarea, `${event.key}${closer}`)) {
+      return false;
+    }
+
+    setTextareaSelection(textarea, start + 1);
     return true;
   }
 
@@ -87,7 +133,7 @@ function handleAutoPair(
     value[start] === event.key
   ) {
     event.preventDefault();
-    onUpdate(value, start + 1);
+    setTextareaSelection(textarea, start + 1);
     return true;
   }
 
@@ -96,17 +142,21 @@ function handleAutoPair(
 
 function handleCodeBlockEnter(
   event: KeyboardEvent<HTMLTextAreaElement>,
+  textarea: HTMLTextAreaElement,
   value: string,
   start: number,
-  onUpdate: MarkdownEditorKeyDownOptions["onUpdate"],
 ) {
   const { lineStart, lineEnd, currentLine } = getLineBounds(value, start);
   const leadingWhitespace = currentLine.match(/^(\s*)/)?.[1] ?? "";
 
   if (currentLine.trim().length === 0 && leadingWhitespace.length > 0) {
     event.preventDefault();
-    const nextContent = `${value.slice(0, lineStart)}${value.slice(lineEnd)}`;
-    onUpdate(nextContent, lineStart);
+    textarea.setSelectionRange(lineStart, lineEnd);
+    if (!deleteTextareaSelection(textarea)) {
+      return false;
+    }
+
+    setTextareaSelection(textarea, lineStart);
     return true;
   }
 
@@ -119,16 +169,18 @@ function handleCodeBlockEnter(
       ? `${leadingWhitespace}${TAB_SPACES}`
       : leadingWhitespace;
   const insertedText = `\n${nextIndent}`;
-  const nextContent = `${value.slice(0, start)}${insertedText}${value.slice(start)}`;
-  const nextCursor = start + insertedText.length;
 
-  onUpdate(nextContent, nextCursor);
+  if (!insertTextareaText(textarea, insertedText)) {
+    return false;
+  }
+
+  setTextareaSelection(textarea, start + insertedText.length);
   return true;
 }
 
 export function handleMarkdownEditorKeyDown(
   event: KeyboardEvent<HTMLTextAreaElement>,
-  { isComposing = false, onUpdate }: MarkdownEditorKeyDownOptions,
+  { isComposing = false }: MarkdownEditorKeyDownOptions = {},
 ) {
   if (isComposing || event.nativeEvent.isComposing) {
     return;
@@ -142,14 +194,12 @@ export function handleMarkdownEditorKeyDown(
 
   if (event.key === "Tab" && !event.shiftKey) {
     event.preventDefault();
-    const nextContent = `${value.slice(0, start)}${TAB_SPACES}${value.slice(end)}`;
-    const nextCursor = start + TAB_SPACES.length;
-    onUpdate(nextContent, nextCursor);
+    insertTextareaText(textarea, TAB_SPACES);
     return;
   }
 
   if (start === end && !event.ctrlKey && !event.metaKey && !event.altKey) {
-    if (handleAutoPair(event, value, start, end, onUpdate)) {
+    if (handleAutoPair(event, textarea, value, start, end)) {
       return;
     }
   }
@@ -163,11 +213,11 @@ export function handleMarkdownEditorKeyDown(
   }
 
   if (inCodeBlock) {
-    handleCodeBlockEnter(event, value, start, onUpdate);
+    handleCodeBlockEnter(event, textarea, value, start);
     return;
   }
 
-  const { lineStart, lineEnd, currentLine } = getLineBounds(value, start);
+  const { lineStart, currentLine } = getLineBounds(value, start);
   const orderedMatch = currentLine.match(/^(\d+)\.\s(.*)$/);
   const unorderedMatch = currentLine.match(/^-\s(.*)$/);
 
@@ -181,37 +231,36 @@ export function handleMarkdownEditorKeyDown(
     const [, currentNumber, currentText] = orderedMatch;
 
     if (currentText.trim().length === 0) {
-      const nextContent =
-        value.slice(0, lineStart) +
-        value.slice(lineStart + orderedMatch[0].length);
-      onUpdate(nextContent, lineStart);
+      textarea.setSelectionRange(lineStart, lineStart + orderedMatch[0].length);
+      deleteTextareaSelection(textarea);
+      setTextareaSelection(textarea, lineStart);
       return;
     }
 
     const nextNumber = Number(currentNumber) + 1;
     const insertedText = `\n${nextNumber}. `;
-    const nextContent = `${value.slice(0, start)}${insertedText}${value.slice(end)}`;
-    const nextCursorPosition = start + insertedText.length;
-
-    onUpdate(nextContent, nextCursorPosition);
+    insertTextareaText(textarea, insertedText);
     return;
   }
 
-  const [, currentText] = unorderedMatch!;
+  const unorderedMatchResult = unorderedMatch;
+  if (!unorderedMatchResult) {
+    return;
+  }
+
+  const [, currentText] = unorderedMatchResult;
 
   if (currentText.trim().length === 0) {
-    const nextContent =
-      value.slice(0, lineStart) +
-      value.slice(lineStart + unorderedMatch![0].length);
-    onUpdate(nextContent, lineStart);
+    textarea.setSelectionRange(
+      lineStart,
+      lineStart + unorderedMatchResult[0].length,
+    );
+    deleteTextareaSelection(textarea);
+    setTextareaSelection(textarea, lineStart);
     return;
   }
 
-  const insertedText = "\n- ";
-  const nextContent = `${value.slice(0, start)}${insertedText}${value.slice(end)}`;
-  const nextCursorPosition = start + insertedText.length;
-
-  onUpdate(nextContent, nextCursorPosition);
+  insertTextareaText(textarea, "\n- ");
 }
 
 export const markdownHeadingClassName =
