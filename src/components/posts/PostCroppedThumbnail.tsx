@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import PostMediaThumbnail from "@/components/posts/PostMediaThumbnail";
 import {
   getPostThumbnailCropStyle,
@@ -22,6 +23,48 @@ type Props = {
   objectFit?: "cover" | "contain";
 };
 
+function useNaturalImageSize(src: string, enabled: boolean) {
+  const [naturalSize, setNaturalSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!enabled) {
+      setNaturalSize(null);
+      return;
+    }
+
+    let cancelled = false;
+    const image = new window.Image();
+    image.decoding = "async";
+    image.src = src;
+
+    image.onload = () => {
+      if (cancelled) {
+        return;
+      }
+
+      setNaturalSize({
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      });
+    };
+
+    image.onerror = () => {
+      if (!cancelled) {
+        setNaturalSize(null);
+      }
+    };
+
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, src]);
+
+  return naturalSize;
+}
+
 export default function PostCroppedThumbnail({
   src,
   alt,
@@ -37,6 +80,7 @@ export default function PostCroppedThumbnail({
   objectFit = "cover",
 }: Props) {
   const hasCrop = Boolean(crop && crop.width > 0 && crop.height > 0);
+  const naturalSize = useNaturalImageSize(src, hasCrop);
 
   if (!hasCrop) {
     return (
@@ -64,16 +108,23 @@ export default function PostCroppedThumbnail({
         className,
       )}
     >
-      {/* biome-ignore lint/performance/noImgElement: crop positioning requires native img for gif animation */}
-      <img
-        src={src}
-        alt={alt}
-        loading={loading}
-        decoding="async"
-        draggable={false}
-        className="absolute max-w-none select-none"
-        style={getPostThumbnailCropStyle(crop!)}
-      />
+      {naturalSize ? (
+        // biome-ignore lint/performance/noImgElement: crop positioning requires native img for gif animation
+        <img
+          src={src}
+          alt={alt}
+          width={naturalSize.width}
+          height={naturalSize.height}
+          loading={loading}
+          decoding={priority ? "sync" : "async"}
+          fetchPriority={priority ? "high" : undefined}
+          draggable={false}
+          className="absolute max-w-none select-none"
+          style={getPostThumbnailCropStyle(crop!)}
+        />
+      ) : (
+        <div aria-hidden className="absolute inset-0 bg-zinc-900/40" />
+      )}
     </div>
   );
 }

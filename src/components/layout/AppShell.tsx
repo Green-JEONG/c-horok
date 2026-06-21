@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { isLogMyPagePath } from "@/lib/routes";
 
 type AppShellProps = {
   header: React.ReactNode;
@@ -51,7 +52,7 @@ export default function AppShell({
     pathname.startsWith("/notices/") ||
     pathname === "/posts" ||
     pathname.startsWith("/posts/");
-  const isMyPage = pathname === "/mypage";
+  const isMyPage = isLogMyPagePath(pathname);
   const isFeedListPage =
     pathname === "/horok-log/feeds" || pathname === "/feeds";
   const isSearchPage = pathname === "/search";

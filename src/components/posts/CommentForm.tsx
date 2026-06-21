@@ -9,6 +9,7 @@ import {
   createPostContentImagePath,
   POST_THUMBNAIL_BUCKET,
 } from "@/lib/post-thumbnails";
+import { handleMarkdownEditorKeyDown } from "@/lib/markdown-editor-keydown";
 import { supabase } from "@/lib/supabase";
 
 type AnswerEditorTab = "write" | "preview";
@@ -274,42 +275,9 @@ export default function CommentForm({
   function handleContentKeyDown(
     event: React.KeyboardEvent<HTMLTextAreaElement>,
   ) {
-    if (event.key !== "Enter" || event.shiftKey) return;
-
-    const textarea = event.currentTarget;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-
-    if (start !== end) return;
-
-    const lineStart = content.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
-    const lineEndIndex = content.indexOf("\n", start);
-    const lineEnd = lineEndIndex === -1 ? content.length : lineEndIndex;
-    const currentLine = content.slice(lineStart, lineEnd);
-    const orderedMatch = currentLine.match(/^(\d+)\.\s(.*)$/);
-
-    if (!orderedMatch) return;
-
-    event.preventDefault();
-
-    const [, currentNumber, currentText] = orderedMatch;
-    const before = content.slice(0, start);
-    const after = content.slice(end);
-
-    if (currentText.trim().length === 0) {
-      const nextContent =
-        content.slice(0, lineStart) +
-        content.slice(lineStart + orderedMatch[0].length);
-      updateContentWithSelection(nextContent, lineStart);
-      return;
-    }
-
-    const nextNumber = Number(currentNumber) + 1;
-    const insertedText = `\n${nextNumber}. `;
-    const nextContent = `${before}${insertedText}${after}`;
-    const nextCursorPosition = start + insertedText.length;
-
-    updateContentWithSelection(nextContent, nextCursorPosition);
+    handleMarkdownEditorKeyDown(event, {
+      onUpdate: updateContentWithSelection,
+    });
   }
 
   function applyAnswerMarkdownTool(action: AnswerMarkdownAction) {

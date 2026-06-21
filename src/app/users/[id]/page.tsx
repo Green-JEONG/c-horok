@@ -12,6 +12,7 @@ import PostListHeader from "@/components/posts/PostListHeader";
 import UserFollowersSection from "@/components/users/UserFollowersSection";
 import { getCategoryBySlug } from "@/lib/categories";
 import { findUserById } from "@/lib/db";
+import { getLogMyPagePath } from "@/lib/routes";
 import { horokLogTitle } from "@/lib/page-titles";
 import { prisma } from "@/lib/prisma";
 import { countUserPosts } from "@/lib/queries";
@@ -83,7 +84,7 @@ export default async function UserPage({ params, searchParams }: Props) {
     typeof session?.user?.id === "string" ? Number(session.user.id) : null;
 
   if (viewerUserId === Number(id)) {
-    redirect("/mypage");
+    redirect(getLogMyPagePath());
   }
 
   const user = await findUserById(id);

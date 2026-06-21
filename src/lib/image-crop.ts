@@ -1,9 +1,5 @@
-export type PixelCrop = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
+export type { PixelCrop } from "@/lib/post-thumbnail-crop";
+import type { PixelCrop } from "@/lib/post-thumbnail-crop";
 
 async function resolveImageSource(src: string) {
   try {
@@ -94,19 +90,38 @@ function loadImage(src: string) {
   });
 }
 
+export async function getImageNaturalSize(imageSrc: string) {
+  const resolvedSrc = await resolveImageSource(imageSrc);
+
+  try {
+    const image = await loadImage(resolvedSrc);
+
+    return {
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+    };
+  } finally {
+    if (resolvedSrc !== imageSrc) {
+      URL.revokeObjectURL(resolvedSrc);
+    }
+  }
+}
+
 export async function getCroppedImageBlob(
   imageSrc: string,
   pixelCrop: PixelCrop,
   mimeType = "image/jpeg",
-  quality = 0.92,
+  quality = 0.98,
 ) {
   const resolvedSrc = await resolveImageSource(imageSrc);
 
   try {
     const image = await loadImage(resolvedSrc);
+    const outputWidth = Math.max(1, Math.round(pixelCrop.width));
+    const outputHeight = Math.max(1, Math.round(pixelCrop.height));
     const canvas = document.createElement("canvas");
-    canvas.width = pixelCrop.width;
-    canvas.height = pixelCrop.height;
+    canvas.width = outputWidth;
+    canvas.height = outputHeight;
 
     const context = canvas.getContext("2d");
 
@@ -114,6 +129,8 @@ export async function getCroppedImageBlob(
       throw new Error("이미지 자르기를 지원하지 않는 환경입니다.");
     }
 
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
     context.drawImage(
       image,
       pixelCrop.x,
@@ -122,8 +139,8 @@ export async function getCroppedImageBlob(
       pixelCrop.height,
       0,
       0,
-      pixelCrop.width,
-      pixelCrop.height,
+      outputWidth,
+      outputHeight,
     );
 
     return new Promise<Blob>((resolve, reject) => {
@@ -137,7 +154,7 @@ export async function getCroppedImageBlob(
           resolve(blob);
         },
         mimeType,
-        quality,
+        mimeType === "image/png" ? undefined : quality,
       );
     });
   } finally {

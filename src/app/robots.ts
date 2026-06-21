@@ -9,7 +9,13 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/admin/", "/api/", "/horok-log/likes/", "/mypage/"],
+        disallow: [
+          "/admin/",
+          "/api/",
+          "/horok-log/likes/",
+          "/horok-log/mypage/",
+          "/mypage/",
+        ],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,

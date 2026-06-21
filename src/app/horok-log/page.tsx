@@ -7,6 +7,7 @@ import MyPostList from "@/components/posts/MyPostList";
 import PostCard from "@/components/posts/PostCard";
 import PostListHeader from "@/components/posts/PostListHeader";
 import { Button } from "@/components/ui/button";
+import { getLogMyPagePath } from "@/lib/routes";
 import { horokLogTitle } from "@/lib/page-titles";
 import { getRandomPosts } from "@/lib/queries";
 
@@ -146,7 +147,7 @@ async function HorokLogPageContent({
           titleAction={
             session?.user ? (
               <Button asChild variant="outline" size="sm">
-                <Link href="/mypage?tab=posts">더보기</Link>
+                <Link href={getLogMyPagePath("tab=posts")}>더보기</Link>
               </Button>
             ) : null
           }

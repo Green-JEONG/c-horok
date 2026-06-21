@@ -13,6 +13,7 @@ import {
   countSyncedPostDrafts,
   getLogPostDraftStorageKey,
 } from "@/lib/post-drafts";
+import { getLogMyPagePath } from "@/lib/routes";
 
 type ProfileCard = {
   id: number;
@@ -155,12 +156,12 @@ export default function UserProfiles() {
     ? profile.postCount + (profile.isSelf ? draftPostCount : 0)
     : 0;
   const followersHref = profile?.isSelf
-    ? "/mypage?tab=followers&friendType=followers"
+    ? getLogMyPagePath("tab=followers&friendType=followers")
     : profile
       ? `/users/${profile.id}?tab=following`
       : "#";
   const postsHref = profile?.isSelf
-    ? "/mypage?tab=posts"
+    ? getLogMyPagePath("tab=posts")
     : profile
       ? `/users/${profile.id}?tab=posts`
       : "#";
@@ -241,7 +242,7 @@ export default function UserProfiles() {
                   variant="outline"
                   className="w-full border-border bg-background text-muted-foreground transition hover:!border-primary/30 hover:!bg-primary/10 hover:!text-foreground"
                 >
-                  <Link href="/mypage">마이페이지</Link>
+                  <Link href={getLogMyPagePath()}>마이페이지</Link>
                 </Button>
               ) : status !== "authenticated" ? (
                 <Button size="sm" variant="outline" className="w-full" disabled>
