@@ -3,6 +3,7 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import type { DbPost } from "@/lib/db";
+import { remarkDisableAutolinkLiterals } from "@/lib/remark-disable-autolink";
 import { formatSeoulDateTime } from "@/lib/utils";
 
 export default function PostDetail({ post }: { post: DbPost }) {
@@ -22,7 +23,7 @@ export default function PostDetail({ post }: { post: DbPost }) {
 
       <div className="prose prose-neutral dark:prose-invert max-w-none">
         <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
+          remarkPlugins={[remarkGfm, remarkDisableAutolinkLiterals]}
           rehypePlugins={[rehypeSanitize, rehypeHighlight]}
         >
           {post.content}

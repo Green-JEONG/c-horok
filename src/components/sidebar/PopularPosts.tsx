@@ -11,7 +11,7 @@ import {
   RECENT_POSTS_UPDATED_EVENT,
   type RecentPost,
 } from "@/components/posts/PostViewTracker";
-import { getLogFeedPostPath } from "@/lib/routes";
+import { getLogFeedPostPath, isLogMyPagePath } from "@/lib/routes";
 
 type PopularPost = {
   id: number;
@@ -59,7 +59,7 @@ export default function PopularPosts() {
     const currentUserId = session?.user?.id;
     const endpoint = userPageMatch
       ? `/api/posts/popular?userId=${userPageMatch[1]}`
-      : pathname === "/mypage" && currentUserId
+      : isLogMyPagePath(pathname) && currentUserId
         ? `/api/posts/popular?userId=${currentUserId}`
         : "/api/posts/popular";
 

@@ -12,6 +12,7 @@ import {
   countSyncedPostDrafts,
   getLogPostDraftStorageKey,
 } from "@/lib/post-drafts";
+import { getLogMyPagePath } from "@/lib/routes";
 import MyAdminAnswersSection from "./sections/MyAdminAnswersSection";
 import MyAdminPostsSection from "./sections/MyAdminPostsSection";
 import MyCommentsSection from "./sections/MyCommentsSection";
@@ -235,7 +236,7 @@ export default function MyPageSection() {
     if (tab === "following" || tab === "followers") {
       params.set("friendType", tab);
     }
-    router.push(`/mypage?${params.toString()}`);
+    router.push(getLogMyPagePath(params.toString()));
   };
 
   if (isCategoryView) {

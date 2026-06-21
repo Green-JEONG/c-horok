@@ -16,6 +16,7 @@ import {
   countSyncedPostDrafts,
   getLogPostDraftStorageKey,
 } from "@/lib/post-drafts";
+import { getLogMyPagePath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -481,10 +482,10 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                   onClose();
                   router.push(
                     index === 0
-                      ? "/mypage?tab=posts"
+                      ? getLogMyPagePath("tab=posts")
                       : index === 1
-                        ? "/mypage?tab=comments"
-                        : "/mypage?tab=friends&friendType=following",
+                        ? getLogMyPagePath("tab=comments")
+                        : getLogMyPagePath("tab=friends&friendType=following"),
                   );
                 }}
               >
@@ -666,7 +667,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                             if (typeof n.actor_id === "number") {
                               params.set("friendId", String(n.actor_id));
                             }
-                            router.push(`/mypage?${params.toString()}`);
+                            router.push(getLogMyPagePath(params.toString()));
                             return;
                           }
 
@@ -713,7 +714,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
                             typeof n.post_id === "number"
                           ) {
                             router.push(
-                              `/mypage?tab=posts&postId=${n.post_id}`,
+                              getLogMyPagePath(`tab=posts&postId=${n.post_id}`),
                             );
                             return;
                           }

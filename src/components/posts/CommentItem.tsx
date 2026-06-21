@@ -12,11 +12,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { PostReactionSummary } from "@/lib/post-reaction-options";
+import { handleMarkdownEditorKeyDown } from "@/lib/markdown-editor-keydown";
 import {
   createPostContentImagePath,
   POST_THUMBNAIL_BUCKET,
 } from "@/lib/post-thumbnails";
 import { supabase } from "@/lib/supabase";
+import { getLogMyPagePath } from "@/lib/routes";
 import { formatSeoulDateTime } from "@/lib/utils";
 import CommentAuthorHeader from "./CommentAuthorHeader";
 import CommentForm from "./CommentForm";
@@ -110,7 +112,9 @@ export default function CommentItem({
     isLoggedIn && !comment.is_deleted && comment.can_view_secret && !isEditing;
   const hasGraphChildren = isReplying || comment.replies.length > 0;
   const authorHref =
-    comment.user_id === currentUserId ? "/mypage" : `/users/${comment.user_id}`;
+    comment.user_id === currentUserId
+      ? getLogMyPagePath()
+      : `/users/${comment.user_id}`;
 
   const replyActionButton = canReply ? (
     <button
@@ -231,6 +235,31 @@ export default function CommentItem({
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function updateEditContentWithSelection(
+    nextContent: string,
+    selectionStart: number,
+    selectionEnd = selectionStart,
+  ) {
+    setContent(nextContent);
+
+    requestAnimationFrame(() => {
+      const textarea = editingTextareaRef.current;
+      if (!textarea) return;
+
+      textarea.focus();
+      textarea.setSelectionRange(selectionStart, selectionEnd);
+      resizeTextareaToContent(textarea);
+    });
+  }
+
+  function handleEditContentKeyDown(
+    event: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) {
+    handleMarkdownEditorKeyDown(event, {
+      onUpdate: updateEditContentWithSelection,
+    });
   }
 
   function insertEditTextAtCursor(text: string) {
@@ -486,6 +515,7 @@ export default function CommentItem({
               setContent(event.target.value);
               resizeTextareaToContent(event.currentTarget);
             }}
+            onKeyDown={handleEditContentKeyDown}
             rows={1}
             className="mt-2 block h-7 min-h-7 w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-base leading-7 outline-none placeholder:text-zinc-400"
           />
@@ -639,7 +669,7 @@ export default function CommentItem({
             autoFocus
             cardHeader={
               <CommentAuthorHeader
-                href="/mypage"
+                href={getLogMyPagePath()}
                 name={currentUserName ?? "사용자"}
                 image={currentUserImage}
                 role={currentUserRole}

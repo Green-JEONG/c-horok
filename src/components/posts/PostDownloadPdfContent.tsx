@@ -4,6 +4,14 @@ import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import { normalizeHtmlLikeMarkdown } from "@/components/posts/MarkdownRenderer";
+import {
+  extendSanitizeSchemaForMath,
+  normalizeLatexMathDelimiters,
+  rehypeKatexPlugin,
+  remarkMathPlugin,
+} from "@/lib/markdown-math";
+import { remarkDisableAutolinkLiterals } from "@/lib/remark-disable-autolink";
+import { MARKDOWN_INLINE_CODE_COLOR } from "@/lib/markdown-styles";
 
 type Props = {
   title: string;
@@ -23,13 +31,26 @@ const bodyStyle: CSSProperties = {
   lineHeight: "28px",
 };
 
-const headingStyle = (fontSize: number): CSSProperties => ({
+const headingStyle = (
+  fontSize: number,
+  color: string,
+  fontWeight: CSSProperties["fontWeight"] = 700,
+): CSSProperties => ({
   margin: "24px 0 12px",
-  fontWeight: 700,
+  fontWeight,
   fontSize,
   lineHeight: 1.3,
-  color: "#18181b",
+  color,
 });
+
+const pdfHeadingColors = [
+  "#f97316",
+  "#ea580c",
+  "#c2410c",
+  "#18181b",
+  "#52525b",
+  "#71717a",
+] as const;
 
 export default function PostDownloadPdfContent({
   title,
@@ -65,13 +86,39 @@ export default function PostDownloadPdfContent({
       </div>
 
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw, rehypeSanitize]}
+        remarkPlugins={[remarkGfm, remarkDisableAutolinkLiterals, remarkMathPlugin]}
+        rehypePlugins={[
+          rehypeRaw,
+          [rehypeSanitize, extendSanitizeSchemaForMath()],
+          rehypeKatexPlugin,
+        ]}
         components={{
-          h1: ({ children }) => <h1 style={headingStyle(28)}>{children}</h1>,
-          h2: ({ children }) => <h2 style={headingStyle(24)}>{children}</h2>,
-          h3: ({ children }) => <h3 style={headingStyle(20)}>{children}</h3>,
-          h4: ({ children }) => <h4 style={headingStyle(18)}>{children}</h4>,
+          h1: ({ children }) => (
+            <h1 style={headingStyle(28, pdfHeadingColors[0])}>{children}</h1>
+          ),
+          h2: ({ children }) => (
+            <h2 style={headingStyle(24, pdfHeadingColors[1])}>{children}</h2>
+          ),
+          h3: ({ children }) => (
+            <h3 style={headingStyle(20, pdfHeadingColors[2], 600)}>
+              {children}
+            </h3>
+          ),
+          h4: ({ children }) => (
+            <h4 style={headingStyle(18, pdfHeadingColors[3], 600)}>
+              {children}
+            </h4>
+          ),
+          h5: ({ children }) => (
+            <h5 style={headingStyle(16, pdfHeadingColors[4], 500)}>
+              {children}
+            </h5>
+          ),
+          h6: ({ children }) => (
+            <h6 style={headingStyle(14, pdfHeadingColors[5], 500)}>
+              {children}
+            </h6>
+          ),
           p: ({ children }) => (
             <p style={{ margin: "16px 0", whiteSpace: "pre-wrap" }}>
               {children}
@@ -107,12 +154,16 @@ export default function PostDownloadPdfContent({
           code: ({ children }) => (
             <code
               style={{
-                backgroundColor: "#ffedd5",
-                color: "#7c2d12",
+                display: "inline-block",
+                width: "fit-content",
+                maxWidth: "100%",
+                backgroundColor: MARKDOWN_INLINE_CODE_COLOR,
+                color: "#18181b",
                 borderRadius: 4,
-                padding: "2px 6px",
+                padding: "0 2px",
                 fontFamily: "monospace",
                 fontSize: "0.9em",
+                lineHeight: 1.35,
               }}
             >
               {children}
@@ -215,7 +266,7 @@ export default function PostDownloadPdfContent({
           ),
         }}
       >
-        {normalizeHtmlLikeMarkdown(content)}
+        {normalizeLatexMathDelimiters(normalizeHtmlLikeMarkdown(content))}
       </ReactMarkdown>
     </div>
   );

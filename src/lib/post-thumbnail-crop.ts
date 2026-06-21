@@ -1,5 +1,11 @@
 import type { CSSProperties } from "react";
-import type { PixelCrop } from "@/lib/image-crop";
+
+export type PixelCrop = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 export type PostThumbnailCrop = {
   x: number;
@@ -27,6 +33,19 @@ export function normalizePostThumbnailCrop(
     y: Math.max(0, y),
     width: Math.max(0, Math.min(width, 1 - x)),
     height: Math.max(0, Math.min(height, 1 - y)),
+  };
+}
+
+export function denormalizePostThumbnailCrop(
+  crop: PostThumbnailCrop,
+  naturalWidth: number,
+  naturalHeight: number,
+): PixelCrop {
+  return {
+    x: Math.round(crop.x * naturalWidth),
+    y: Math.round(crop.y * naturalHeight),
+    width: Math.max(1, Math.round(crop.width * naturalWidth)),
+    height: Math.max(1, Math.round(crop.height * naturalHeight)),
   };
 }
 
@@ -85,7 +104,6 @@ export function getPostThumbnailCropStyle(
     width: `calc(100% / ${crop.width})`,
     height: `calc(100% / ${crop.height})`,
     maxWidth: "none",
-    // left/top 퍼센트는 각각 컨테이너 너비/높이 기준 (marginTop %는 너비 기준이라 16:9에서 틀어짐)
     left: `calc(-100% * ${crop.x} / ${crop.width})`,
     top: `calc(-100% * ${crop.y} / ${crop.height})`,
   };

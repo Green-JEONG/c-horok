@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import { useState } from "react";
 import CommentAuthorHeader from "@/components/posts/CommentAuthorHeader";
 import CommentForm from "@/components/posts/CommentForm";
+import { getLogMyPagePath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -86,7 +87,7 @@ export default function InquiryAnswerComposer({
             simpleEditor
             cardHeader={
               <CommentAuthorHeader
-                href="/mypage"
+                href={getLogMyPagePath()}
                 name={currentUserName ?? "사용자"}
                 image={currentUserImage}
                 role={currentUserRole}

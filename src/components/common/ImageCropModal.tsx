@@ -25,6 +25,7 @@ type ImageCropModalProps = {
   initialCrop?: PostThumbnailCrop | null;
   onClose: () => void;
   onComplete: (result: ImageCropCompleteResult) => void | Promise<void>;
+  onReset?: () => void | Promise<void>;
   onDelete?: () => void | Promise<void>;
   isSaving?: boolean;
   isDeleting?: boolean;
@@ -275,6 +276,7 @@ export default function ImageCropModal({
   initialCrop = null,
   onClose,
   onComplete,
+  onReset,
   onDelete,
   isSaving = false,
   isDeleting = false,
@@ -517,13 +519,15 @@ export default function ImageCropModal({
 
     try {
       const pixelCrop = cropRectToPixelCrop(cropRect, layout);
-      const naturalWidth = layout.width / layout.scale;
-      const naturalHeight = layout.height / layout.scale;
+
+      if (!naturalSize) {
+        throw new Error("이미지 정보를 불러오지 못했습니다.");
+      }
 
       await onComplete({
         pixelCrop,
-        naturalWidth,
-        naturalHeight,
+        naturalWidth: naturalSize.width,
+        naturalHeight: naturalSize.height,
       });
     } catch (cropError) {
       setError(
@@ -626,6 +630,17 @@ export default function ImageCropModal({
           >
             취소
           </Button>
+          {onReset ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void onReset()}
+              disabled={isBusy}
+            >
+              초기화
+            </Button>
+          ) : null}
           {onDelete ? (
             <Button
               type="button"

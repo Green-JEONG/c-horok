@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { getLogMyPagePath, isLogMyPagePath } from "@/lib/routes";
 
 type Category = {
   id: number;
@@ -28,7 +29,7 @@ export default function RecommendedCategories() {
     const currentUserId = session?.user?.id;
     const endpoint = userPageMatch
       ? `/api/categories/recommended?userId=${userPageMatch[1]}`
-      : pathname === "/mypage" && currentUserId
+      : isLogMyPagePath(pathname) && currentUserId
         ? `/api/categories/recommended?userId=${currentUserId}`
         : "/api/categories/recommended";
 
@@ -113,10 +114,10 @@ export default function RecommendedCategories() {
                   return;
                 }
 
-                if (pathname === "/mypage" && session?.user?.id) {
+                if (isLogMyPagePath(pathname) && session?.user?.id) {
                   const params = new URLSearchParams(searchParams.toString());
                   params.set("category", c.slug);
-                  router.push(`/mypage?${params.toString()}`);
+                  router.push(getLogMyPagePath(params.toString()));
                   return;
                 }
 

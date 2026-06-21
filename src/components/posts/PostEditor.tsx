@@ -55,6 +55,7 @@ import {
 import { getLogFeedNewPostPath } from "@/lib/routes";
 import { validatePostSecretPassword } from "@/lib/post-secret-password";
 import { supabase } from "@/lib/supabase";
+import { handleMarkdownEditorKeyDown } from "@/lib/markdown-editor-keydown";
 import { cn } from "@/lib/utils";
 
 const MAX_ATTACHMENT_COUNT = 10;
@@ -746,16 +747,13 @@ const PostEditor = forwardRef<PostEditorHandle, PostEditorProps>(function PostEd
       addUrl(url);
     }
 
-    for (const sourceUrl of Object.keys(thumbnailCrops)) {
-      addUrl(sourceUrl);
-    }
-
-    if (selectedThumbnailUrl) {
+    // 본문에 없는 단독 썸네일(사진 추가)만 1개까지 허용
+    if (selectedThumbnailUrl && !seen.has(selectedThumbnailUrl)) {
       addUrl(selectedThumbnailUrl);
     }
 
     return urls;
-  }, [selectedThumbnailUrl, thumbnailCrops, thumbnailMediaUrls]);
+  }, [selectedThumbnailUrl, thumbnailMediaUrls]);
 
   function isThumbnailOptionSelected(sourceUrl: string) {
     return selectedThumbnailUrl === sourceUrl;
@@ -925,47 +923,10 @@ const PostEditor = forwardRef<PostEditorHandle, PostEditorProps>(function PostEd
   function handleContentKeyDown(
     event: React.KeyboardEvent<HTMLTextAreaElement>,
   ) {
-    if (event.key !== "Enter" || event.shiftKey) return;
-
-    if (isContentComposingRef.current || event.nativeEvent.isComposing) {
-      return;
-    }
-
-    const textarea = event.currentTarget;
-    const value = textarea.value;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-
-    if (start !== end) return;
-
-    const lineStart = value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
-    const lineEndIndex = value.indexOf("\n", start);
-    const lineEnd = lineEndIndex === -1 ? value.length : lineEndIndex;
-    const currentLine = value.slice(lineStart, lineEnd);
-    const orderedMatch = currentLine.match(/^(\d+)\.\s(.*)$/);
-
-    if (!orderedMatch) return;
-
-    event.preventDefault();
-
-    const [, currentNumber, currentText] = orderedMatch;
-    const before = value.slice(0, start);
-    const after = value.slice(end);
-
-    if (currentText.trim().length === 0) {
-      const nextContent =
-        value.slice(0, lineStart) +
-        value.slice(lineStart + orderedMatch[0].length);
-      updateContentWithSelection(nextContent, lineStart);
-      return;
-    }
-
-    const nextNumber = Number(currentNumber) + 1;
-    const insertedText = `\n${nextNumber}. `;
-    const nextContent = `${before}${insertedText}${after}`;
-    const nextCursorPosition = start + insertedText.length;
-
-    updateContentWithSelection(nextContent, nextCursorPosition);
+    handleMarkdownEditorKeyDown(event, {
+      isComposing: isContentComposingRef.current,
+      onUpdate: updateContentWithSelection,
+    });
   }
 
   async function insertContentMediaAtCursor(files: File[]) {
@@ -1323,6 +1284,28 @@ const PostEditor = forwardRef<PostEditorHandle, PostEditorProps>(function PostEd
     } finally {
       setIsUploadingCroppedThumbnail(false);
     }
+  }
+
+  function handleThumbnailCropReset() {
+    const sourceKey =
+      thumbnailCropSourceUrlRef.current ?? cropModalSourceUrl;
+
+    if (!sourceKey) {
+      closeThumbnailCropModal();
+      return;
+    }
+
+    setThumbnailCrops((current) => {
+      const next = { ...current };
+      delete next[sourceKey];
+      return next;
+    });
+
+    if (selectedThumbnailUrl === sourceKey) {
+      setSelectedThumbnailCrop(null);
+    }
+
+    closeThumbnailCropModal();
   }
 
   async function handleThumbnailCropDelete() {
@@ -2277,6 +2260,11 @@ const PostEditor = forwardRef<PostEditorHandle, PostEditorProps>(function PostEd
       initialCrop={thumbnailCropModalInitialCrop}
       onClose={closeThumbnailCropModal}
       onComplete={handleThumbnailCropComplete}
+      onReset={
+        thumbnailCropModalInitialCrop
+          ? handleThumbnailCropReset
+          : undefined
+      }
       onDelete={
         canDeleteThumbnailCrop
           ? () => void handleThumbnailCropDelete()

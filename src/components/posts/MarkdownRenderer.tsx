@@ -6,9 +6,21 @@ import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
+import {
+  extendSanitizeSchemaForMath,
+  normalizeLatexMathDelimiters,
+  rehypeKatexPlugin,
+  remarkMathPlugin,
+} from "@/lib/markdown-math";
+import { remarkDisableAutolinkLiterals } from "@/lib/remark-disable-autolink";
 import CodeBlock from "@/components/posts/CodeBlock";
 import MarkdownAnchor from "@/components/posts/MarkdownAnchor";
 import PostMarkdownImage from "@/components/posts/PostMarkdownImage";
+import { markdownHeadingClassName } from "@/lib/markdown-editor-keydown";
+import {
+  markdownInlineCodeClassName,
+  markdownInlineCodeContainerClassName,
+} from "@/lib/markdown-styles";
 import {
   parseMarkdownAttributeBlock,
   remarkLinkAttributes,
@@ -20,13 +32,14 @@ type Props = {
   className?: string;
 };
 
-const inlineCodeClassName =
-  "rounded-md bg-orange-100 px-1.5 py-0.5 font-mono text-[0.9em] text-orange-900 dark:bg-orange-300/85 dark:text-orange-950";
+const inlineCodeClassName = markdownInlineCodeClassName;
 
 type MarkdownLayout = "default" | "inline-row";
 
 export default function MarkdownRenderer({ content, className = "" }: Props) {
-  const normalizedContent = normalizeHtmlLikeMarkdown(content);
+  const normalizedContent = normalizeLatexMathDelimiters(
+    normalizeHtmlLikeMarkdown(content),
+  );
   const segments = splitLayoutSegments(normalizedContent);
 
   return (
@@ -35,21 +48,25 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
         "max-w-none text-left text-base leading-8 text-foreground",
         "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4",
         "[&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground",
-        "[&_code]:rounded [&_code]:bg-orange-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.9em] [&_code]:text-orange-900 dark:[&_code]:bg-orange-300/85 dark:[&_code]:text-orange-950",
+        markdownInlineCodeContainerClassName,
         "[&_h1]:mt-8 [&_h1]:mb-4 [&_h1]:scroll-mt-6 [&_h1]:text-3xl [&_h1]:font-bold",
         "[&_h2]:mt-7 [&_h2]:mb-3 [&_h2]:scroll-mt-6 [&_h2]:text-2xl [&_h2]:font-semibold",
         "[&_h3]:mt-6 [&_h3]:mb-3 [&_h3]:scroll-mt-6 [&_h3]:text-xl [&_h3]:font-semibold",
-        "[&_h4]:scroll-mt-6 [&_h5]:scroll-mt-6 [&_h6]:scroll-mt-6",
+        "[&_h4]:mt-5 [&_h4]:mb-2 [&_h4]:scroll-mt-6 [&_h4]:text-lg [&_h4]:font-semibold",
+        "[&_h5]:mt-4 [&_h5]:mb-2 [&_h5]:scroll-mt-6 [&_h5]:text-base [&_h5]:font-medium",
+        "[&_h6]:mt-4 [&_h6]:mb-2 [&_h6]:scroll-mt-6 [&_h6]:text-sm [&_h6]:font-medium",
+        markdownHeadingClassName,
         "[&_hr]:my-6 [&_hr]:border-border",
         "[&_img]:max-w-full",
         "[&_li]:my-1",
         "[&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6",
         "[&_p]:my-4 [&_p]:whitespace-pre-wrap",
-        "[&_pre_code]:bg-transparent [&_pre_code]:p-0 dark:[&_pre_code]:bg-transparent dark:[&_pre_code]:text-inherit",
+        "[&_pre_code]:inline [&_pre_code]:w-auto [&_pre_code]:bg-transparent [&_pre_code]:px-0 [&_pre_code]:py-0 [&_pre_code]:text-inherit dark:[&_pre_code]:bg-transparent dark:[&_pre_code]:text-inherit",
         "[&_table]:my-4 [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-hidden",
         "[&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2",
         "[&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:px-3 [&_th]:py-2 [&_th]:text-left",
         "[&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6",
+        "[&_.katex-display]:my-4 [&_.katex-display]:overflow-x-auto",
         className,
       )}
     >
@@ -88,7 +105,7 @@ function renderMarkdownBody(
   content: string,
   layout: MarkdownLayout = "default",
 ) {
-  const sanitizeSchema = {
+  const sanitizeSchema = extendSanitizeSchemaForMath({
     ...defaultSchema,
     clobberPrefix: "",
     attributes: {
@@ -111,16 +128,17 @@ function renderMarkdownBody(
         "height",
       ],
     },
-  };
+  });
 
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkLinkAttributes]}
+      remarkPlugins={[remarkGfm, remarkDisableAutolinkLiterals, remarkLinkAttributes, remarkMathPlugin]}
       rehypePlugins={[
         rehypeRaw,
         rehypeHighlight,
         rehypeSlug,
         [rehypeSanitize, sanitizeSchema],
+        rehypeKatexPlugin,
       ]}
       components={{
         a({ href, children, target, rel, ...props }) {
