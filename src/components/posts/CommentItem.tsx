@@ -237,29 +237,10 @@ export default function CommentItem({
     }
   }
 
-  function updateEditContentWithSelection(
-    nextContent: string,
-    selectionStart: number,
-    selectionEnd = selectionStart,
-  ) {
-    setContent(nextContent);
-
-    requestAnimationFrame(() => {
-      const textarea = editingTextareaRef.current;
-      if (!textarea) return;
-
-      textarea.focus();
-      textarea.setSelectionRange(selectionStart, selectionEnd);
-      resizeTextareaToContent(textarea);
-    });
-  }
-
   function handleEditContentKeyDown(
     event: React.KeyboardEvent<HTMLTextAreaElement>,
   ) {
-    handleMarkdownEditorKeyDown(event, {
-      onUpdate: updateEditContentWithSelection,
-    });
+    handleMarkdownEditorKeyDown(event);
   }
 
   function insertEditTextAtCursor(text: string) {

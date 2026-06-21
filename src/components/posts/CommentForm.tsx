@@ -275,9 +275,7 @@ export default function CommentForm({
   function handleContentKeyDown(
     event: React.KeyboardEvent<HTMLTextAreaElement>,
   ) {
-    handleMarkdownEditorKeyDown(event, {
-      onUpdate: updateContentWithSelection,
-    });
+    handleMarkdownEditorKeyDown(event);
   }
 
   function applyAnswerMarkdownTool(action: AnswerMarkdownAction) {
