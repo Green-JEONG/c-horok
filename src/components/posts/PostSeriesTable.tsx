@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import SectionPagination from "@/components/mypage/sections/SectionPagination";
+import PostTitleStatusIcons from "@/components/posts/PostTitleStatusIcons";
 import type { DbPostSeriesItem } from "@/lib/db";
 import { getLogFeedPostPath } from "@/lib/routes";
 import { cn, formatSeoulDate } from "@/lib/utils";
@@ -137,9 +138,19 @@ export default function PostSeriesTable({ currentPostId, items }: Props) {
                     <Link
                       href={getLogFeedPostPath(item.id)}
                       aria-current={isCurrent ? "page" : undefined}
-                      className="block truncate font-medium text-foreground transition hover:text-primary hover:underline"
+                      className="flex min-w-0 items-start gap-1.5 font-medium text-foreground transition hover:text-primary hover:underline"
                     >
-                      {item.title}
+                      {item.is_hidden || item.is_secret ? (
+                        <PostTitleStatusIcons
+                          showHidden={item.is_hidden}
+                          showSecret={item.is_secret}
+                          iconClassName="h-3.5 w-3.5"
+                          className="shrink-0 gap-1 pt-0.5"
+                        />
+                      ) : null}
+                      <span className="min-w-0 flex-1 truncate">
+                        {item.title}
+                      </span>
                     </Link>
                   </td>
                   <td className="px-2 py-2 text-center text-muted-foreground">

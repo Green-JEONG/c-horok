@@ -76,6 +76,8 @@ export type DbPostSeriesItem = {
   author_name: string;
   view_count: number;
   comments_count: number;
+  is_hidden: boolean;
+  is_secret: boolean;
 };
 
 export type DbContribution = {
@@ -721,6 +723,8 @@ export async function findPostSeriesByTitle(
     author_name: post.user.name ?? "Unknown",
     view_count: Number(post.views?.viewCount ?? 0),
     comments_count: post._count.comments,
+    is_hidden: post.isHidden,
+    is_secret: post.isSecret,
   }));
 }
 

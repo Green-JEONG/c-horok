@@ -695,8 +695,12 @@ export async function getPostsByCategorySlug(
     where: {
       isDeleted: false,
       isHidden: false,
-      category: {
-        is: { slug },
+      postCategories: {
+        some: {
+          category: {
+            is: { slug },
+          },
+        },
       },
     },
     include: {
@@ -840,12 +844,24 @@ export async function getUserPosts(
       ...(canSeeHiddenPosts ? {} : { isHidden: false, isSecret: false }),
       category: {
         is: {
-          ...(normalizedCategorySlug ? { slug: normalizedCategorySlug } : {}),
           name: {
             notIn: [...ALL_NOTICE_TAG_OPTIONS],
           },
         },
       },
+      ...(normalizedCategorySlug
+        ? {
+            postCategories: {
+              some: {
+                category: {
+                  is: {
+                    slug: normalizedCategorySlug,
+                  },
+                },
+              },
+            },
+          }
+        : {}),
       ...(normalizedQuery ? { AND: [searchWhere] } : {}),
     },
     orderBy,
@@ -930,12 +946,24 @@ export async function countUserPosts(
       ...(canSeeHiddenPosts ? {} : { isHidden: false, isSecret: false }),
       category: {
         is: {
-          ...(normalizedCategorySlug ? { slug: normalizedCategorySlug } : {}),
           name: {
             notIn: [...ALL_NOTICE_TAG_OPTIONS],
           },
         },
       },
+      ...(normalizedCategorySlug
+        ? {
+            postCategories: {
+              some: {
+                category: {
+                  is: {
+                    slug: normalizedCategorySlug,
+                  },
+                },
+              },
+            },
+          }
+        : {}),
       ...(normalizedQuery ? { AND: [searchWhere] } : {}),
     },
   });
