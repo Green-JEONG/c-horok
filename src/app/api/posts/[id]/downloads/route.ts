@@ -1,5 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { getDbUserIdFromSession } from "@/lib/auth-db";
+import { getPostByIdWithSecretAccess } from "@/lib/post-detail-access";
 import { prisma } from "@/lib/prisma";
 
 type DownloadType = "markdown" | "pdf";
@@ -24,6 +26,17 @@ export async function POST(
 
   if (!downloadType) {
     return NextResponse.json({ message: "Invalid input" }, { status: 400 });
+  }
+
+  const dbUserId = await getDbUserIdFromSession();
+  const post = await getPostByIdWithSecretAccess(postId, {
+    includeHiddenForUserId: dbUserId,
+  });
+  if (!post) {
+    return NextResponse.json({ message: "Not found" }, { status: 404 });
+  }
+  if (post.is_secret && !post.can_view_secret) {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
   const [updated] = await prisma.$queryRaw<

@@ -8,7 +8,9 @@
     "start": "next start",
     "postinstall": "prisma generate",
     "cleanup:posts": "node scripts/cleanup-posts.mjs",
+    "storage:migrate-post": "node scripts/migrate-post-storage.mjs",
     "lint": "biome check",
+    "check:logging": "node scripts/check-sensitive-logging.mjs",
     "format": "biome format --write",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
@@ -83,18 +85,5 @@
     "typescript": "^5.9.3",
     "vite": "^8.0.13",
     "vitest": "^4.1.6"
-  },
-  "pnpm": {
-    "overrides": {
-      "rollup": ">=4.59.0",
-      "@hono/node-server": ">=1.19.13",
-      "postcss": ">=8.5.10"
-    },
-    "onlyBuiltDependencies": [
-      "@prisma/engines",
-      "core-js-pure",
-      "esbuild",
-      "prisma"
-    ]
   }
 }

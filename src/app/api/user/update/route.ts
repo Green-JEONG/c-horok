@@ -4,6 +4,10 @@ import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { findUserByName } from "@/lib/db";
 import { normalizeNickname, validateNickname } from "@/lib/nickname";
 import { validatePassword } from "@/lib/password";
+import {
+  createPostStorageSignedUrl,
+  normalizePostStorageReference,
+} from "@/lib/post-storage.server";
 import { prisma } from "@/lib/prisma";
 
 export async function PATCH(req: Request) {
@@ -26,7 +30,7 @@ export async function PATCH(req: Request) {
       typeof body?.newPassword === "string" ? body.newPassword : null;
     const image =
       typeof body?.image === "string" && body.image.trim()
-        ? body.image.trim()
+        ? normalizePostStorageReference(body.image.trim())
         : null;
     const removeImage = body?.removeImage === true;
     const resetImage = body?.resetImage === true;
@@ -171,7 +175,9 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json({
       ok: true,
-      image: data.image !== undefined ? data.image : user.image,
+      image: await createPostStorageSignedUrl(
+        data.image !== undefined ? data.image : user.image,
+      ),
     });
   } catch {
     return NextResponse.json({ message: "계정 수정 실패" }, { status: 500 });

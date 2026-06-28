@@ -1,8 +1,23 @@
 packages:
   - .
+confirmModulesPurge: false
+overrides:
+  rollup: ">=4.59.0"
+  "@hono/node-server": ">=1.19.13"
+  postcss: ">=8.5.10"
 ignoredBuiltDependencies:
-  - sharp
   - unrs-resolver
 onlyBuiltDependencies:
+  - "@prisma/engines"
+  - core-js
   - core-js-pure
   - esbuild
+  - prisma
+  - sharp
+allowBuilds:
+  '@prisma/engines': true
+  core-js: true
+  core-js-pure: true
+  esbuild: true
+  prisma: true
+  sharp: true

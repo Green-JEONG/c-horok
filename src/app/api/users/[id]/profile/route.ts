@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
+import { createPostStorageSignedUrl } from "@/lib/post-storage.server";
 import { prisma } from "@/lib/prisma";
 import { countVisibleUserPosts } from "@/lib/queries";
 
@@ -60,7 +61,7 @@ export async function GET(
     return NextResponse.json({
       id: Number(user.id),
       name: user.name,
-      image: user.image,
+      image: await createPostStorageSignedUrl(user.image),
       followerCount: user._count.followers,
       postCount,
       isSelf,

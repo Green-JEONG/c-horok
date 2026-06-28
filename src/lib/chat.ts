@@ -1,5 +1,10 @@
 import type { UIMessage } from "ai";
 
+import {
+  createPostStorageSignedUrl,
+  normalizePostStorageMarkdown,
+  signPostStorageMarkdown,
+} from "@/lib/post-storage.server";
 import { prisma } from "@/lib/prisma";
 
 type ChatRole = "user" | "assistant";
@@ -37,7 +42,7 @@ function getThreadDisplayTitle(title: string | null) {
   return "새 대화";
 }
 
-function formatChatMessage(message: {
+async function formatChatMessage(message: {
   id: bigint;
   role: ChatRole;
   content: string;
@@ -48,15 +53,17 @@ function formatChatMessage(message: {
   senderImage?: string | null;
   senderOauthImage?: string | null;
   senderRole?: "USER" | "ADMIN" | null;
-}): UIMessage & {
-  createdAt: string;
-  sender?: {
-    id: string;
-    name: string;
-    image: string | null;
-    role: "USER" | "ADMIN";
-  } | null;
-} {
+}): Promise<
+  UIMessage & {
+    createdAt: string;
+    sender?: {
+      id: string;
+      name: string;
+      image: string | null;
+      role: "USER" | "ADMIN";
+    } | null;
+  }
+> {
   return {
     id: message.id.toString(),
     role: message.role,
@@ -65,14 +72,17 @@ function formatChatMessage(message: {
       ? {
           id: message.senderUserId.toString(),
           name: message.senderName ?? message.senderEmail ?? "사용자",
-          image: message.senderImage ?? message.senderOauthImage ?? null,
+          image:
+            (await createPostStorageSignedUrl(message.senderImage)) ??
+            message.senderOauthImage ??
+            null,
           role: message.senderRole ?? "USER",
         }
       : null,
     parts: [
       {
         type: "text",
-        text: message.content,
+        text: await signPostStorageMarkdown(message.content),
       },
     ],
   };
@@ -229,19 +239,21 @@ export async function getChatMessages(threadId: string) {
     ORDER BY message.created_at ASC, message.id ASC
   `;
 
-  return messages.map((message) =>
-    formatChatMessage({
-      id: message.id,
-      role: message.role,
-      content: message.content,
-      createdAt: message.created_at,
-      senderUserId: message.sender_user_id,
-      senderName: message.sender_name,
-      senderEmail: message.sender_email,
-      senderImage: message.sender_image,
-      senderOauthImage: message.sender_oauth_image,
-      senderRole: message.sender_role,
-    }),
+  return Promise.all(
+    messages.map((message) =>
+      formatChatMessage({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        createdAt: message.created_at,
+        senderUserId: message.sender_user_id,
+        senderName: message.sender_name,
+        senderEmail: message.sender_email,
+        senderImage: message.sender_image,
+        senderOauthImage: message.sender_oauth_image,
+        senderRole: message.sender_role,
+      }),
+    ),
   );
 }
 
@@ -269,7 +281,7 @@ export async function appendChatMessage(params: {
         ${BigInt(params.threadId)},
         ${senderUserId},
         ${params.role}::public."ChatMessageRole",
-        ${params.content}
+        ${normalizePostStorageMarkdown(params.content)}
       )
     `,
     chatThread.update({

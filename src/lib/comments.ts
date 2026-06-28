@@ -1,5 +1,10 @@
 import { getCommentReactionSummariesByCommentId } from "@/lib/comment-reactions";
 import type { PostReactionSummary } from "@/lib/post-reaction-options";
+import {
+  createPostStorageSignedUrl,
+  normalizePostStorageMarkdown,
+  signPostStorageMarkdown,
+} from "@/lib/post-storage.server";
 import { prisma } from "@/lib/prisma";
 
 export type CommentRow = {
@@ -107,26 +112,35 @@ export async function getCommentsByPost(
     options?.viewerUserId,
   );
 
-  return comments.map((comment) => {
-    const canViewAuthor =
-      !comment.isSecret ||
-      Number(comment.userId) === options?.viewerUserId ||
-      Number(comment.post.userId) === options?.viewerUserId;
+  return Promise.all(
+    comments.map(async (comment) => {
+      const canViewAuthor =
+        !comment.isSecret ||
+        Number(comment.userId) === options?.viewerUserId ||
+        Number(comment.post.userId) === options?.viewerUserId;
 
-    return {
-      ...mapComment(comment, {
+      const mappedComment = mapComment(comment, {
         viewerUserId: options?.viewerUserId ?? null,
         isAdmin: options?.isAdmin,
         postOwnerUserId: Number(comment.post.userId),
-      }),
-      author: canViewAuthor
-        ? (comment.user.name ?? comment.user.email)
-        : "비공개",
-      author_image: canViewAuthor ? (comment.user.image ?? null) : null,
-      author_role: canViewAuthor ? comment.user.role : null,
-      reactions: reactionSummaries.get(Number(comment.id)) ?? [],
-    };
-  });
+      });
+
+      return {
+        ...mappedComment,
+        content: mappedComment.can_view_secret
+          ? await signPostStorageMarkdown(mappedComment.content)
+          : mappedComment.content,
+        author: canViewAuthor
+          ? (comment.user.name ?? comment.user.email)
+          : "비공개",
+        author_image: canViewAuthor
+          ? await createPostStorageSignedUrl(comment.user.image)
+          : null,
+        author_role: canViewAuthor ? comment.user.role : null,
+        reactions: reactionSummaries.get(Number(comment.id)) ?? [],
+      };
+    }),
+  );
 }
 
 export async function getAdminAnswersByPost(
@@ -165,22 +179,26 @@ export async function getAdminAnswersByPost(
     options?.viewerUserId,
   );
 
-  return comments.map((comment) => {
-    const mappedComment = mapComment(comment, options);
+  return Promise.all(
+    comments.map(async (comment) => {
+      const mappedComment = mapComment(comment, options);
 
-    return {
-      id: mappedComment.id,
-      user_id: Number(comment.userId),
-      content: mappedComment.content,
-      author: comment.user.name ?? comment.user.email,
-      author_image: comment.user.image ?? null,
-      author_role: comment.user.role,
-      reactions: reactionSummaries.get(Number(comment.id)) ?? [],
-      created_at: mappedComment.created_at,
-      updated_at: mappedComment.updated_at,
-      is_edited: mappedComment.is_edited,
-    } satisfies AdminAnswer;
-  });
+      return {
+        id: mappedComment.id,
+        user_id: Number(comment.userId),
+        content: mappedComment.can_view_secret
+          ? await signPostStorageMarkdown(mappedComment.content)
+          : mappedComment.content,
+        author: comment.user.name ?? comment.user.email,
+        author_image: await createPostStorageSignedUrl(comment.user.image),
+        author_role: comment.user.role,
+        reactions: reactionSummaries.get(Number(comment.id)) ?? [],
+        created_at: mappedComment.created_at,
+        updated_at: mappedComment.updated_at,
+        is_edited: mappedComment.is_edited,
+      } satisfies AdminAnswer;
+    }),
+  );
 }
 
 export async function getCommentById(id: number) {
@@ -212,7 +230,7 @@ export async function createComment(params: {
     data: {
       postId: BigInt(postId),
       userId: BigInt(userId),
-      content,
+      content: normalizePostStorageMarkdown(content),
       parentId: parentId ? BigInt(parentId) : null,
       isSecret,
       ...(isHidden ? { isHidden, hiddenAt: new Date() } : {}),
@@ -232,7 +250,7 @@ export async function updateComment(params: {
   const comment = await prisma.comment.update({
     where: { id: BigInt(commentId) },
     data: {
-      content,
+      content: normalizePostStorageMarkdown(content),
       ...(isSecret !== undefined ? { isSecret } : {}),
     },
   });

@@ -39,8 +39,7 @@ import {
   getHorokCodingChatIntroMessage,
   getHorokCodingChatThreadTitle,
 } from "@/lib/horok-coding-shared";
-import { POST_THUMBNAIL_BUCKET } from "@/lib/post-thumbnails";
-import { supabase } from "@/lib/supabase";
+import { uploadPostMedia } from "@/lib/post-storage-client";
 import { cn } from "@/lib/utils";
 
 type ChatThreadSummary = {
@@ -563,7 +562,9 @@ function readCodingProblemThreadMap() {
   }
 
   try {
-    const stored = window.localStorage.getItem(CODING_PROBLEM_THREAD_STORAGE_KEY);
+    const stored = window.localStorage.getItem(
+      CODING_PROBLEM_THREAD_STORAGE_KEY,
+    );
     if (!stored) {
       return {};
     }
@@ -1812,33 +1813,9 @@ export default function HorokChat({
       const markdownImages: string[] = [];
 
       for (const file of files) {
-        const safeFileName =
-          file.name
-            .normalize("NFKD")
-            .replace(/[^\w.-]+/g, "-")
-            .replace(/-+/g, "-")
-            .replace(/^-|-$/g, "")
-            .toLowerCase() || "image";
+        const uploaded = await uploadPostMedia(file, "chat");
 
-        const nextPath = `public/chat/${crypto.randomUUID()}-${safeFileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from(POST_THUMBNAIL_BUCKET)
-          .upload(nextPath, file, {
-            cacheControl: "3600",
-            contentType: file.type || undefined,
-            upsert: false,
-          });
-
-        if (uploadError) {
-          throw new Error(uploadError.message);
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from(POST_THUMBNAIL_BUCKET).getPublicUrl(nextPath);
-
-        markdownImages.push(`![image](${publicUrl})`);
+        markdownImages.push(`![image](${uploaded.signedUrl})`);
       }
 
       insertTextAtCursor(markdownImages.join(" "));
@@ -2480,7 +2457,9 @@ export default function HorokChat({
             {isThreadMode ? (
               <div
                 className={cn(
-                  platform === "coding" ? "scrollbar-green" : "scrollbar-orange",
+                  platform === "coding"
+                    ? "scrollbar-green"
+                    : "scrollbar-orange",
                   "flex-1 overflow-y-auto",
                 )}
               >

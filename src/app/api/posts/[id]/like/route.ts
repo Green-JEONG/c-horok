@@ -3,7 +3,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { getUserIdByEmail } from "@/lib/db";
 import { toggleLike } from "@/lib/likes";
 import { createPostBookmarkNotificationMessage } from "@/lib/notification-messages";
-import { getPostById } from "@/lib/posts";
+import { getPostByIdWithSecretAccess } from "@/lib/post-detail-access";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(
@@ -28,11 +28,14 @@ export async function POST(
     return NextResponse.json({ message: "User not found" }, { status: 404 });
   }
 
-  const post = await getPostById(postId, {
+  const post = await getPostByIdWithSecretAccess(postId, {
     includeHiddenForUserId: userId,
   });
   if (!post) {
     return NextResponse.json({ message: "Not found" }, { status: 404 });
+  }
+  if (post.is_secret && !post.can_view_secret) {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
   const result = await toggleLike({ postId, userId });

@@ -1,5 +1,5 @@
 export const POST_THUMBNAIL_BUCKET =
-  process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "post-thumbnails";
+  process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "post";
 
 export const POST_THUMBNAIL_ASPECT = 16 / 9;
 
@@ -41,8 +41,7 @@ export function isGifImageUrl(url: string) {
 }
 
 export function isVideoMediaUrl(markdown: string, url: string) {
-  const videoMarkdownRegex =
-    /!\[video\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)/g;
+  const videoMarkdownRegex = /!\[video\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)/g;
 
   for (const match of markdown.matchAll(videoMarkdownRegex)) {
     if (match[1]?.trim() === url) {
@@ -68,17 +67,17 @@ function sanitizeFileName(fileName: string) {
 
 export function createPostThumbnailPath(fileName: string) {
   const safeFileName = sanitizeFileName(fileName) || "thumbnail";
-  return `public/thumbnails/${crypto.randomUUID()}-${safeFileName}`;
+  return `thumbnails/${crypto.randomUUID()}-${safeFileName}`;
 }
 
 export function createPostContentImagePath(fileName: string) {
   const safeFileName = sanitizeFileName(fileName) || "image";
-  return `public/content/${crypto.randomUUID()}-${safeFileName}`;
+  return `contents/${crypto.randomUUID()}-${safeFileName}`;
 }
 
 export function createPostAttachmentPath(fileName: string) {
   const safeFileName = sanitizeFileName(fileName) || "attachment";
-  return `public/attachments/${crypto.randomUUID()}-${safeFileName}`;
+  return `attachments/${crypto.randomUUID()}-${safeFileName}`;
 }
 
 export function getStorageObjectPathFromPublicUrl(url?: string | null) {

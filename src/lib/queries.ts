@@ -19,11 +19,18 @@ import {
   DEFAULT_SORT,
   type SortType,
 } from "@/lib/post-sort";
+import {
+  createPostStorageSignedUrl,
+  signPostStorageMarkdown,
+} from "@/lib/post-storage.server";
+import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
+import {
+  parsePostThumbnailCrop,
+  resolvePostThumbnailCrop,
+} from "@/lib/post-thumbnail-crop";
+import { getPostThumbnailCropsByPostIds } from "@/lib/post-thumbnail-crop-access";
 import { prisma } from "@/lib/prisma";
 import { normalizeSearchText, tokenizeSearchQuery } from "@/lib/search";
-import { parsePostThumbnailCrop, resolvePostThumbnailCrop } from "@/lib/post-thumbnail-crop";
-import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
-import { getPostThumbnailCropsByPostIds } from "@/lib/post-thumbnail-crop-access";
 import {
   parseUserSearchSort,
   type UserSearchSort,
@@ -124,7 +131,9 @@ function mapPost(
     title: post.title,
     content: canViewSecret ? post.content : "비밀글입니다.",
     thumbnail: canViewSecret ? post.thumbnail : null,
-    thumbnail_crop: canViewSecret ? parsePostThumbnailCrop(post.thumbnailCrop) : null,
+    thumbnail_crop: canViewSecret
+      ? parsePostThumbnailCrop(post.thumbnailCrop)
+      : null,
     created_at: post.createdAt,
     author_name: post.user.name ?? "Unknown",
     author_image: post.user.image ?? null,
@@ -150,23 +159,38 @@ async function mapPostsWithReactionCounts(
     getPostThumbnailCropsByPostIds(postIds),
   ]);
 
-  return posts.map((post) => {
-    const mappedPost = mapPost(
-      {
-        ...post,
-        thumbnailCrop: resolvePostThumbnailCrop(
-          thumbnailCropMap.get(post.id.toString()),
-          post.thumbnailCrop,
-        ),
-      },
-      options,
-    );
+  return Promise.all(
+    posts.map(async (post) => {
+      const mappedPost = mapPost(
+        {
+          ...post,
+          thumbnailCrop: resolvePostThumbnailCrop(
+            thumbnailCropMap.get(post.id.toString()),
+            post.thumbnailCrop,
+          ),
+        },
+        options,
+      );
 
-    return {
-      ...mappedPost,
-      reactions_count: reactionCounts.get(mappedPost.id) ?? 0,
-    };
-  });
+      return {
+        ...(await signSearchPostMedia(mappedPost)),
+        reactions_count: reactionCounts.get(mappedPost.id) ?? 0,
+      };
+    }),
+  );
+}
+
+async function signSearchPostMedia(post: DbPost): Promise<DbPost> {
+  if (!post.can_view_secret) {
+    return post;
+  }
+
+  return {
+    ...post,
+    content: await signPostStorageMarkdown(post.content),
+    thumbnail: await createPostStorageSignedUrl(post.thumbnail),
+    author_image: await createPostStorageSignedUrl(post.author_image),
+  };
 }
 
 function buildSearchWhere(
@@ -177,6 +201,7 @@ function buildSearchWhere(
   const baseWhere: Prisma.PostWhereInput = {
     isDeleted: false,
     isHidden: false,
+    isSecret: false,
     OR: tokens.map((token) =>
       searchTarget === "all"
         ? {
@@ -631,7 +656,7 @@ export async function searchUsersByName(
     users.map(async (user) => ({
       id: Number(user.id),
       name: user.name,
-      image: user.image,
+      image: await createPostStorageSignedUrl(user.image),
       followerCount: user._count.followers,
       postCount: await countVisibleUserPosts(
         Number(user.id),

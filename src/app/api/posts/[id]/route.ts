@@ -6,18 +6,21 @@ import {
   isNoticeCategoryName,
   isPublicNoticeCategory,
 } from "@/lib/notice-categories";
+import type { PostAttachmentInput } from "@/lib/post-attachments";
+import { getPostByIdWithSecretAccess } from "@/lib/post-detail-access";
+import { validatePostSecretPassword } from "@/lib/post-secret-access";
+import { parseThumbnailCropFromRequestBody } from "@/lib/post-thumbnail-crop";
 import {
   deletePost,
   getPostById,
   setPostHidden,
   updatePost,
 } from "@/lib/posts";
-import { type PostAttachmentInput } from "@/lib/post-attachments";
-import { validatePostSecretPassword } from "@/lib/post-secret-access";
-import { parseThumbnailCropFromRequestBody } from "@/lib/post-thumbnail-crop";
 import { prisma } from "@/lib/prisma";
 
-function getAttachments(body: { attachments?: unknown }): PostAttachmentInput[] {
+function getAttachments(body: {
+  attachments?: unknown;
+}): PostAttachmentInput[] {
   if (!Array.isArray(body.attachments)) {
     return [];
   }
@@ -28,8 +31,7 @@ function getAttachments(body: { attachments?: unknown }): PostAttachmentInput[] 
         Boolean(item) && typeof item === "object",
     )
     .map((item) => ({
-      fileName:
-        typeof item.fileName === "string" ? item.fileName.trim() : "",
+      fileName: typeof item.fileName === "string" ? item.fileName.trim() : "",
       fileUrl: typeof item.fileUrl === "string" ? item.fileUrl.trim() : "",
       fileSize:
         typeof item.fileSize === "number" && Number.isFinite(item.fileSize)
@@ -71,7 +73,7 @@ export async function GET(
 
   const dbUserId = await getDbUserIdFromSession();
   const session = await auth();
-  const post = await getPostById(postId, {
+  const post = await getPostByIdWithSecretAccess(postId, {
     includeHiddenForUserId: dbUserId,
     includeHiddenForAdmin: session?.user?.role === "ADMIN",
   });
@@ -127,8 +129,16 @@ export async function PUT(
   }
 
   const body = await req.json();
-  const { title, content, categoryName, thumbnailUrl, isBanner, isSecret, isHidden, secretPassword } =
-    body;
+  const {
+    title,
+    content,
+    categoryName,
+    thumbnailUrl,
+    isBanner,
+    isSecret,
+    isHidden,
+    secretPassword,
+  } = body;
   const thumbnailCrop = parseThumbnailCropFromRequestBody(body);
   const categoryNames = getCategoryNames(body);
   const attachments = getAttachments(body);

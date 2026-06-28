@@ -11,12 +11,8 @@ import {
   usePlatformProfile,
 } from "@/components/mypage/usePlatformProfile";
 import { validatePassword } from "@/lib/password";
-import {
-  createProfileImagePath,
-  getProfileImageStoragePathFromPublicUrl,
-  PROFILE_IMAGE_BUCKET,
-} from "@/lib/profile-images";
-import { supabase } from "@/lib/supabase";
+import { normalizePostStorageReference } from "@/lib/post-storage";
+import { removePostMedia, uploadPostMedia } from "@/lib/post-storage-client";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -58,7 +54,7 @@ export default function AccountSettingsModal({
     initialImage,
   );
   const [imagePath, setImagePath] = useState<string | null>(
-    getProfileImageStoragePathFromPublicUrl(initialImage),
+    normalizePostStorageReference(initialImage),
   );
   const [resetImageRequested, setResetImageRequested] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -137,7 +133,7 @@ export default function AccountSettingsModal({
     setName(initialName);
     setImageUrl(initialImage);
     setSavedImageUrl(initialImage);
-    setImagePath(getProfileImageStoragePathFromPublicUrl(initialImage));
+    setImagePath(normalizePostStorageReference(initialImage));
     setResetImageRequested(false);
     setCurrentPassword("");
     setNewPassword("");
@@ -227,8 +223,7 @@ export default function AccountSettingsModal({
   if (!open) return null;
 
   async function removeProfileImageFromStorage(path?: string | null) {
-    if (!path) return;
-    await supabase.storage.from(PROFILE_IMAGE_BUCKET).remove([path]);
+    await removePostMedia(normalizePostStorageReference(path));
   }
 
   async function handleImageChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -239,32 +234,17 @@ export default function AccountSettingsModal({
     setMessage(null);
 
     try {
-      const nextPath = createProfileImagePath(session.user.id, file.name);
-      const { error: uploadError } = await supabase.storage
-        .from(PROFILE_IMAGE_BUCKET)
-        .upload(nextPath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) {
-        setMessage(uploadError.message);
-        return;
-      }
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from(PROFILE_IMAGE_BUCKET).getPublicUrl(nextPath);
+      const uploaded = await uploadPostMedia(file, "profile");
 
       const previousUnsavedPath =
         imagePath && imageUrl !== savedImageUrl ? imagePath : null;
 
-      if (previousUnsavedPath && previousUnsavedPath !== nextPath) {
+      if (previousUnsavedPath && previousUnsavedPath !== uploaded.storagePath) {
         await removeProfileImageFromStorage(previousUnsavedPath);
       }
 
-      setImagePath(nextPath);
-      setImageUrl(publicUrl);
+      setImagePath(uploaded.storagePath);
+      setImageUrl(uploaded.signedUrl);
       setResetImageRequested(false);
       event.target.value = "";
     } catch {
@@ -356,7 +336,7 @@ export default function AccountSettingsModal({
         body: JSON.stringify({
           platform,
           name,
-          image: imageUrl ?? undefined,
+          image: imagePath ?? imageUrl ?? undefined,
           removeImage: !resetImageRequested && !imageUrl,
           resetImage: resetImageRequested,
           currentPassword: currentPassword || undefined,
@@ -373,7 +353,7 @@ export default function AccountSettingsModal({
 
       const previousSavedImagePath =
         savedImageUrl && savedImageUrl !== imageUrl
-          ? getProfileImageStoragePathFromPublicUrl(savedImageUrl)
+          ? normalizePostStorageReference(savedImageUrl)
           : null;
 
       if (previousSavedImagePath) {
@@ -386,7 +366,7 @@ export default function AccountSettingsModal({
 
       setImageUrl(nextImageUrl);
       setSavedImageUrl(nextImageUrl);
-      setImagePath(getProfileImageStoragePathFromPublicUrl(nextImageUrl));
+      setImagePath(normalizePostStorageReference(nextImageUrl));
       setResetImageRequested(false);
       await updateSession({
         name: data.name ?? name,

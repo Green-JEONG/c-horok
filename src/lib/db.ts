@@ -1,14 +1,21 @@
 import { Prisma } from "@prisma/client";
 import { buildVisibleCommentCountWhere } from "@/lib/comment-counts";
-import { mapPostAttachments } from "@/lib/post-attachments";
-import { parsePostThumbnailCrop, resolvePostThumbnailCrop } from "@/lib/post-thumbnail-crop";
-import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
-import { getPostThumbnailCropsByPostIds } from "@/lib/post-thumbnail-crop-access";
 import { ALL_NOTICE_TAG_OPTIONS } from "@/lib/notice-categories";
+import { mapPostAttachments } from "@/lib/post-attachments";
 import { getPostCategoryNameMap } from "@/lib/post-categories";
-import { canViewSecretPost } from "@/lib/post-secret-password";
 import { getPostReactionCountsByPostId } from "@/lib/post-reactions";
+import { canViewSecretPost } from "@/lib/post-secret-password";
 import { DEFAULT_SORT, type SortType } from "@/lib/post-sort";
+import {
+  createPostStorageSignedUrl,
+  signPostStorageMarkdown,
+} from "@/lib/post-storage.server";
+import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
+import {
+  parsePostThumbnailCrop,
+  resolvePostThumbnailCrop,
+} from "@/lib/post-thumbnail-crop";
+import { getPostThumbnailCropsByPostIds } from "@/lib/post-thumbnail-crop-access";
 import { prisma } from "@/lib/prisma";
 
 export type DbUser = {
@@ -154,6 +161,11 @@ function mapPost(
       content: string;
       thumbnail: string | null;
       createdAt: Date;
+      userId: bigint;
+      isHidden: boolean;
+      isDeleted: boolean;
+      isSecret: boolean;
+      category: { name: string } | null;
       user: { name: string | null; image?: string | null };
       downloadCounts?: {
         markdownCount: number;
@@ -189,13 +201,34 @@ function mapPost(
       : post.category?.name
         ? [post.category.name]
         : [];
+  const copiedPostOwnerUserId = post.quotedPost
+    ? bigintToNumber(post.quotedPost.userId)
+    : null;
+  const canViewCopiedPostHidden =
+    Boolean(post.quotedPost) &&
+    !post.quotedPost?.isDeleted &&
+    (!post.quotedPost?.isHidden ||
+      options?.isAdmin ||
+      copiedPostOwnerUserId === options?.viewerUserId);
+  const canViewCopiedPostSecret =
+    post.quotedPost && copiedPostOwnerUserId !== null
+      ? canViewSecretPost({
+          isSecret: post.quotedPost.isSecret,
+          ownerUserId: copiedPostOwnerUserId,
+          viewerUserId: options?.viewerUserId,
+          isAdmin: options?.isAdmin,
+          categoryName: post.quotedPost.category?.name ?? null,
+        })
+      : false;
 
   return {
     id: bigintToNumber(post.id),
     title: post.title,
     content: canViewSecret ? post.content : "비밀글입니다.",
     thumbnail: canViewSecret ? post.thumbnail : null,
-    thumbnail_crop: canViewSecret ? parsePostThumbnailCrop(post.thumbnailCrop) : null,
+    thumbnail_crop: canViewSecret
+      ? parsePostThumbnailCrop(post.thumbnailCrop)
+      : null,
     created_at: post.createdAt,
     updated_at: post.updatedAt,
     author_name: post.user.name ?? "Unknown",
@@ -217,17 +250,22 @@ function mapPost(
     is_secret: post.isSecret,
     can_view_secret: canViewSecret,
     user_id: ownerUserId,
-    copied_from_post: post.quotedPost
-      ? {
-          id: bigintToNumber(post.quotedPost.id),
-          title: post.quotedPost.title,
-          content: post.quotedPost.content,
-          thumbnail: post.quotedPost.thumbnail,
-          author_name: post.quotedPost.user.name ?? "Unknown",
-          author_image: post.quotedPost.user.image ?? null,
-          created_at: post.quotedPost.createdAt,
-        }
-      : null,
+    copied_from_post:
+      post.quotedPost && canViewCopiedPostHidden
+        ? {
+            id: bigintToNumber(post.quotedPost.id),
+            title: post.quotedPost.title,
+            content: canViewCopiedPostSecret
+              ? post.quotedPost.content
+              : "비밀글입니다.",
+            thumbnail: canViewCopiedPostSecret
+              ? post.quotedPost.thumbnail
+              : null,
+            author_name: post.quotedPost.user.name ?? "Unknown",
+            author_image: post.quotedPost.user.image ?? null,
+            created_at: post.quotedPost.createdAt,
+          }
+        : null,
     attachments: canViewSecret
       ? mapPostAttachments(post.attachments ?? [])
       : [],
@@ -246,39 +284,77 @@ async function mapPostsWithReactionCounts(
       .filter((postId): postId is bigint => Boolean(postId)),
   ];
   const categoryNameMap = await getPostCategoryNameMap(postIds);
-  const [reactionCounts, downloadCountMap, thumbnailCropMap] = await Promise.all([
-    getPostReactionCountsByPostId(postIds),
-    getPostDownloadCountMap(downloadCountIds),
-    getPostThumbnailCropsByPostIds(postIds),
-  ]);
+  const [reactionCounts, downloadCountMap, thumbnailCropMap] =
+    await Promise.all([
+      getPostReactionCountsByPostId(postIds),
+      getPostDownloadCountMap(downloadCountIds),
+      getPostThumbnailCropsByPostIds(postIds),
+    ]);
 
-  return posts.map((post) => {
-    const mappedPost = mapPost(
-      {
-        ...post,
-        thumbnailCrop: resolvePostThumbnailCrop(
-          thumbnailCropMap.get(post.id.toString()),
-          post.thumbnailCrop,
-        ),
-        categoryNames: categoryNameMap.get(post.id.toString()),
-        downloadCounts: downloadCountMap.get(post.id.toString()),
-        quotedPost: post.quotedPost
-          ? {
-              ...post.quotedPost,
-              downloadCounts: downloadCountMap.get(
-                post.quotedPost.id.toString(),
-              ),
-            }
-          : null,
-      },
-      options,
-    );
+  return Promise.all(
+    posts.map(async (post) => {
+      const mappedPost = mapPost(
+        {
+          ...post,
+          thumbnailCrop: resolvePostThumbnailCrop(
+            thumbnailCropMap.get(post.id.toString()),
+            post.thumbnailCrop,
+          ),
+          categoryNames: categoryNameMap.get(post.id.toString()),
+          downloadCounts: downloadCountMap.get(post.id.toString()),
+          quotedPost: post.quotedPost
+            ? {
+                ...post.quotedPost,
+                downloadCounts: downloadCountMap.get(
+                  post.quotedPost.id.toString(),
+                ),
+              }
+            : null,
+        },
+        options,
+      );
 
-    return {
-      ...mappedPost,
-      reactions_count: reactionCounts.get(mappedPost.id) ?? 0,
-    };
-  });
+      return {
+        ...(await signDbPostMedia(mappedPost)),
+        reactions_count: reactionCounts.get(mappedPost.id) ?? 0,
+      };
+    }),
+  );
+}
+
+async function signDbPostMedia(post: DbPost): Promise<DbPost> {
+  if (!post.can_view_secret) {
+    return post;
+  }
+
+  return {
+    ...post,
+    content: await signPostStorageMarkdown(post.content),
+    thumbnail: await createPostStorageSignedUrl(post.thumbnail),
+    author_image: await createPostStorageSignedUrl(post.author_image),
+    copied_from_post: post.copied_from_post
+      ? {
+          ...post.copied_from_post,
+          content: await signPostStorageMarkdown(post.copied_from_post.content),
+          thumbnail: await createPostStorageSignedUrl(
+            post.copied_from_post.thumbnail,
+          ),
+          author_image: await createPostStorageSignedUrl(
+            post.copied_from_post.author_image,
+          ),
+        }
+      : null,
+    attachments: post.attachments
+      ? await Promise.all(
+          post.attachments.map(async (attachment) => ({
+            ...attachment,
+            file_url:
+              (await createPostStorageSignedUrl(attachment.file_url)) ??
+              attachment.file_url,
+          })),
+        )
+      : post.attachments,
+  };
 }
 
 async function getPostDownloadCountMap(postIds: bigint[]) {
@@ -533,6 +609,11 @@ export async function findPostsPaged(
           content: true,
           thumbnail: true,
           createdAt: true,
+          userId: true,
+          isHidden: true,
+          isDeleted: true,
+          isSecret: true,
+          category: { select: { name: true } },
           user: { select: { name: true, image: true } },
         },
       },
@@ -593,6 +674,11 @@ export async function findPostById(
           content: true,
           thumbnail: true,
           createdAt: true,
+          userId: true,
+          isHidden: true,
+          isDeleted: true,
+          isSecret: true,
+          category: { select: { name: true } },
           user: { select: { name: true, image: true } },
         },
       },
@@ -631,27 +717,31 @@ export async function findPostById(
   );
   const thumbnailCropMap = await getPostThumbnailCropsByPostIds([post.id]);
 
-  return mapPost(
-    {
-      ...post,
-      thumbnailCrop: resolvePostThumbnailCrop(
-        thumbnailCropMap.get(post.id.toString()),
-        post.thumbnailCrop,
-      ),
-      categoryNames: categoryNameMap.get(post.id.toString()),
-      downloadCounts: downloadCountMap.get(post.id.toString()),
-      quotedPost: post.quotedPost
-        ? {
-            ...post.quotedPost,
-            downloadCounts: downloadCountMap.get(post.quotedPost.id.toString()),
-          }
-        : null,
-    },
-    {
-      viewerUserId: options?.includeHiddenForUserId ?? null,
-      isAdmin: options?.includeHiddenForAdmin,
-      hasSecretPasswordAccess: options?.hasSecretPasswordAccess,
-    },
+  return signDbPostMedia(
+    mapPost(
+      {
+        ...post,
+        thumbnailCrop: resolvePostThumbnailCrop(
+          thumbnailCropMap.get(post.id.toString()),
+          post.thumbnailCrop,
+        ),
+        categoryNames: categoryNameMap.get(post.id.toString()),
+        downloadCounts: downloadCountMap.get(post.id.toString()),
+        quotedPost: post.quotedPost
+          ? {
+              ...post.quotedPost,
+              downloadCounts: downloadCountMap.get(
+                post.quotedPost.id.toString(),
+              ),
+            }
+          : null,
+      },
+      {
+        viewerUserId: options?.includeHiddenForUserId ?? null,
+        isAdmin: options?.includeHiddenForAdmin,
+        hasSecretPasswordAccess: options?.hasSecretPasswordAccess,
+      },
+    ),
   );
 }
 
@@ -754,6 +844,7 @@ async function searchPostsInternal(
   const where: Prisma.PostWhereInput = {
     isDeleted: false,
     isHidden: false,
+    isSecret: false,
     category: {
       is: {
         name: {

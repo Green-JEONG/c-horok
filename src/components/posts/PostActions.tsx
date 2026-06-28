@@ -10,11 +10,8 @@ import PostHeader from "@/components/posts/PostHeader";
 import { buttonVariants } from "@/components/ui/button";
 import type { DbCopiedPost, DbPost, DbPostSeriesItem } from "@/lib/db";
 import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
-import {
-  getStorageObjectPathFromPublicUrl,
-  POST_THUMBNAIL_BUCKET,
-} from "@/lib/post-thumbnails";
-import { supabase } from "@/lib/supabase";
+import { normalizePostStorageReference } from "@/lib/post-storage";
+import { removePostMedia } from "@/lib/post-storage-client";
 import { cn } from "@/lib/utils";
 
 type SavedPostFlags = {
@@ -125,8 +122,7 @@ export default function PostActions({
   }
 
   async function removeThumbnailFromStorage(path?: string | null) {
-    if (!path) return;
-    await supabase.storage.from(POST_THUMBNAIL_BUCKET).remove([path]);
+    await removePostMedia(normalizePostStorageReference(path));
   }
 
   async function handleDelete() {
@@ -147,7 +143,7 @@ export default function PostActions({
         return;
       }
 
-      const storagePath = getStorageObjectPathFromPublicUrl(initialThumbnail);
+      const storagePath = normalizePostStorageReference(initialThumbnail);
       if (storagePath) {
         await removeThumbnailFromStorage(storagePath);
       }
@@ -237,9 +233,7 @@ export default function PostActions({
           fixedTagOptions={fixedTagOptions}
           inquiryTagOptions={inquiryTagOptions}
           showBannerOption={showBannerOption}
-          allowNoticeBannerForAllCategories={
-            allowNoticeBannerForAllCategories
-          }
+          allowNoticeBannerForAllCategories={allowNoticeBannerForAllCategories}
           onSubmittingChange={setIsEditorSubmitting}
           onCancel={() => {
             setIsEditorSubmitting(false);

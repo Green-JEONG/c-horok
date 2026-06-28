@@ -8,6 +8,7 @@ import { authAdapter } from "@/lib/auth-adapter";
 import { findUserByEmail, findUserByEmailOrNickname } from "@/lib/db";
 import { getSmtpEmailConfig } from "@/lib/email";
 import { env } from "@/lib/env";
+import { createPostStorageSignedUrl } from "@/lib/post-storage.server";
 
 const smtpEmailConfig = getSmtpEmailConfig();
 
@@ -165,7 +166,7 @@ export function createAuthConfig(platform: AuthPlatform): NextAuthConfig {
         return token;
       },
 
-      session({ session, token }) {
+      async session({ session, token }) {
         if (session.user) {
           session.user.id = (token.userId ?? token.sub) as string;
           session.user.name =
@@ -177,7 +178,9 @@ export function createAuthConfig(platform: AuthPlatform): NextAuthConfig {
             | "google"
             | undefined;
           session.user.image =
-            typeof token.picture === "string" ? token.picture : null;
+            typeof token.picture === "string"
+              ? await createPostStorageSignedUrl(token.picture)
+              : null;
           session.user.oauthImage =
             typeof token.oauthImage === "string" || token.oauthImage === null
               ? token.oauthImage

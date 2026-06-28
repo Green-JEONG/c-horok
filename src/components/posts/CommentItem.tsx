@@ -1,23 +1,12 @@
 "use client";
 
-import {
-  Eye,
-  EyeOff,
-  ImagePlus,
-  Lock,
-  LockOpen,
-  Video,
-} from "lucide-react";
+import { Eye, EyeOff, ImagePlus, Lock, LockOpen, Video } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { PostReactionSummary } from "@/lib/post-reaction-options";
 import { handleMarkdownEditorKeyDown } from "@/lib/markdown-editor-keydown";
-import {
-  createPostContentImagePath,
-  POST_THUMBNAIL_BUCKET,
-} from "@/lib/post-thumbnails";
-import { supabase } from "@/lib/supabase";
+import { uploadPostMedia } from "@/lib/post-storage-client";
 import { getLogMyPagePath } from "@/lib/routes";
 import { formatSeoulDateTime } from "@/lib/utils";
 import CommentAuthorHeader from "./CommentAuthorHeader";
@@ -285,24 +274,9 @@ export default function CommentItem({
       const markdownImages: string[] = [];
 
       for (const file of files) {
-        const nextPath = createPostContentImagePath(file.name);
-        const { error: uploadError } = await supabase.storage
-          .from(POST_THUMBNAIL_BUCKET)
-          .upload(nextPath, file, {
-            cacheControl: "3600",
-            contentType: file.type || undefined,
-            upsert: false,
-          });
+        const uploaded = await uploadPostMedia(file, "content");
 
-        if (uploadError) {
-          throw new Error(uploadError.message);
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from(POST_THUMBNAIL_BUCKET).getPublicUrl(nextPath);
-
-        markdownImages.push(`![${file.name}](${publicUrl})`);
+        markdownImages.push(`![${file.name}](${uploaded.signedUrl})`);
       }
 
       insertEditTextAtCursor(markdownImages.join("\n\n"));
@@ -331,24 +305,9 @@ export default function CommentItem({
       const markdownVideos: string[] = [];
 
       for (const file of files) {
-        const nextPath = createPostContentImagePath(file.name);
-        const { error: uploadError } = await supabase.storage
-          .from(POST_THUMBNAIL_BUCKET)
-          .upload(nextPath, file, {
-            cacheControl: "3600",
-            contentType: file.type || undefined,
-            upsert: false,
-          });
+        const uploaded = await uploadPostMedia(file, "content");
 
-        if (uploadError) {
-          throw new Error(uploadError.message);
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from(POST_THUMBNAIL_BUCKET).getPublicUrl(nextPath);
-
-        markdownVideos.push(`![video](${publicUrl})`);
+        markdownVideos.push(`![video](${uploaded.signedUrl})`);
       }
 
       insertEditTextAtCursor(markdownVideos.join("\n\n"));

@@ -5,12 +5,8 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import MarkdownRenderer from "@/components/posts/MarkdownRenderer";
-import {
-  createPostContentImagePath,
-  POST_THUMBNAIL_BUCKET,
-} from "@/lib/post-thumbnails";
 import { handleMarkdownEditorKeyDown } from "@/lib/markdown-editor-keydown";
-import { supabase } from "@/lib/supabase";
+import { uploadPostMedia } from "@/lib/post-storage-client";
 
 type AnswerEditorTab = "write" | "preview";
 
@@ -358,24 +354,9 @@ export default function CommentForm({
       const markdownImages: string[] = [];
 
       for (const file of files) {
-        const nextPath = createPostContentImagePath(file.name);
-        const { error: uploadError } = await supabase.storage
-          .from(POST_THUMBNAIL_BUCKET)
-          .upload(nextPath, file, {
-            cacheControl: "3600",
-            contentType: file.type || undefined,
-            upsert: false,
-          });
+        const uploaded = await uploadPostMedia(file, "content");
 
-        if (uploadError) {
-          throw new Error(uploadError.message);
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from(POST_THUMBNAIL_BUCKET).getPublicUrl(nextPath);
-
-        markdownImages.push(`![${file.name}](${publicUrl})`);
+        markdownImages.push(`![${file.name}](${uploaded.signedUrl})`);
       }
 
       insertTextAtCursor(markdownImages.join("\n\n"));
@@ -404,24 +385,9 @@ export default function CommentForm({
       const markdownVideos: string[] = [];
 
       for (const file of files) {
-        const nextPath = createPostContentImagePath(file.name);
-        const { error: uploadError } = await supabase.storage
-          .from(POST_THUMBNAIL_BUCKET)
-          .upload(nextPath, file, {
-            cacheControl: "3600",
-            contentType: file.type || undefined,
-            upsert: false,
-          });
+        const uploaded = await uploadPostMedia(file, "content");
 
-        if (uploadError) {
-          throw new Error(uploadError.message);
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from(POST_THUMBNAIL_BUCKET).getPublicUrl(nextPath);
-
-        markdownVideos.push(`![video](${publicUrl})`);
+        markdownVideos.push(`![video](${uploaded.signedUrl})`);
       }
 
       insertTextAtCursor(markdownVideos.join("\n\n"));
