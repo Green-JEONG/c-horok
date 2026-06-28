@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
+import { createPostStorageSignedUrl } from "@/lib/post-storage.server";
 import { prisma } from "@/lib/prisma";
 import { countVisibleUserPosts } from "@/lib/queries";
 
@@ -20,7 +21,7 @@ async function serializeUser(
     id: userId,
     name: user.name,
     email: user.email,
-    image: user.image,
+    image: await createPostStorageSignedUrl(user.image),
     followerCount: user._count.followers,
     postCount: await countVisibleUserPosts(userId, viewerUserId),
     followedAt: followedAt.toISOString(),

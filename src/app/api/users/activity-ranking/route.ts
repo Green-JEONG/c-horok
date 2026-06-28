@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ALL_NOTICE_TAG_OPTIONS } from "@/lib/notice-categories";
+import { createPostStorageSignedUrl } from "@/lib/post-storage.server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
@@ -49,25 +50,25 @@ export async function GET() {
     });
     const userMap = new Map(users.map((user) => [user.id.toString(), user]));
 
-    return NextResponse.json(
-      rows
-        .map((row, index) => {
-          const user = userMap.get(row.userId.toString());
+    const rankingRows = await Promise.all(
+      rows.map(async (row, index) => {
+        const user = userMap.get(row.userId.toString());
 
-          if (!user) {
-            return null;
-          }
+        if (!user) {
+          return null;
+        }
 
-          return {
-            rank: index + 1,
-            userId: Number(user.id),
-            name: user.name,
-            image: user.image,
-            postCount: row._count._all,
-          };
-        })
-        .filter((row) => row !== null),
+        return {
+          rank: index + 1,
+          userId: Number(user.id),
+          name: user.name,
+          image: await createPostStorageSignedUrl(user.image),
+          postCount: row._count._all,
+        };
+      }),
     );
+
+    return NextResponse.json(rankingRows.filter((row) => row !== null));
   } catch (error) {
     console.error("ACTIVITY RANKING API ERROR:", error);
     return NextResponse.json([], { status: 500 });

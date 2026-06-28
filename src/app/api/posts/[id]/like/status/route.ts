@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { getUserIdByEmail } from "@/lib/db";
 import { getLikeCount, hasLiked } from "@/lib/likes";
-import { getPostById } from "@/lib/posts";
+import { getPostByIdWithSecretAccess } from "@/lib/post-detail-access";
 
 export async function GET(
   _req: NextRequest,
@@ -16,19 +16,15 @@ export async function GET(
     return NextResponse.json({ message: "Invalid post id" }, { status: 400 });
   }
 
-  const post = await getPostById(postId);
-  if (!post) {
-    return NextResponse.json({ message: "Not found" }, { status: 404 });
-  }
-
   const session = await auth();
 
   let liked = false;
+  let post = null;
 
   if (session?.user?.email) {
     const userId = await getUserIdByEmail(session.user.email);
     if (userId) {
-      const post = await getPostById(postId, {
+      post = await getPostByIdWithSecretAccess(postId, {
         includeHiddenForUserId: userId,
       });
       if (!post) {
@@ -37,10 +33,14 @@ export async function GET(
       liked = await hasLiked(postId, userId);
     }
   } else {
-    const post = await getPostById(postId);
-    if (!post) {
-      return NextResponse.json({ message: "Not found" }, { status: 404 });
-    }
+    post = await getPostByIdWithSecretAccess(postId);
+  }
+
+  if (!post) {
+    return NextResponse.json({ message: "Not found" }, { status: 404 });
+  }
+  if (post.is_secret && !post.can_view_secret) {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
   const likeCount = await getLikeCount(postId);

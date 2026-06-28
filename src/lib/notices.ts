@@ -10,14 +10,18 @@ import {
   normalizeNoticeCategory,
   parseNoticeSearchTarget,
 } from "@/lib/notice-categories";
-import { getAdminReactedPostIdSet } from "@/lib/post-reactions";
 import { mapPostAttachments } from "@/lib/post-attachments";
+import { getAdminReactedPostIdSet } from "@/lib/post-reactions";
 import { canViewSecretPost } from "@/lib/post-secret-password";
 import {
   comparePostMetrics,
   DEFAULT_SORT,
   type SortType,
 } from "@/lib/post-sort";
+import {
+  createPostStorageSignedUrl,
+  signPostStorageMarkdown,
+} from "@/lib/post-storage.server";
 import { prisma } from "@/lib/prisma";
 import { getLogNoticePath } from "@/lib/routes";
 
@@ -339,29 +343,30 @@ export async function findNotices(
   );
   const adminReactedQnaPostIdSet = await getAdminReactedPostIdSet(qnaPostIds);
 
-  return notices
-    .sort((a, b) =>
-      comparePostMetrics(
-        sort,
-        {
-          id: a.id,
-          createdAt: a.createdAt,
-          likeCount: a._count.likes,
-          commentsCount: a._count.comments,
-          viewCount: Number(a.views?.viewCount ?? 0),
-          categoryName: a.category?.name,
-        },
-        {
-          id: b.id,
-          createdAt: b.createdAt,
-          likeCount: b._count.likes,
-          commentsCount: b._count.comments,
-          viewCount: Number(b.views?.viewCount ?? 0),
-          categoryName: b.category?.name,
-        },
-      ),
-    )
-    .map<NoticeListItem>((notice) => {
+  const sortedNotices = notices.sort((a, b) =>
+    comparePostMetrics(
+      sort,
+      {
+        id: a.id,
+        createdAt: a.createdAt,
+        likeCount: a._count.likes,
+        commentsCount: a._count.comments,
+        viewCount: Number(a.views?.viewCount ?? 0),
+        categoryName: a.category?.name,
+      },
+      {
+        id: b.id,
+        createdAt: b.createdAt,
+        likeCount: b._count.likes,
+        commentsCount: b._count.comments,
+        viewCount: Number(b.views?.viewCount ?? 0),
+        categoryName: b.category?.name,
+      },
+    ),
+  );
+
+  return Promise.all(
+    sortedNotices.map<Promise<NoticeListItem>>(async (notice) => {
       const normalizedCategory =
         normalizeNoticeCategory(notice.category?.name) ?? "공지";
       const isSecretQna = normalizedCategory === "QnA" && notice.isSecret;
@@ -376,11 +381,15 @@ export async function findNotices(
         title: stripLegacyNoticePrefix(notice.title),
         categoryName: normalizedCategory,
         summary: canViewSecret ? getSummary(notice.content) : "비밀글입니다.",
-        content: canViewSecret ? notice.content : "비밀글입니다.",
-        thumbnail: notice.thumbnail,
+        content: canViewSecret
+          ? await signPostStorageMarkdown(notice.content)
+          : "비밀글입니다.",
+        thumbnail: canViewSecret
+          ? await createPostStorageSignedUrl(notice.thumbnail)
+          : null,
         publishedAt: notice.createdAt.toISOString().slice(0, 10),
         authorName: notice.user.name ?? "c.horok 운영팀",
-        authorImage: notice.user.image ?? null,
+        authorImage: await createPostStorageSignedUrl(notice.user.image),
         isPinned: isPinnedNotice(normalizedCategory, notice.title),
         isLocked: notice.isSecret,
         isHidden: notice.isHidden,
@@ -404,7 +413,8 @@ export async function findNotices(
         commentsCount: notice._count.comments,
         viewCount: Number(notice.views?.viewCount ?? 0),
       };
-    });
+    }),
+  );
 }
 
 export async function findBannerNotices(limit = 5) {
@@ -585,14 +595,18 @@ export async function findNoticeById(
   return {
     id: Number(notice.id),
     title: stripLegacyNoticePrefix(notice.title),
-    content: canViewSecret ? notice.content : "비밀글입니다.",
+    content: canViewSecret
+      ? await signPostStorageMarkdown(notice.content)
+      : "비밀글입니다.",
     summary: canViewSecret ? getSummary(notice.content) : "비밀글입니다.",
     publishedAt: notice.createdAt,
     updatedAt: notice.updatedAt,
     authorName: notice.user.name ?? "c.horok 운영팀",
-    authorImage: notice.user.image ?? null,
+    authorImage: await createPostStorageSignedUrl(notice.user.image),
     categoryName: normalizedCategory ?? "공지",
-    thumbnail: canViewSecret ? notice.thumbnail : null,
+    thumbnail: canViewSecret
+      ? await createPostStorageSignedUrl(notice.thumbnail)
+      : null,
     viewCount: Number(notice.views?.viewCount ?? 0),
     likesCount: notice._count.likes,
     commentsCount: notice._count.comments,
@@ -611,7 +625,16 @@ export async function findNoticeById(
         ? adminAnswerCount > 0 || adminReactedPostIdSet.has(id)
         : false,
     attachments: canViewSecret
-      ? mapPostAttachments(notice.attachments ?? [])
+      ? await Promise.all(
+          mapPostAttachments(notice.attachments ?? []).map(
+            async (attachment) => ({
+              ...attachment,
+              file_url:
+                (await createPostStorageSignedUrl(attachment.file_url)) ??
+                attachment.file_url,
+            }),
+          ),
+        )
       : [],
   } satisfies NoticeDetail;
 }

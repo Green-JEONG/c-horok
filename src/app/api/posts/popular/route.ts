@@ -18,6 +18,7 @@ export async function GET(request: Request) {
         userId: BigInt(userId),
         isDeleted: false,
         ...(canSeeHiddenPosts ? {} : { isHidden: false }),
+        ...(canSeeHiddenPosts ? {} : { isSecret: false }),
         category: {
           is: {
             name: {

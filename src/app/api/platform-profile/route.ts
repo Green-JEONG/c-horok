@@ -9,6 +9,10 @@ import {
 } from "@/lib/horok-coding-profile";
 import { validateNickname } from "@/lib/nickname";
 import { validatePassword } from "@/lib/password";
+import {
+  createPostStorageSignedUrl,
+  normalizePostStorageReference,
+} from "@/lib/post-storage.server";
 import { prisma } from "@/lib/prisma";
 
 function parsePlatform(value: string | null) {
@@ -24,7 +28,10 @@ export async function GET(req: Request) {
     return NextResponse.json(null, { status: 401 });
   }
 
-  return NextResponse.json(profile);
+  return NextResponse.json({
+    ...profile,
+    image: await createPostStorageSignedUrl(profile.image),
+  });
 }
 
 export async function PATCH(req: Request) {
@@ -45,7 +52,7 @@ export async function PATCH(req: Request) {
     const name = typeof body?.name === "string" ? body.name.trim() : "";
     const image =
       typeof body?.image === "string" && body.image.trim()
-        ? body.image.trim()
+        ? normalizePostStorageReference(body.image.trim())
         : undefined;
     const removeImage = body?.removeImage === true;
     const resetImage = body?.resetImage === true;
@@ -196,7 +203,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({
       ok: true,
       image: shouldUpdateImage
-        ? (profile?.image ?? nextImage ?? null)
+        ? await createPostStorageSignedUrl(profile?.image ?? nextImage ?? null)
         : undefined,
       name: profile?.name ?? name,
     });

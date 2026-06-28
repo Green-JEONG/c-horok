@@ -1,23 +1,28 @@
-import {
-  deleteUnusedCategories,
-  ensureCategoryByName,
-} from "@/lib/categories";
+import { Prisma } from "@prisma/client";
+import { deleteUnusedCategories, ensureCategoryByName } from "@/lib/categories";
 import { INTERNAL_UNCATEGORIZED_CATEGORY_NAME } from "@/lib/category-labels";
 import { ALL_NOTICE_TAG_OPTIONS } from "@/lib/notice-categories";
-import { canViewSecretPost } from "@/lib/post-secret-password";
-import {
-  ensurePostSecretPasswordColumn,
-  hashPostSecretPassword,
-} from "@/lib/post-secret-access";
+import type { PostAttachmentInput } from "@/lib/post-attachments";
+import { syncPostAttachments } from "@/lib/post-attachments.server";
 import {
   normalizeCategoryNames,
   syncPostCategories,
 } from "@/lib/post-categories";
-import { type PostAttachmentInput } from "@/lib/post-attachments";
-import { syncPostAttachments } from "@/lib/post-attachments.server";
-import { ensurePostThumbnailCropColumn, setPostThumbnailCrop } from "@/lib/post-thumbnail-crop-access";
+import {
+  ensurePostSecretPasswordColumn,
+  hashPostSecretPassword,
+} from "@/lib/post-secret-access";
+import { canViewSecretPost } from "@/lib/post-secret-password";
+import {
+  normalizePostStorageMarkdown,
+  normalizePostStorageReference,
+  signPostStorageMarkdown,
+} from "@/lib/post-storage.server";
 import type { PostThumbnailCrop } from "@/lib/post-thumbnail-crop";
-import { Prisma } from "@prisma/client";
+import {
+  ensurePostThumbnailCropColumn,
+  setPostThumbnailCrop,
+} from "@/lib/post-thumbnail-crop-access";
 import { prisma } from "@/lib/prisma";
 
 export type PostRow = {
@@ -79,7 +84,7 @@ function mapPost(
     user_id: ownerUserId,
     category_id: post.categoryId ? Number(post.categoryId) : null,
     title: post.title,
-    content: post.content,
+    content: canViewSecret ? post.content : "비밀글입니다.",
     is_banner: post.isBanner,
     is_resolved: post.isResolved ?? false,
     is_secret: post.isSecret,
@@ -88,6 +93,17 @@ function mapPost(
     updated_at: post.updatedAt.toISOString(),
     is_hidden: post.isHidden,
     is_deleted: post.isDeleted,
+  };
+}
+
+async function signMappedPostMedia(post: ReturnType<typeof mapPost>) {
+  if (!post.can_view_secret) {
+    return post;
+  }
+
+  return {
+    ...post,
+    content: await signPostStorageMarkdown(post.content),
   };
 }
 
@@ -122,12 +138,14 @@ export async function getPostById(
   });
 
   return post
-    ? mapPost(post, {
-        viewerUserId: options?.includeHiddenForUserId ?? null,
-        isAdmin: options?.includeHiddenForAdmin,
-        hasSecretPasswordAccess: options?.hasSecretPasswordAccess,
-        categoryName: post.category?.name ?? null,
-      })
+    ? signMappedPostMedia(
+        mapPost(post, {
+          viewerUserId: options?.includeHiddenForUserId ?? null,
+          isAdmin: options?.includeHiddenForAdmin,
+          hasSecretPasswordAccess: options?.hasSecretPasswordAccess,
+          categoryName: post.category?.name ?? null,
+        }),
+      )
     : null;
 }
 
@@ -154,6 +172,7 @@ export async function getPopularPosts(limit = 5): Promise<PopularPostRow[]> {
     where: {
       isDeleted: false,
       isHidden: false,
+      isSecret: false,
       category: {
         is: {
           name: {
@@ -237,8 +256,8 @@ export async function createPost(params: {
         connect: { id: BigInt(primaryCategory.id) },
       },
       title,
-      content,
-      thumbnail: thumbnailUrl,
+      content: normalizePostStorageMarkdown(content),
+      thumbnail: normalizePostStorageReference(thumbnailUrl),
       thumbnailCrop:
         thumbnailUrl && thumbnailCrop ? thumbnailCrop : Prisma.DbNull,
       isBanner,
@@ -259,17 +278,22 @@ export async function createPost(params: {
     categories.map((category) => category.id),
   );
 
-  await syncPostAttachments(post.id, attachments);
+  await syncPostAttachments(
+    post.id,
+    normalizePostAttachmentInputs(attachments),
+  );
 
   await setPostThumbnailCrop(
     post.id,
     thumbnailUrl && thumbnailCrop ? thumbnailCrop : null,
   );
 
-  return mapPost(post, {
-    viewerUserId: userId,
-    categoryName: primaryCategory.name,
-  });
+  return signMappedPostMedia(
+    mapPost(post, {
+      viewerUserId: userId,
+      categoryName: primaryCategory.name,
+    }),
+  );
 }
 
 export async function setPostHidden(params: {
@@ -284,7 +308,7 @@ export async function setPostHidden(params: {
     },
   });
 
-  return mapPost(post);
+  return signMappedPostMedia(mapPost(post));
 }
 
 export async function updatePost(params: {
@@ -358,7 +382,7 @@ export async function updatePost(params: {
     where: { id: BigInt(postId) },
     data: {
       title,
-      content,
+      content: normalizePostStorageMarkdown(content),
       ...(isBanner !== undefined ? { isBanner } : {}),
       ...(isSecret !== undefined ? { isSecret } : {}),
       ...(secretPasswordHash !== undefined ? { secretPasswordHash } : {}),
@@ -372,13 +396,13 @@ export async function updatePost(params: {
             },
           }
         : {}),
-      ...(thumbnailUrl !== undefined ? { thumbnail: thumbnailUrl } : {}),
+      ...(thumbnailUrl !== undefined
+        ? { thumbnail: normalizePostStorageReference(thumbnailUrl) }
+        : {}),
       ...(nextThumbnailCrop !== undefined
         ? {
             thumbnailCrop:
-              nextThumbnailCrop === null
-                ? Prisma.DbNull
-                : nextThumbnailCrop,
+              nextThumbnailCrop === null ? Prisma.DbNull : nextThumbnailCrop,
           }
         : {}),
     },
@@ -392,7 +416,10 @@ export async function updatePost(params: {
   }
 
   if (attachments !== undefined) {
-    await syncPostAttachments(post.id, attachments);
+    await syncPostAttachments(
+      post.id,
+      normalizePostAttachmentInputs(attachments),
+    );
   }
 
   if (nextThumbnailCrop !== undefined) {
@@ -404,7 +431,14 @@ export async function updatePost(params: {
     await setPostThumbnailCrop(post.id, null);
   }
 
-  return mapPost(post);
+  return signMappedPostMedia(mapPost(post));
+}
+
+function normalizePostAttachmentInputs(attachments: PostAttachmentInput[]) {
+  return attachments.map((attachment) => ({
+    ...attachment,
+    fileUrl: normalizePostStorageReference(attachment.fileUrl) ?? "",
+  }));
 }
 
 export async function deletePost(postId: number) {

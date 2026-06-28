@@ -49,3 +49,5 @@ docker/*.sql
 docker-compose.yml
 
 backups/
+
+.pnpm-store/

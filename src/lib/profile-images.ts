@@ -1,7 +1,7 @@
 export const PROFILE_IMAGE_BUCKET =
   process.env.NEXT_PUBLIC_SUPABASE_PROFILE_BUCKET ??
   process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ??
-  "post-thumbnails";
+  "post";
 
 function sanitizeFileName(fileName: string) {
   return fileName
@@ -14,7 +14,7 @@ function sanitizeFileName(fileName: string) {
 
 export function createProfileImagePath(userId: string, fileName: string) {
   const safeFileName = sanitizeFileName(fileName) || "profile";
-  return `public/${userId}/${crypto.randomUUID()}-${safeFileName}`;
+  return `users/${userId}/${crypto.randomUUID()}-${safeFileName}`;
 }
 
 export function getProfileImageStoragePathFromPublicUrl(url?: string | null) {
