@@ -13,6 +13,9 @@ const STORAGE_PATH_PREFIXES = [
   "public/attachments/",
   "public/chat/",
 ];
+const STORAGE_PLACEHOLDER_SEGMENT_PATTERN = /(^|\/)\.\.\.(?:$|[^\w.-])/;
+const STORAGE_PATH_MATCH_PATTERN =
+  /((?:https?:\/\/[^\s)"'`<>]+\/storage\/v1\/object\/(?:public|sign)\/[^\s)"'`<>]+)|(?:(?:users|thumbnails|contents|attachments)\/[^\s)"'`<>,;:]+)|(?:(?:thumbnails\/)?public\/(?:thumbnails|content|contents|attachments|chat|users)\/[^\s)"'`<>,;:]+))/g;
 
 function getSupabaseUrl() {
   return process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -58,10 +61,23 @@ function normalizeLegacyPostStoragePath(path: string) {
   return path;
 }
 
+function isPostStoragePlaceholderPath(path: string) {
+  return (
+    STORAGE_PLACEHOLDER_SEGMENT_PATTERN.test(path) ||
+    path.includes("`") ||
+    path.includes("<") ||
+    path.includes(">")
+  );
+}
+
 export function isPostStoragePath(value?: string | null) {
   const trimmed = value?.trim() ?? "";
+  const normalizedPath = normalizeLegacyPostStoragePath(trimmed);
 
-  return STORAGE_PATH_PREFIXES.some((prefix) => trimmed.startsWith(prefix));
+  return (
+    STORAGE_PATH_PREFIXES.some((prefix) => trimmed.startsWith(prefix)) &&
+    !isPostStoragePlaceholderPath(normalizedPath)
+  );
 }
 
 export function getPostStoragePathFromUrl(value?: string | null) {
@@ -117,7 +133,7 @@ export function normalizePostStorageReference(value?: string | null) {
 
 export function normalizePostStorageMarkdown(content: string) {
   return content.replace(
-    /((?:https?:\/\/[^\s)"']+\/storage\/v1\/object\/(?:public|sign)\/[^\s)"']+)|(?:(?:users|thumbnails|contents|attachments)\/[^\s)"']+)|(?:(?:thumbnails\/)?public\/(?:thumbnails|content|contents|attachments|chat|users)\/[^\s)"']+))/g,
+    STORAGE_PATH_MATCH_PATTERN,
     (match) => getPostStoragePathFromUrl(match) ?? match,
   );
 }

@@ -161,23 +161,6 @@ export async function GET() {
         },
       },
     });
-    const chatThreadEntries = await Promise.all(
-      rows.map(
-        (row) =>
-          prisma.$queryRaw<Array<{ chat_thread_id: bigint | null }>>`
-          SELECT chat_thread_id
-          FROM public.notifications
-          WHERE id = ${row.id}
-          LIMIT 1
-        `,
-      ),
-    );
-    const chatThreadIdByNotificationId = new Map(
-      rows.map((row, index) => [
-        row.id.toString(),
-        chatThreadEntries[index]?.[0]?.chat_thread_id ?? null,
-      ]),
-    );
 
     return NextResponse.json(
       rows.map((row) => ({
@@ -189,9 +172,7 @@ export async function GET() {
         actor_id: row.actorId ? Number(row.actorId) : null,
         post_id: row.postId ? Number(row.postId) : null,
         comment_id: row.commentId ? Number(row.commentId) : null,
-        chat_thread_id: chatThreadIdByNotificationId.get(row.id.toString())
-          ? Number(chatThreadIdByNotificationId.get(row.id.toString()))
-          : null,
+        chat_thread_id: row.chatThreadId ? Number(row.chatThreadId) : null,
         post_path: row.postId
           ? isNoticeCategoryName(row.post?.category?.name)
             ? `/horok-log/notices/${Number(row.postId)}`
