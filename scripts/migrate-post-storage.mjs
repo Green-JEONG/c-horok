@@ -8,7 +8,7 @@ const DEFAULT_SOURCE_BUCKET = "post-thumbnails";
 const STORAGE_URL_PATTERN =
   /https?:\/\/[^\s)"']+\/storage\/v1\/object\/(?:public|sign)\/[^/\s)"']+\/[^\s)"']+/g;
 const BARE_LEGACY_PATH_PATTERN =
-  /(?:thumbnails\/)?public\/(?:thumbnails|content|contents|attachments|chat|users|profile|profiles)\/[^\s)"']+/g;
+  /(?:thumbnails\/)?public\/(?:\d+|thumbnails|content|contents|attachments|chat|users|profile|profiles)\/[^\s)"']+/g;
 
 function loadEnvFile(filePath, override = false) {
   const absolutePath = resolve(process.cwd(), filePath);
@@ -106,6 +106,10 @@ function mapLegacyPath(sourcePath, context) {
 
   if (path.startsWith("public/users/")) {
     return path.replace("public/users/", "users/");
+  }
+
+  if (/^public\/\d+\//.test(path)) {
+    return path.replace(/^public\/(\d+)\//, "users/$1/");
   }
 
   if (context.kind === "profile") {

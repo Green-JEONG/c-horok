@@ -1,6 +1,8 @@
 import "server-only";
 
 import {
+  getMarkdownCodeRanges,
+  isOffsetInMarkdownCodeRange,
   isPostStoragePath,
   normalizePostStorageMarkdown,
   normalizePostStorageReference,
@@ -18,6 +20,8 @@ export {
 const signedUrlCache = new Map<string, string>();
 const MARKDOWN_LINK_DESTINATION_PATTERN =
   /!?\[[^\]]*]\(\s*<?([^)\s<>]+)>?(?:\s+["'][^"']*["'])?\s*\)/g;
+const HTML_MEDIA_SOURCE_PATTERN =
+  /<(?:img|video|source)\b[^>]*\s(?:src|poster)=["']([^"']+)["'][^>]*>/gi;
 
 function shouldIgnoreSignedUrlError(message: string) {
   return (
@@ -120,22 +124,59 @@ async function createPostStorageSignedUrls(paths: string[]) {
     }
 
     if (entry.error) {
-      warnPostStorageUnavailable({
-        path,
-        error: entry.error,
-      });
+      const signedUrl = await createPostStorageSignedUrlFallback(path);
+
+      if (signedUrl) {
+        signedUrlCache.set(path, signedUrl);
+        signedUrlMap.set(path, signedUrl);
+      } else {
+        warnPostStorageUnavailable({
+          path,
+          error: entry.error,
+        });
+      }
     }
   }
 
   return signedUrlMap;
 }
 
+async function createPostStorageSignedUrlFallback(path: string) {
+  const { data, error } = await getSupabaseAdmin()
+    .storage.from(POST_THUMBNAIL_BUCKET)
+    .createSignedUrl(path, POST_STORAGE_SIGNED_URL_EXPIRES_IN_SECONDS);
+
+  if (error) {
+    if (!shouldIgnoreSignedUrlError(error.message)) {
+      throw new Error(error.message);
+    }
+
+    return null;
+  }
+
+  return data.signedUrl;
+}
+
 export async function signPostStorageMarkdown(content: string) {
   const normalizedContent = normalizePostStorageMarkdown(content);
+  const codeRanges = getMarkdownCodeRanges(normalizedContent);
+  const markdownPaths = Array.from(
+    normalizedContent.matchAll(MARKDOWN_LINK_DESTINATION_PATTERN),
+  )
+    .filter(
+      (match) => !isOffsetInMarkdownCodeRange(match.index ?? 0, codeRanges),
+    )
+    .map((match) => match[1]);
+  const htmlPaths = Array.from(
+    normalizedContent.matchAll(HTML_MEDIA_SOURCE_PATTERN),
+  )
+    .filter(
+      (match) => !isOffsetInMarkdownCodeRange(match.index ?? 0, codeRanges),
+    )
+    .map((match) => match[1]);
   const uniquePaths = Array.from(
     new Set(
-      Array.from(normalizedContent.matchAll(MARKDOWN_LINK_DESTINATION_PATTERN))
-        .map((match) => match[1])
+      [...markdownPaths, ...htmlPaths]
         .filter((path): path is string => Boolean(path))
         .map((path) => normalizePostStorageReference(path))
         .filter(
@@ -145,20 +186,47 @@ export async function signPostStorageMarkdown(content: string) {
   );
   const signedUrlMap = await createPostStorageSignedUrls(uniquePaths);
 
-  return normalizedContent.replace(
-    MARKDOWN_LINK_DESTINATION_PATTERN,
-    (markdown, destination: string) => {
-      const normalizedDestination = normalizePostStorageReference(destination);
+  return normalizedContent
+    .replace(
+      MARKDOWN_LINK_DESTINATION_PATTERN,
+      (markdown, destination: string, offset: number) => {
+        if (isOffsetInMarkdownCodeRange(offset, codeRanges)) {
+          return markdown;
+        }
 
-      if (!normalizedDestination || !isPostStoragePath(normalizedDestination)) {
-        return markdown;
-      }
+        const normalizedDestination =
+          normalizePostStorageReference(destination);
 
-      const signedUrl = signedUrlMap.get(normalizedDestination);
+        if (
+          !normalizedDestination ||
+          !isPostStoragePath(normalizedDestination)
+        ) {
+          return markdown;
+        }
 
-      return signedUrl ? markdown.replace(destination, signedUrl) : markdown;
-    },
-  );
+        const signedUrl = signedUrlMap.get(normalizedDestination);
+
+        return signedUrl ? markdown.replace(destination, signedUrl) : markdown;
+      },
+    )
+    .replace(
+      HTML_MEDIA_SOURCE_PATTERN,
+      (html, source: string, offset: number) => {
+        if (isOffsetInMarkdownCodeRange(offset, codeRanges)) {
+          return html;
+        }
+
+        const normalizedSource = normalizePostStorageReference(source);
+
+        if (!normalizedSource || !isPostStoragePath(normalizedSource)) {
+          return html;
+        }
+
+        const signedUrl = signedUrlMap.get(normalizedSource);
+
+        return signedUrl ? html.replace(source, signedUrl) : html;
+      },
+    );
 }
 
 export async function uploadPostStorageFile(params: {

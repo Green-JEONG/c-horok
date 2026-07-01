@@ -15,7 +15,8 @@ const STORAGE_PATH_PREFIXES = [
 ];
 const STORAGE_PLACEHOLDER_SEGMENT_PATTERN = /(^|\/)\.\.\.(?:$|[^\w.-])/;
 const STORAGE_PATH_MATCH_PATTERN =
-  /((?:https?:\/\/[^\s)"'`<>]+\/storage\/v1\/object\/(?:public|sign)\/[^\s)"'`<>]+)|(?:(?:users|thumbnails|contents|attachments)\/[^\s)"'`<>,;:]+)|(?:(?:thumbnails\/)?public\/(?:thumbnails|content|contents|attachments|chat|users)\/[^\s)"'`<>,;:]+))/g;
+  /((?:https?:\/\/[^\s)"'`<>]+\/storage\/v1\/object\/(?:public|sign)\/[^\s)"'`<>]+)|(?:(?:users|thumbnails|contents|attachments)\/[^\s)"'`<>,;:]+)|(?:(?:thumbnails\/)?public\/(?:\d+|thumbnails|content|contents|attachments|chat|users)\/[^\s)"'`<>,;:]+))/g;
+const MARKDOWN_CODE_PATTERN = /```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`/g;
 
 function getSupabaseUrl() {
   return process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -58,6 +59,10 @@ function normalizeLegacyPostStoragePath(path: string) {
     return path.replace("public/users/", "users/");
   }
 
+  if (/^public\/\d+\//.test(path)) {
+    return path.replace(/^public\/(\d+)\//, "users/$1/");
+  }
+
   return path;
 }
 
@@ -75,9 +80,23 @@ export function isPostStoragePath(value?: string | null) {
   const normalizedPath = normalizeLegacyPostStoragePath(trimmed);
 
   return (
-    STORAGE_PATH_PREFIXES.some((prefix) => trimmed.startsWith(prefix)) &&
+    STORAGE_PATH_PREFIXES.some((prefix) => normalizedPath.startsWith(prefix)) &&
     !isPostStoragePlaceholderPath(normalizedPath)
   );
+}
+
+export function getMarkdownCodeRanges(markdown: string) {
+  return Array.from(markdown.matchAll(MARKDOWN_CODE_PATTERN)).map((match) => ({
+    start: match.index ?? 0,
+    end: (match.index ?? 0) + match[0].length,
+  }));
+}
+
+export function isOffsetInMarkdownCodeRange(
+  offset: number,
+  ranges: Array<{ start: number; end: number }>,
+) {
+  return ranges.some((range) => offset >= range.start && offset < range.end);
 }
 
 export function getPostStoragePathFromUrl(value?: string | null) {
@@ -132,8 +151,13 @@ export function normalizePostStorageReference(value?: string | null) {
 }
 
 export function normalizePostStorageMarkdown(content: string) {
+  const codeRanges = getMarkdownCodeRanges(content);
+
   return content.replace(
     STORAGE_PATH_MATCH_PATTERN,
-    (match) => getPostStoragePathFromUrl(match) ?? match,
+    (match, _storagePath: string, offset: number) =>
+      isOffsetInMarkdownCodeRange(offset, codeRanges)
+        ? match
+        : (getPostStoragePathFromUrl(match) ?? match),
   );
 }
