@@ -6,21 +6,25 @@ import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
+import CodeBlock from "@/components/posts/CodeBlock";
+import MarkdownAnchor from "@/components/posts/MarkdownAnchor";
+import PostMarkdownImage from "@/components/posts/PostMarkdownImage";
+import { markdownHeadingClassName } from "@/lib/markdown-editor-keydown";
 import {
   extendSanitizeSchemaForMath,
   normalizeLatexMathDelimiters,
   rehypeKatexPlugin,
   remarkMathPlugin,
 } from "@/lib/markdown-math";
-import { remarkDisableAutolinkLiterals } from "@/lib/remark-disable-autolink";
-import CodeBlock from "@/components/posts/CodeBlock";
-import MarkdownAnchor from "@/components/posts/MarkdownAnchor";
-import PostMarkdownImage from "@/components/posts/PostMarkdownImage";
-import { markdownHeadingClassName } from "@/lib/markdown-editor-keydown";
 import {
   markdownInlineCodeClassName,
   markdownInlineCodeContainerClassName,
 } from "@/lib/markdown-styles";
+import {
+  isPostStoragePath,
+  normalizePostStorageReference,
+} from "@/lib/post-storage";
+import { remarkDisableAutolinkLiterals } from "@/lib/remark-disable-autolink";
 import {
   parseMarkdownAttributeBlock,
   remarkLinkAttributes,
@@ -35,6 +39,26 @@ type Props = {
 const inlineCodeClassName = markdownInlineCodeClassName;
 
 type MarkdownLayout = "default" | "inline-row";
+
+function isUnresolvedPostStorageSource(src?: string | null) {
+  const trimmed = src?.trim();
+
+  if (!trimmed || /^(?:https?:|data:|blob:|\/|#)/i.test(trimmed)) {
+    return false;
+  }
+
+  const normalized = normalizePostStorageReference(trimmed);
+
+  return Boolean(normalized && isPostStoragePath(normalized));
+}
+
+function PostStorageUnavailable({ label = "파일" }: { label?: string }) {
+  return (
+    <span className="my-4 block rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+      {label}을 불러올 수 없습니다.
+    </span>
+  );
+}
 
 export default function MarkdownRenderer({ content, className = "" }: Props) {
   const normalizedContent = normalizeLatexMathDelimiters(
@@ -132,7 +156,12 @@ function renderMarkdownBody(
 
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkDisableAutolinkLiterals, remarkLinkAttributes, remarkMathPlugin]}
+      remarkPlugins={[
+        remarkGfm,
+        remarkDisableAutolinkLiterals,
+        remarkLinkAttributes,
+        remarkMathPlugin,
+      ]}
       rehypePlugins={[
         rehypeRaw,
         rehypeHighlight,
@@ -146,6 +175,14 @@ function renderMarkdownBody(
             target === "_blank"
               ? (rel ?? "noopener noreferrer")
               : (rel ?? undefined);
+
+          if (isUnresolvedPostStorageSource(href)) {
+            return (
+              <span className="text-muted-foreground line-through">
+                {children}
+              </span>
+            );
+          }
 
           return (
             <MarkdownAnchor
@@ -167,6 +204,7 @@ function renderMarkdownBody(
         },
         img(props) {
           const { src, alt, title, width, height } = props;
+          const normalizedSrc = typeof src === "string" ? src : "";
           const normalizedAlt = alt?.trim().toLowerCase();
           const dimensions = parseImageDimensions({
             title: typeof title === "string" ? title : undefined,
@@ -183,8 +221,12 @@ function renderMarkdownBody(
                 ? "my-4 block max-w-full"
                 : "my-4 block h-auto w-full";
 
-          if (normalizedAlt === "video" && typeof src === "string") {
-            const youtubeEmbedUrl = toYouTubeEmbedUrl(src);
+          if (isUnresolvedPostStorageSource(normalizedSrc)) {
+            return <PostStorageUnavailable label="이미지" />;
+          }
+
+          if (normalizedAlt === "video" && normalizedSrc) {
+            const youtubeEmbedUrl = toYouTubeEmbedUrl(normalizedSrc);
 
             if (youtubeEmbedUrl) {
               return (
@@ -200,18 +242,16 @@ function renderMarkdownBody(
               );
             }
 
-            if (isVideoUrl(src)) {
+            if (isVideoUrl(normalizedSrc)) {
               const videoClassName = cn(
-                layout === "inline-row"
-                  ? "inline-block align-top"
-                  : "block",
+                layout === "inline-row" ? "inline-block align-top" : "block",
                 "my-4 h-auto w-auto max-w-full max-h-[32rem] rounded-xl border border-border bg-black",
               );
 
               return (
                 // biome-ignore lint/a11y/useMediaCaption: user-uploaded videos do not have caption tracks
                 <video
-                  src={src}
+                  src={normalizedSrc}
                   controls
                   playsInline
                   preload="metadata"
@@ -227,7 +267,7 @@ function renderMarkdownBody(
 
           return (
             <PostMarkdownImage
-              src={typeof src === "string" ? src : ""}
+              src={normalizedSrc}
               alt={alt ?? ""}
               className={imageClassName}
               style={imageStyle}
@@ -509,7 +549,7 @@ function convertHtmlAlignedParagraphs(content: string): string {
 function collapseLayoutBlockImages(content: string): string {
   return content.replace(
     /\[(flex(?:\s+gap=\d+)?|left|center|right)\]\n([\s\S]*?)\n\[\/(?:flex|left|center|right)\]/g,
-    (full, opener: string, blockContent: string) => {
+    (_full, opener: string, blockContent: string) => {
       const collapsed = blockContent
         .split("\n")
         .map((line) => line.trim())
