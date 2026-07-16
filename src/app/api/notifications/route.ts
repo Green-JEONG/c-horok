@@ -14,6 +14,7 @@ import {
   createPostBookmarkNotificationMessage,
   createPostReactionNotificationMessage,
 } from "@/lib/notification-messages";
+import { createPostStorageSignedUrl } from "@/lib/post-storage.server";
 import { prisma } from "@/lib/prisma";
 import { getLogFeedPostPath } from "@/lib/routes";
 
@@ -162,13 +163,13 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(
-      rows.map((row) => ({
+    const notifications = await Promise.all(
+      rows.map(async (row) => ({
         id: Number(row.id),
         type: normalizeNotificationType(row.type),
         message: getNotificationMessage(row),
         actor_name: row.actor?.name ?? null,
-        actor_image: row.actor?.image ?? null,
+        actor_image: await createPostStorageSignedUrl(row.actor?.image),
         actor_id: row.actorId ? Number(row.actorId) : null,
         post_id: row.postId ? Number(row.postId) : null,
         comment_id: row.commentId ? Number(row.commentId) : null,
@@ -185,6 +186,8 @@ export async function GET() {
         created_at: row.createdAt.toISOString(),
       })),
     );
+
+    return NextResponse.json(notifications);
   } catch (e) {
     console.error("🔔 NOTIFICATIONS API ERROR", e);
     return NextResponse.json([], { status: 500 });

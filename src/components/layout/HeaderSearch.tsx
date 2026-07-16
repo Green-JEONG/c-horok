@@ -401,6 +401,7 @@ export default function HeaderSearch() {
                             alt={post.title}
                             fill
                             sizes="56px"
+                            loading="eager"
                             unoptimized={Boolean(post.thumbnail)}
                             className={
                               post.thumbnail
