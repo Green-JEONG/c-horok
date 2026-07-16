@@ -324,7 +324,10 @@ async function mapPostsWithReactionCounts(
 
 async function signDbPostMedia(post: DbPost): Promise<DbPost> {
   if (!post.can_view_secret) {
-    return post;
+    return {
+      ...post,
+      author_image: await createPostStorageSignedUrl(post.author_image),
+    };
   }
 
   return {
