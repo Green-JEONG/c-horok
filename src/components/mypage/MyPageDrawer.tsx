@@ -883,7 +883,7 @@ export default function MyPageDrawer({ open, onClose }: Props) {
               alt={`${profile?.name ?? session?.user?.name ?? "사용자"} 프로필 확대`}
               width={360}
               height={360}
-              className={`max-h-[80vh] max-w-[80vw] object-contain ${
+              className={`h-auto w-auto max-h-[80vh] max-w-[80vw] object-contain ${
                 !(profile?.image ?? session?.user?.image) ? "grayscale" : ""
               }`}
             />

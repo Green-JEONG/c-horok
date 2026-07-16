@@ -470,7 +470,7 @@ export async function searchPosts(
     sortedPosts.map((post) => post.id),
   );
 
-  return sortedPosts
+  const mappedPosts = sortedPosts
     .map((post) => {
       const mappedPost = mapPost(post, options);
 
@@ -487,6 +487,8 @@ export async function searchPosts(
     .filter(
       (post) => includeNotices || !isNoticeCategoryName(post.category_name),
     );
+
+  return Promise.all(mappedPosts.map(signSearchPostMedia));
 }
 
 export async function countSearchPosts(

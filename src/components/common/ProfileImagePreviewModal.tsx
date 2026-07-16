@@ -83,7 +83,7 @@ export default function ProfileImagePreviewModal({
               width={360}
               height={360}
               className={cn(
-                "max-h-[80vh] max-w-[80vw] object-contain",
+                "h-auto w-auto max-h-[80vh] max-w-[80vw] object-contain",
                 imageClassName,
               )}
             />

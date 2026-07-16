@@ -355,6 +355,7 @@ const PostEditor = forwardRef<PostEditorHandle, PostEditorProps>(
     const tagInputRef = useRef<HTMLInputElement>(null);
     const isTagComposingRef = useRef(false);
     const isContentComposingRef = useRef(false);
+    const isUploadingContentMediaRef = useRef(false);
     const contentMediaPlaceholderRef = useRef<{
       start: number;
       end: number;
@@ -946,9 +947,15 @@ const PostEditor = forwardRef<PostEditorHandle, PostEditorProps>(
     async function insertContentMediaAtCursor(files: File[]) {
       const mediaFiles = getContentMediaFiles(files);
 
-      if (mediaFiles.length === 0 || isUploadingContentImage || isSubmitting) {
+      if (
+        mediaFiles.length === 0 ||
+        isUploadingContentMediaRef.current ||
+        isSubmitting
+      ) {
         return;
       }
+
+      isUploadingContentMediaRef.current = true;
 
       if (!insertContentMediaPlaceholder()) {
         setContent((prev) => {
@@ -985,6 +992,7 @@ const PostEditor = forwardRef<PostEditorHandle, PostEditorProps>(
             : "본문 미디어 업로드 중 오류가 발생했습니다.";
         setError(message);
       } finally {
+        isUploadingContentMediaRef.current = false;
         setIsUploadingContentImage(false);
       }
     }
@@ -1039,6 +1047,7 @@ const PostEditor = forwardRef<PostEditorHandle, PostEditorProps>(
       }
 
       event.preventDefault();
+      event.stopPropagation();
 
       if (activeTab !== "write") {
         setActiveTab("write");
