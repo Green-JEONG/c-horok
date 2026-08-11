@@ -131,15 +131,27 @@ function hasContentMediaInDataTransfer(dataTransfer: DataTransfer) {
   );
 }
 
+function escapeMarkdownImageAlt(value: string) {
+  return value.replace(/([\\[\]])/g, "\\$1");
+}
+
+function buildMarkdownDestination(value: string) {
+  // An angle-bracket destination keeps parentheses and whitespace in signed
+  // URLs from being interpreted as Markdown syntax.
+  return `<${value.replace(/</g, "%3C").replace(/>/g, "%3E")}>`;
+}
+
 function buildContentMediaMarkdown(file: File, publicUrl: string) {
+  const destination = buildMarkdownDestination(publicUrl);
+
   if (
     file.type.startsWith("video/") ||
     CONTENT_VIDEO_EXTENSIONS.has(getFileExtension(file.name))
   ) {
-    return `![video](${publicUrl})`;
+    return `![video](${destination})`;
   }
 
-  return `![${file.name}](${publicUrl})`;
+  return `![${escapeMarkdownImageAlt(file.name)}](${destination})`;
 }
 
 function getContentMediaUrls(markdown: string) {
@@ -158,10 +170,10 @@ function getContentMediaUrls(markdown: string) {
   };
 
   const markdownMediaRegex =
-    /!\[([^\]]*)]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)(?:\s*\{[^}]*\})?/g;
+    /!\[(?:\\.|[^\]])*]\(\s*<?([^)\s<>]+)>?(?:\s+["'][^"']*["'])?\s*\)(?:\s*\{[^}]*\})?/g;
 
   for (const match of markdown.matchAll(markdownMediaRegex)) {
-    addUrl(match[2]);
+    addUrl(match[1]);
   }
 
   const htmlImageRegex = /<img\b[^>]*\/?>/gi;

@@ -52,6 +52,12 @@ function isUnresolvedPostStorageSource(src?: string | null) {
   return Boolean(normalized && isPostStoragePath(normalized));
 }
 
+function isInvalidMediaSource(src?: string | null) {
+  const trimmed = src?.trim() ?? "";
+
+  return !trimmed || trimmed === '""' || trimmed === "''";
+}
+
 function PostStorageUnavailable({ label = "파일" }: { label?: string }) {
   return (
     <span className="my-4 block rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
@@ -220,6 +226,10 @@ function renderMarkdownBody(
               : dimensions
                 ? "my-4 block max-w-full"
                 : "my-4 block h-auto w-full";
+
+          if (isInvalidMediaSource(normalizedSrc)) {
+            return <PostStorageUnavailable label="이미지" />;
+          }
 
           if (isUnresolvedPostStorageSource(normalizedSrc)) {
             return <PostStorageUnavailable label="이미지" />;
